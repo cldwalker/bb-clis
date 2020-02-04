@@ -10,6 +10,7 @@ $ cd clj-clis
 # To try in a shell
 $ export PATH=$PATH:$PWD
 # To install, add above to your rc file substituting $PWD with full path
+```
 
 ## CLIs
 
