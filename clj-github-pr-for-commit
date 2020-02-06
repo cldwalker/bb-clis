@@ -5,6 +5,7 @@
             [clj-http.lite.client :as client]
             [cheshire.core :as json]
             [clojure.string :as str]
+            [clojure.java.io :as io]
             [clojure.java.shell :as sh]))
 
 (defn- error [& msgs]
@@ -19,9 +20,8 @@
         ;; Can handle https://github.com/atom/atom.git or git@github.com:atom/atom.git
         (if-let [url (second (re-find #"github.com(?::|/)([^/]+/[^/.]+)" out))]
           url
-         (error "Failed to determine current directory's repository" (pr-str {:out out})))
-        (error "Failed to determine current directory's repository" (pr-str {:error err :out out}))
-        ))))
+          (error "Failed to determine current directory's repository" (pr-str {:out out})))
+        (error "Failed to determine current directory's repository" (pr-str {:error err :out out}))))))
 
 (def cli-options
   ;; An option with a required argument
@@ -57,7 +57,9 @@
 (defn execute-command [{:keys [options arguments summary]}]
   (when (:debug options) (println "Options:" options))
   (if (or (:help options) (empty? arguments))
-    (println (str "Usage: CMD [OPTIONS] COMMIT\nOptions:\n" summary))
+    (println (format "Usage: %s [OPTIONS] COMMIT\nOptions:\n%s"
+                     (.getName (io/file *file*))
+                     summary))
     (fetch-response (first arguments) options)))
 
 (defn -main [args cli-opts]
