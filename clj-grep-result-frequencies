@@ -1,4 +1,5 @@
 #!/usr/bin/env bb -i
+; vim: set filetype=clojure:
 
 (let [results (->> *input*
                    (map #(second (re-find #"(\S+):" %)))

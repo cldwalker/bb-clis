@@ -1,4 +1,5 @@
 #!/usr/bin/env bb
+; vim: set filetype=clojure:
 
 (ns clj-github-pr-for-commit
   (:require [clojure.tools.cli :refer [parse-opts]]
