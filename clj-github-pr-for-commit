@@ -7,6 +7,7 @@
             [cheshire.core :as json]
             [clojure.string :as str]
             [clojure.java.io :as io]
+            [cldwalker.babashka.util :as util]
             [clojure.java.shell :as sh]))
 
 (defn- error [& msgs]
@@ -19,8 +20,8 @@
     (let [{:keys [out exit err]} (sh/sh "git" "config" "remote.origin.url")]
       (if (zero? exit)
         ;; Can handle https://github.com/atom/atom.git or git@github.com:atom/atom.git
-        (if-let [url (second (re-find #"github.com(?::|/)([^/]+/[^/.]+)" out))]
-          url
+        (if-let [user-repo (second (re-find #"github.com(?::|/)([^/]+/[^/.]+)" out))]
+          user-repo
           (error "Failed to determine current directory's repository" (pr-str {:out out})))
         (error "Failed to determine current directory's repository" (pr-str {:error err :out out}))))))
 
@@ -52,7 +53,8 @@
 (defn fetch-response [commit options]
   (let [{:keys [body]} (fetch-response* commit options)]
     (if-let [url (-> body (json/parse-string true) first :html_url)]
-      url
+      (do (util/open-url url)
+        url)
       (error "No github PR found for this commit"))))
 
 (defn execute-command [{:keys [options arguments summary]}]

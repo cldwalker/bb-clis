@@ -8,9 +8,11 @@ Setup your $PATH:
 ```sh
 $ git clone https://github.com/cldwalker/clj-clis
 $ cd clj-clis
-# To try in a shell
+
 $ export PATH=$PATH:$PWD
-# To install longer term, add above to your rc file substituting $PWD with full path
+$ export $BABASHKA_CLASSPATH=$PWD/src
+# To last outside this shell, put the above in your rc file, replacing $PWD
+# with the path to this repo
 ```
 
 Then [install babashka](https://github.com/borkdude/babashka#installation).
@@ -23,21 +25,23 @@ Prints github url of PR associated with a commit. It assumes a current directory
 
 #### Setup
 
-* [Install clj-http-lite](https://github.com/borkdude/babashka#clj-http-lite) for babashka
+* Install [clj-http-lite](https://github.com/borkdude/babashka#clj-http-lite) but with a slight tweak:
+  ```sh
+  CLJ_HTTP_LITE_PATH="$(clojure -Sdeps '{:deps {clj-http-lite {:git/url "https://github.com/borkdude/clj-http-lite" :sha "f44ebe45446f0f44f2b73761d102af3da6d0a13e"}}}' -Spath)"
+  # This assumes you have followed the setup above
+  export BABASHKA_CLASSPATH=$BABASHKA_CLASSPATH:$CLJ_HTTP_LITE_PATH
+  ```
 * Optional: To have this executable with private repositories, set `$GITHUB_USER` to your user and [create and set a $GITHUB_OAUTH_TOKEN](https://developer.github.com/apps/building-oauth-apps/authorizing-oauth-apps/#non-web-application-flow)
 
 #### Usage
 
 ```sh
-# Print url of an atom commit
+# Prints url and opens url for osx
 $ ./clj-github-pr-for-commit -r atom/atom 0f521f1e8afbcaf73479ea93dd4c87d9187903cb
 "https://github.com/atom/atom/pull/20350"
 
-# On osx, open url
-$ ./clj-github-pr-for-commit -r atom/atom 0f521f1e8afbcaf73479ea93dd4c87d9187903cb |xargs open
-
 # Open url of current github repository
-$ ./clj-github-pr-for-commit SHA |xargs open
+$ ./clj-github-pr-for-commit SHA
 ```
 
 ### clj-grep-result-frequencies
