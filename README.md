@@ -44,6 +44,12 @@ $ ./clj-github-pr-for-commit -r atom/atom 0f521f1e8afbcaf73479ea93dd4c87d9187903
 $ ./clj-github-pr-for-commit SHA
 ```
 
+### clj-github-repo
+
+For the current github repo, open different repo urls e.g. commit or branch. Inspired by [this ruby version](https://github.com/cldwalker/irbfiles/blob/1fb97d84bcdf491325176d08e386468b12ece738/boson/commands/public/url/github.rb#L20-L50).
+
+To open a commit, `clj-github-repo -c SHA`.
+
 ### clj-grep-result-frequencies
 
 For use with grep command to group results by frequency e.g. `git grep protocol | clj-group-grep-results`

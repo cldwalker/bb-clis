@@ -2,33 +2,37 @@
 ; vim: set filetype=clojure:
 
 (ns clj-github-pr-for-commit
-  (:require [clojure.tools.cli :refer [parse-opts]]
-            [clj-http.lite.client :as client]
+  (:require [clj-http.lite.client :as client]
             [cheshire.core :as json]
-            [clojure.string :as str]
-            [clojure.java.io :as io]
-            [cldwalker.babashka.util :as util]
-            [clojure.java.shell :as sh]))
+            [cldwalker.babashka.util :as util]))
 
-(defn- error [& msgs]
-  (apply println "Error:" msgs)
-  (System/exit 1))
+(defn- fetch-response* [commit {:keys [repository token user]}]
+  (try
+    (client/get (format "https://api.github.com/repos/%s/commits/%s/pulls"
+                        repository commit)
+                ;; Check https://developer.github.com/v3/repos/commits/#list-pull-requests-associated-with-commit to see if this is still in preview
+                (cond-> {:headers {"Accept" "application/vnd.github.groot-preview+json"}}
+                        (and user token) (assoc :basic-auth [user token])))
+    (catch clojure.lang.ExceptionInfo e
+      (util/error "Failed to fetch github information" (pr-str {:error (ex-message e)})))))
 
-(defn- default-repo [opts]
-  (if (:help opts)
-    opts
-    (let [{:keys [out exit err]} (sh/sh "git" "config" "remote.origin.url")]
-      (if (zero? exit)
-        ;; Can handle https://github.com/atom/atom.git or git@github.com:atom/atom.git
-        (if-let [user-repo (second (re-find #"github.com(?::|/)([^/]+/[^/.]+)" out))]
-          user-repo
-          (error "Failed to determine current directory's repository" (pr-str {:out out})))
-        (error "Failed to determine current directory's repository" (pr-str {:error err :out out}))))))
+(defn- fetch-response [commit options]
+  (let [{:keys [body]} (fetch-response* commit options)]
+    (if-let [url (-> body (json/parse-string true) first :html_url)]
+      (do (util/open-url url)
+        url)
+      (util/error "No github PR found for this commit"))))
+
+(defn -main [{:keys [options arguments summary]}]
+  (when (:debug options) (println "Options:" options))
+  (if (or (:help options) (empty? arguments))
+    (util/print-summary "COMMIT" summary)
+    (fetch-response (first arguments) options)))
 
 (def cli-options
   ;; An option with a required argument
   [["-r" "--repository REPO"
-    :default-fn default-repo
+    :default-fn util/find-current-user-repo
     :default-desc "Current directory's repository"
     :validate [#(re-find #"\S+/\S+" %) "Must contain a '/'"]]
    ["-d" "--debug"]
@@ -40,36 +44,4 @@
     :default-desc "$GITHUB_OAUTH_TOKEN"]
    ["-h" "--help"]])
 
-(defn fetch-response* [commit {:keys [repository token user]}]
-  (try
-    (client/get (format "https://api.github.com/repos/%s/commits/%s/pulls"
-                        repository commit)
-                ;; Check https://developer.github.com/v3/repos/commits/#list-pull-requests-associated-with-commit to see if this is still in preview
-                (cond-> {:headers {"Accept" "application/vnd.github.groot-preview+json"}}
-                        (and user token) (assoc :basic-auth [user token])))
-    (catch clojure.lang.ExceptionInfo e
-      (error "Failed to fetch github information" (pr-str {:error (ex-message e)})))))
-
-(defn fetch-response [commit options]
-  (let [{:keys [body]} (fetch-response* commit options)]
-    (if-let [url (-> body (json/parse-string true) first :html_url)]
-      (do (util/open-url url)
-        url)
-      (error "No github PR found for this commit"))))
-
-(defn execute-command [{:keys [options arguments summary]}]
-  (when (:debug options) (println "Options:" options))
-  (if (or (:help options) (empty? arguments))
-    (println (format "Usage: %s [OPTIONS] COMMIT\nOptions:\n%s"
-                     (.getName (io/file *file*))
-                     summary))
-    (fetch-response (first arguments) options)))
-
-(defn -main [args cli-opts]
-  (let [{:keys [errors] :as parsed-input}
-        (parse-opts args cli-opts)]
-    (if (seq errors)
-      (error (str/join "\n" (into ["Options failed to parse:"] errors)))
-      (execute-command parsed-input))))
-
-(-main *command-line-args* cli-options)
+(util/run-command -main *command-line-args* cli-options)

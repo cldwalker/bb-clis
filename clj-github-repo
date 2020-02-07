@@ -1,0 +1,42 @@
+#!/usr/bin/env bb
+; vim: set filetype=clojure:
+
+(ns clj-github-repo
+  (:require [cldwalker.babashka.util :as util]
+            [clojure.string :as str]
+            [clojure.java.shell :as shell]))
+
+
+(defn- find-current-tree []
+  (if-let [branch (->> (shell/sh "git" "branch")
+                       :out
+                       str/split-lines
+                       (filter #(str/starts-with? % "*"))
+                       first
+                       (re-find #"\S+$"))]
+    branch
+    (util/error "Unable to detect current tree")))
+
+(defn- open-url [{:keys [repository commit tree]}]
+  (let [url-base (str "https://github.com/" repository)
+        url (cond
+              commit (str url-base "/commit/" commit)
+              tree   (str url-base "/tree/" (find-current-tree))
+              :else url-base)]
+    (doto url util/open-url)))
+
+(defn -main [{:keys [options _arguments summary]}]
+  (if (or (:help options))
+    (util/print-summary "" summary)
+    (open-url options)))
+
+(def cli-options
+  [["-r" "--repository REPO"
+    :default-fn util/find-current-user-repo
+    :default-desc "Current directory's repository"
+    :validate [#(re-find #"\S+/\S+" %) "Must contain a '/'"]]
+   ["-c" "--commit COMMIT"]
+   ["-t" "--tree"]
+   ["-h" "--help"]])
+
+(util/run-command -main *command-line-args* cli-options)
