@@ -52,7 +52,13 @@ To open a commit, `clj-github-repo -c SHA`.
 
 ### clj-grep-result-frequencies
 
-For use with grep command to group results by frequency e.g. `git grep protocol | clj-group-grep-results`
+For use with grep command to group results by frequency e.g. `git grep protocol | clj-group-grep-results`.
+
+### clj-update-lein-dependency
+
+Updates lein dependency of specified directories and optionally commits and pushes the change. For example, if I'm in the dependency's directory and I want to update two dependent projects to use its latest SHA, commit and git push:
+
+`clj-update-lein-dependency -c -d ../proj1 -d ../proj2 my-dep $(git rev-parse HEAD)`.
 
 ## Additional Links
 

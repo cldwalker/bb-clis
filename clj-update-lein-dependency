@@ -1,0 +1,78 @@
+#!/usr/bin/env bb
+; Updates a lein dependency on specified git-able dir(s)
+; vim: set filetype=clojure:
+
+(ns clj-update-lein-dependency
+  (:require [cldwalker.babashka.util :as util]
+            [clojure.java.io :as io]
+            [clojure.string :as str]
+            [clojure.java.shell :as shell]))
+
+(defn- sh
+  "Wrapper around a shell command which fails fast like bash's -e flag.
+Takes following options:
+* :dry-run: Prints command instead of executing it"
+  [& args*]
+  (let [[options args] (if (map? (last args*))
+                         [(last args*) (drop-last args*)]
+                         [{} args*])]
+    (if (:dry-run options)
+      (apply println "Command: " args)
+      (let [{:keys [out err exit]} (apply shell/sh
+                                     (concat args [:dir (:dir options)]))]
+        (if (zero? exit)
+          out
+          (util/error (format "Command '%s' failed with:\n%s"
+                              (str/join " " args)
+                              (str out "\n" err))))))))
+
+(defn- update-project-clj
+  "Updates project.clj and fails fast if unable to update"
+  [file dependency version {:keys [dry-run]}]
+  (if dry-run
+    (println "Command: update-project-clj" file dependency version)
+    (let [body (slurp file)
+          new-body (str/replace-first body
+                                      (re-pattern (format "(%s\\s+\")(\\w+)(\")" dependency))
+                                      (format "$1%s$3" version))]
+      (if (= body new-body)
+        (util/error (str "Unable to find and update dependency in " file))
+        (spit file new-body)))))
+
+(defn- update-dir
+  "Updates project.clj in dir and optionally git commits and pushes"
+  [[dependency version] dir {:keys [commit-and-push]
+                             :as options*}]
+  (println (str "Updating " dir " ..."))
+
+  (let [options (assoc options* :dir dir)]
+    (sh "git" "diff" "--exit-code" options)
+    (update-project-clj (str (io/file dir "project.clj"))
+                        dependency
+                        version
+                        options)
+
+    (when commit-and-push
+      (sh "git" "commit" "-m" (format "Updated %s dependency" dependency) "." options)
+      (sh "git" "push" options))))
+
+(def cli-options
+  [["-d" "--directories DIR" "Directories to update"
+    :default-fn (fn [_x] [(System/getenv "PWD")])
+    :default-desc "Current directory"
+    ;; :update-fn didn't receive option values. Maybe a babashka bug?
+    ;; Allows us to specify multiple values for this option
+    :assoc-fn (fn [curr _key val] (update curr :directories conj val))
+    :validate [#(.isDirectory (io/file % ".git"))
+               "Must be a valid git directory"]]
+   ["-c" "--commit-and-push" "Git commit and push to remote"]
+   ["-n" "--dry-run" "Actions are printed and not executed"]
+   ["-h" "--help"]])
+
+(defn -main [{:keys [options arguments summary]}]
+  (if (or (:help options) (< (count arguments) 2))
+    (util/print-summary "DEPENDENCY VERSION" summary)
+    (doseq [dir (:directories options)]
+      (update-dir arguments dir options))))
+
+(util/run-command -main *command-line-args* cli-options)
