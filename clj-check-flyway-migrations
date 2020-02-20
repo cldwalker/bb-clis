@@ -1,0 +1,38 @@
+#!/usr/bin/env bb
+;; Checks if V prefixed flyway migrations are up to date and fails fast if they
+;; aren't. Assumes you're using postgres and have multiple migration dirs though
+;; that can be changed easily with migration-dirs This script is useful to run
+;; as a precursor to a long-running process e.g.
+;; clj-check-flyway-migrations $DATABASE_URL site && lein repl
+;; NOTE: This does _not_ check if repeatable or other callback migrations have
+;; changed since you last run them
+;; vim: set filetype=clojure:
+
+(let [usage "Usage: clj-check-flyway-migrations DB_NAME MIGRATION_TYPE"
+      ;; Specific to work
+      migration-dirs {:site "resources/db/site_migration"
+                      :sponsor "resources/db/sponsor_migration"}
+      [db-name migration-type] *command-line-args*]
+  (if (not= 2 (count *command-line-args*))
+    (println usage)
+    (if-let [migration-dir (migration-dirs (keyword migration-type))]
+      (let [system-files (->> (shell/sh "ls" migration-dir)
+                              :out
+                              str/split-lines
+                              (filter #(re-find #"^V\d+" %)) )
+            sql "select script from \"schema_version\""
+            migrated-files (-> (shell/sh "psql" db-name "-t" "-c" sql)
+                               :out
+                               (str/split #"\n\s*"))
+            ;; There is likely a flyway API call to determine this but I didn't
+            ;; think the efffort to get it to work w/ graal/babashka was worth it
+            unmigrated-files (set/difference (set system-files) (set migrated-files))]
+        (if (seq unmigrated-files)
+          (do
+            (println "New migrations detected:" (str/join ", " unmigrated-files))
+            (System/exit 1))
+          (do
+            (println "Migrations up to date!")
+            (System/exit 0))))
+      (do (println "Error: Invalid migration type")
+        (System/exit 1)))))
