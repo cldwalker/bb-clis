@@ -1,4 +1,5 @@
 #!/usr/bin/env bb
+;; vim: set filetype=clojure:
 ;; Checks if V prefixed flyway migrations are up to date and fails fast if they
 ;; aren't. Assumes you're using postgres and have multiple migration dirs though
 ;; that can be changed easily with migration-dirs This script is useful to run
@@ -6,7 +7,6 @@
 ;; clj-check-flyway-migrations $DATABASE_URL site && lein repl
 ;; NOTE: This does _not_ check if repeatable or other callback migrations have
 ;; changed since you last run them
-;; vim: set filetype=clojure:
 
 (let [usage "Usage: clj-check-flyway-migrations DB_NAME MIGRATION_TYPE"
       ;; Specific to work
