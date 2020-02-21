@@ -17,11 +17,12 @@
     branch
     (util/error "Unable to detect current tree")))
 
-(defn- open-github-url [{:keys [repository commit tree]}]
+(defn- open-github-url [{:keys [repository commit tree file]}]
   (let [url-base (str "https://github.com/" repository)
         url (cond
               commit (str url-base "/commit/" commit)
               tree   (str url-base "/tree/" (find-current-branch))
+              file (str url-base "/blob/" (find-current-branch) "/" file)
               :else url-base)]
     (doto url util/open-url)))
 
@@ -45,6 +46,7 @@
    ["-c" "--commit COMMIT" "Opens specified commit"]
    ["-C" "--circleci" "Opens current branch on circleci"]
    ["-t" "--tree" "Opens current branch on github"]
+   ["-f" "--file FILE" "Opens file in current branch on github"]
    ["-h" "--help"]])
 
 (util/run-command -main *command-line-args* cli-options)
