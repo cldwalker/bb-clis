@@ -60,6 +60,18 @@ Updates lein dependency of specified directories and optionally commits and push
 
 `clj-update-lein-dependency -c -d ../proj1 -d ../proj2 my-dep $(git rev-parse HEAD)`.
 
+### clj-table
+Prints an ascii table given an EDN collection of maps on stdin e.g.
+
+```sh
+$ echo '[{:a 4 :b 2} {:a 2 :c 3}]' | clj-table
+
+| :a | :b | :c |
+|----+----+----|
+|  4 |  2 |    |
+|  2 |    |  3 |
+```
+
 ## Additional Links
 
 * See https://github.com/borkdude/babashka#gallery for additional ideas
