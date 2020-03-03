@@ -46,8 +46,8 @@
     opts
     (let [{:keys [out exit err]} (shell/sh "git" "config" "remote.origin.url")]
       (if (zero? exit)
-        ;; Can handle https://github.com/atom/atom.git or git@github.com:atom/atom.git
-        (if-let [user-repo (second (re-find #"github.com(?::|/)([^/]+/[^/.]+)" out))]
+        ;; Can handle gh:atom/atom, https://github.com/atom/atom.git or git@github.com:atom/atom.git
+        (if-let [user-repo (second (re-find #"(?:gh|github.com)(?::|/)([^/]+/[^/.\s]+)" out))]
           user-repo
           (error "Failed to determine current directory's repository" (pr-str {:out out})))
         (error "Failed to determine current directory's repository" (pr-str {:error err :out out}))))))
