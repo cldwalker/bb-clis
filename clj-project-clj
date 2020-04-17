@@ -1,0 +1,52 @@
+#!/usr/bin/env bb
+; Prints out a lein project.clj file as a map
+; vim: set filetype=clojure:
+
+(ns clj-project-clj
+  (:require [cldwalker.babashka.util :as util]
+            [clojure.string :as string]
+            [clojure.pprint :as pprint]))
+
+;; While these are preventing breakages, these may be worth putting
+;; behind an option if they have unintended consequences
+(defn- modify-project-clj [string]
+  (-> string
+      ;; Ignore eval forms that break read-string
+      (string/replace "#=" "")
+      ;; Turn regexs into strings as regexs aren't supported by read-string
+      (string/replace "#\"" "\"")))
+
+(defn- extract-project-form
+  "Extracts defproject form from given project.clj string. drop-forms is the
+  number of forms to drop before getting to defproject"
+  [drop-forms string]
+  (->> (str "[" string "]")
+       read-string
+       (drop drop-forms)
+       first))
+
+;; Modified from https://gist.github.com/swlkr/3f346c66410e5c60c59530c4413a248e#gistcomment-3232605
+(defn- project-clj-map [filename drop-forms]
+  (->> (slurp filename)
+       modify-project-clj
+       (extract-project-form drop-forms)
+       (drop 1)
+       (partition 2)
+       (map vec)
+       (into {})))
+
+(defn- -main [{:keys [options summary]}]
+  (cond
+    (:help options) (util/print-summary "" summary)
+    :else (let [project-clj (project-clj-map (:file options) (:drop-forms options))]
+            (pprint/pprint project-clj))))
+
+(def cli-options
+  [["-f" "--file FILE" "Location of project.clj file"
+    :default "project.clj"]
+   ["-d" "--drop-forms FORMS" "Forms to drop before defproject form"
+    :default 0
+    :parse-fn #(Integer/parseInt %)]
+   ["-h" "--help"]])
+
+(util/run-command -main *command-line-args* cli-options)

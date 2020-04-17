@@ -72,6 +72,14 @@ $ echo '[{:a 4 :b 2} {:a 2 :c 3}]' | clj-table
 |  2 |    |  3 |
 ```
 
+### clj-project-clj
+Prints a project.clj defproject form as a map. Useful for manipulating this data on the commandline
+
+```sh
+# Pretty prints a project's dependencies
+$ clj-project-clj -d 1 | bb -I '(-> *input* first :dependencies clojure.pprint/pprint)'
+```
+
 ## Additional Links
 
 * See https://github.com/borkdude/babashka#gallery for additional ideas
