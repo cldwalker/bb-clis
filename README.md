@@ -16,6 +16,7 @@ $ export $BABASHKA_CLASSPATH=$PWD/src
 ```
 
 Then [install babashka](https://github.com/borkdude/babashka#installation).
+These scripts require babashka >= 0.0.89.
 
 ## CLIs
 
@@ -70,6 +71,9 @@ $ echo '[{:a 4 :b 2} {:a 2 :c 3}]' | clj-table
 |----+----+----|
 |  4 |  2 |    |
 |  2 |    |  3 |
+
+$ clj-table something.edn
+...
 ```
 
 ### clj-project-clj

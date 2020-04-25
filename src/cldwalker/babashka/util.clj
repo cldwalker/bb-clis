@@ -3,6 +3,7 @@
   (:require [clojure.java.shell :as shell]
             [clojure.string :as str]
             [clojure.java.io :as io]
+            [clojure.edn :as edn]
             [clojure.tools.cli :as cli]))
 
 ;; Misc
@@ -51,3 +52,17 @@
           user-repo
           (error "Failed to determine current directory's repository" (pr-str {:out out})))
         (error "Failed to determine current directory's repository" (pr-str {:error err :out out}))))))
+
+;; I/O
+;; ===
+
+(defn read-stdin-edn
+  "Read edn on *in* into a coll. Useful to convert a `bb -I --stream` cmd to
+a script that doesn't require that invocation."
+  []
+  (take-while #(not (identical? ::EOF %))
+              (repeatedly #(edn/read {:eof ::EOF} *in*))))
+
+(defn stdin-active?
+  []
+  (pos? (.available System/in)))
