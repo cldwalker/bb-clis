@@ -30,6 +30,9 @@ $ bb -f clj-github-repo --uberscript my-clj-github-repo.clj
 
 # To run the exported script
 $ bb -f my-clj-github-repo.clj
+
+# Optionally, use https://github.com/borkdude/carve to delete unused code
+$ clojure -A:carve --opts '{:paths ["my-clj-github-repo.clj"] :interactive? false}'
 ```
 
 ### bb
