@@ -41,6 +41,7 @@ Babashka supports `$BABASHA_PRELOADS` which allows arbitrary clojure to be run a
 Preloaded fns like `map-keys` are then available on the commandline:
 
 ```sh
+# Prints out env variables map with env keys converted to clojure-cased keywords
 $ bb '(->> (System/getenv) (into {}) (map-keys #(-> % (str/replace "_" "-") str/lower-case keyword)))'
 {:gopath "/Users/me/.go", :path ...}
 ```
