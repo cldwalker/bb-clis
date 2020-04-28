@@ -4,6 +4,9 @@ An assortment of Clojure CLIs I rely on that have a fast startup time.
 
 ## Setup
 
+To setup using and possibly tweaking these scripts, follow General section. To just install one script, follow Single Script section.
+
+### General
 Setup your $PATH:
 ```sh
 $ git clone https://github.com/cldwalker/clj-clis
@@ -17,6 +20,30 @@ $ export $BABASHKA_CLASSPATH=$PWD/src
 
 Then [install babashka](https://github.com/borkdude/babashka#installation).
 These scripts require babashka >= 0.0.89.
+
+### Single Script
+
+To use a single babashka script without the General setup, simply export one using --uberscript:
+```sh
+# -f can be any of my babashka scripts that don't have options
+$ bb -f clj-github-repo --uberscript my-clj-github-repo.clj
+
+# To run the exported script
+$ bb -f my-clj-github-repo.clj
+```
+
+### bb
+
+The previous sections are about setting up your environment to run the scripts in this repository. This section is about running babashka on the commandline. This section assumes you've setup `$BABASHKA_CLASSPATH` as mentioned above.
+
+Babashka supports `$BABASHA_PRELOADS` which allows arbitrary clojure to be run at the start of each invocation. This is handy for loading one's preferred set of vars and namespaces. To avoid loading [preloads](preloads.clj) when running babashka scripts but load them for commandline babashka, use this alias: `alias bb="BABASHKA_PRELOADS='(load-file (str (System/getenv \"HOME\") \"/path/to/this-repo/preloads.clj\"))' bb"`
+
+Preloaded fns like `map-keys` are then available on the commandline:
+
+```sh
+$ bb '(->> (System/getenv) (into {}) (map-keys #(-> % (str/replace "_" "-") str/lower-case keyword)))'
+{:gopath "/Users/me/.go", :path ...}
+```
 
 ## CLIs
 
@@ -86,4 +113,5 @@ $ clj-project-clj -d 1 | bb -I '(-> *input* first :dependencies clojure.pprint/p
 
 ## Additional Links
 
-* See https://github.com/borkdude/babashka#gallery for additional ideas
+* For more bb setup and aliases, see [my dotfiles repo](https://github.com/cldwalker/dotfiles/search?q=bb&unscoped_q=bb)
+* See https://github.com/borkdude/babashka/blob/master/doc/examples.md for additional babashka cmd examples
