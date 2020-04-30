@@ -1,16 +1,16 @@
 ## Description
 
-An assortment of Clojure CLIs I rely on that have a fast startup time.
+An assortment of handy [Babashka](https://github.com/borkdude/babashka) CLIs
 
 ## Setup
 
-To setup using and possibly tweaking these scripts, follow General section. To just install one script, follow Single Script section.
+To setup using and modifying these scripts, follow the [General section](#general). To just install one script, follow the [Single Script section](#single-script). To setup babashka as I use it, follow the [bb section](#bb).
 
 ### General
 Setup your $PATH:
 ```sh
-$ git clone https://github.com/cldwalker/clj-clis
-$ cd clj-clis
+$ git clone https://github.com/cldwalker/bb-clis
+$ cd bb-clis
 
 $ export PATH=$PATH:$PWD/bin
 $ export $BABASHKA_CLASSPATH=$PWD/src
