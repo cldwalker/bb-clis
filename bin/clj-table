@@ -1,20 +1,26 @@
-#!/usr/bin/env bb --verbose
+#!/usr/bin/env bb
 ;; vim: set filetype=clojure:
 ;; Prints an ascii table for streamed in edn or edn file
-;; Edn must be a collection of maps
+;; Edn must be a collection of maps or a map
 
 (ns clj-table
   (:require [clojure.pprint :as pprint]
             [clojure.edn :as edn]
             [cldwalker.babashka.util :as util]))
 
-(defn print-rows [rows]
+(defn- print-rows* [rows]
   (if (and (coll? rows) (-> rows first map?))
     (let [fields (distinct (mapcat identity (map keys rows)))]
       (pprint/print-table fields rows))
     (do
       (println "Error: Input is not an EDN collection of maps")
       (System/exit 1))))
+
+(defn print-rows [arg]
+  (let [rows (if (map? arg)
+               (map (fn [[k v]] {"key" k "value" v}) arg)
+               arg)]
+    (print-rows* rows)))
 
 (if (util/stdin-active?)
   (print-rows (first (util/read-stdin-edn)))
