@@ -12,7 +12,7 @@ Setup your $PATH:
 $ git clone https://github.com/cldwalker/clj-clis
 $ cd clj-clis
 
-$ export PATH=$PATH:$PWD
+$ export PATH=$PATH:$PWD/bin
 $ export $BABASHKA_CLASSPATH=$PWD/src
 # To last outside this shell, put the above in your rc file, replacing $PWD
 # with the path to this repo
@@ -50,6 +50,15 @@ $ bb '(->> (System/getenv) (into {}) (map-keys #(-> % (str/replace "_" "-") str/
 ```
 
 ## CLIs
+
+The following CLIs are under bin/:
+
+* [clj-github-pr-for-commit](#clj-github-pr-for-commit)
+* [clj-github-repo](#clj-github-repo)
+* [clj-grep-result-frequencies](#clj-grep-result-frequencies)
+* [clj-update-lein-dependency](#clj-update-lein-dependency)
+* [clj-table](#clj-table)
+* [clj-project-clj](#clj-project-clj)
 
 ### clj-github-pr-for-commit
 
