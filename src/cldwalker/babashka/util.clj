@@ -64,5 +64,7 @@ a script that doesn't require that invocation."
               (repeatedly #(edn/read {:eof ::EOF} *in*))))
 
 (defn stdin-active?
+  "This can be used to detect if stdin is active. Limitations to this
+are noted in https://github.com/borkdude/babashka/issues/324#issuecomment-621631592"
   []
   (pos? (.available System/in)))

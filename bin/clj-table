@@ -22,6 +22,14 @@
                arg)]
     (print-rows* rows)))
 
-(if (util/stdin-active?)
-  (print-rows (first (util/read-stdin-edn)))
-  (print-rows (-> *command-line-args* first slurp edn/read-string)))
+(defn -main [{:keys [summary arguments options]}]
+  (cond
+    (:help options) (util/print-summary "\nReads from stdin if no arguments given" summary)
+    (:file options) (print-rows (-> (:file options) slurp edn/read-string))
+    :else           (print-rows (first (util/read-stdin-edn)))))
+
+(def cli-options
+  [["-h" "--help"]
+   ["-f" "--file FILE"]])
+
+(util/run-command -main *command-line-args* cli-options)
