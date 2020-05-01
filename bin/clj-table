@@ -1,7 +1,7 @@
 #!/usr/bin/env bb
 ;; vim: set filetype=clojure:
 ;; Prints an ascii table for streamed in edn or edn file
-;; Edn must be a collection of maps or a map
+;; Edn must be a map or a collection of collections
 
 (ns clj-table
   (:require [clojure.pprint :as pprint]
@@ -16,20 +16,34 @@
       (println "Error: Input is not an EDN collection of maps")
       (System/exit 1))))
 
-(defn print-rows [arg]
-  (let [rows (if (map? arg)
-               (map (fn [[k v]] {"key" k "value" v}) arg)
-               arg)]
-    (print-rows* rows)))
+(defn print-rows [arg {:keys [sort reverse-sort]}]
+  (let [rows (cond
+               (map? arg) (map (fn [[k v]] {"key" k "value" v}) arg)
+
+               ((some-fn vector? list? set?) (first arg))
+               (map (fn [coll] (zipmap (range) coll)) arg)
+
+               :else arg)
+        processed-rows (cond
+                         sort (sort-by #(get % sort) rows)
+                         reverse-sort (sort-by #(get % reverse-sort)
+                                               #(compare %2 %1)
+                                               rows)
+                         :else rows)]
+    (print-rows* processed-rows)))
 
 (defn -main [{:keys [summary arguments options]}]
   (cond
     (:help options) (util/print-summary "\nReads from stdin if no arguments given" summary)
-    (:file options) (print-rows (-> (:file options) slurp edn/read-string))
-    :else           (print-rows (first (util/read-stdin-edn)))))
+    (:file options) (print-rows (-> (:file options) slurp edn/read-string)
+                                options)
+    :else           (print-rows (first (util/read-stdin-edn))
+                                options)))
 
 (def cli-options
   [["-h" "--help"]
-   ["-f" "--file FILE"]])
+   ["-f" "--file FILE"]
+   ["-s" "--sort KEY"]
+   ["-r" "--reverse-sort KEY"]])
 
 (util/run-command -main *command-line-args* cli-options)
