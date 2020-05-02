@@ -7,13 +7,13 @@ An assortment of handy [Babashka](https://github.com/borkdude/babashka) CLIs
 To setup using and modifying these scripts, follow the [General section](#general). To just install one script, follow the [Single Script section](#single-script). To setup babashka as I use it, follow the [bb section](#bb).
 
 ### General
-Setup your $PATH:
+Setup your $PATH and $BABASHKA_CLASSPATH:
 ```sh
 $ git clone https://github.com/cldwalker/bb-clis
 $ cd bb-clis
 
 $ export PATH=$PATH:$PWD/bin
-$ export $BABASHKA_CLASSPATH=$PWD/src
+$ export BABASHKA_CLASSPATH=$PWD/src
 # To last outside this shell, put the above in your rc file, replacing $PWD
 # with the path to this repo
 ```
