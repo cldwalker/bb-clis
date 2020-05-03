@@ -7,7 +7,8 @@
   (:require [clojure.pprint :as pprint]
             [clojure.edn :as edn]
             [clojure.string :as string]
-            [cldwalker.babashka.util :as util]))
+            [cldwalker.babashka.util :as util]
+            [cldwalker.babashka.util.associative :as a]))
 
 (defn- get-columns
   "Extract columns from rows. Defaults to searching across all rows"
@@ -52,7 +53,27 @@
                           rows)
     :else rows))
 
-(defn print-rows [arg {:keys [sort reverse-sort print-headers] :as options}]
+(defn- format-width [string width]
+  (if (zero? width)
+    ""
+    (format
+     (str "%-" width "." width "s")
+     (if (> (count string) width)
+       (str (.substring string 0 (- width 3)) "...")
+       string))))
+
+(defn- process-rows
+  "Currently processes all row values even when we know certain columns are selected.
+Future improvement would be to only operate on selected column values"
+  [rows {:keys [sort reverse-sort shorten]}]
+  (cond->> (possibly-sort-rows rows sort reverse-sort)
+           shorten (mapv (fn [row] (a/map-vals
+                                    #(if (string? %)
+                                       (format-width % shorten)
+                                       (format-width (pr-str %) shorten))
+                                    row)))))
+
+(defn print-rows [arg {:keys [print-headers] :as options}]
   (let [arg_ (if print-headers
               (let [columns (get-columns arg)]
                 (mapv vector (range 1 (inc (count columns))) columns))
@@ -64,7 +85,7 @@
                (map (fn [coll] (zipmap (range) coll)) arg_)
 
                :else arg_)
-        processed-rows (possibly-sort-rows rows sort reverse-sort)]
+        processed-rows (process-rows rows options)]
     (print-rows* processed-rows options)))
 
 (defn -main [{:keys [summary _arguments options]}]
@@ -82,6 +103,8 @@
    ["-H" "--print-headers" "Only print column headers"]
    ;; Sort and reverse sort don't handle keywords yet
    ["-s" "--sort COLUMN" "Sort by column"]
-   ["-r" "--reverse-sort COLUMN" "Reverse sort by column"]])
+   ["-r" "--reverse-sort COLUMN" "Reverse sort by column"]
+   ["-S" "--shorten WIDTH" "Shortens all column value widths by WIDTH char"
+    :parse-fn #(Integer/parseInt %)]])
 
 (util/run-command -main *command-line-args* cli-options)
