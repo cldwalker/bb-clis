@@ -6,33 +6,68 @@
 (ns clj-table
   (:require [clojure.pprint :as pprint]
             [clojure.edn :as edn]
+            [clojure.string :as string]
             [cldwalker.babashka.util :as util]))
 
-(defn- print-rows* [rows]
+(defn- get-columns
+  "Extract columns from rows. Defaults to searching across all rows"
+  [rows]
+  (distinct (mapcat identity (map keys rows))))
+
+(defn- selected-columns-int
+  [columns columns-filter]
+  (let [selected (mapv #(Integer/parseInt %)
+                      (string/split columns-filter #"\s*,\s*"))]
+    (mapv #(nth columns (dec %)) selected)))
+
+(defn- selected-columns-str
+  [columns columns-filter]
+  (->> (string/split columns-filter #"\s*,\s*")
+       (map #(filter (fn [c] (string/starts-with? (name c) %)) columns))
+       (apply concat)))
+
+(defn- selected-columns
+  [columns columns-filter]
+  (if (re-find #"^\d" columns-filter)
+    (selected-columns-int columns columns-filter)
+    (selected-columns-str columns columns-filter)))
+
+(defn- print-rows* [rows {:keys [columns-filter]}]
   (if (and (coll? rows) (-> rows first map?))
-    (let [fields (distinct (mapcat identity (map keys rows)))]
-      (pprint/print-table fields rows))
+    (let [columns (get-columns rows)
+          columns_ (if columns-filter
+                    (selected-columns columns columns-filter)
+                    columns)]
+      (pprint/print-table columns_ rows))
     (do
       (println "Error: Input is not an EDN collection of maps")
       (System/exit 1))))
 
-(defn print-rows [arg {:keys [sort reverse-sort]}]
-  (let [rows (cond
-               (map? arg) (map (fn [[k v]] {"key" k "value" v}) arg)
+(defn- possibly-sort-rows [rows sort reverse-sort]
+  (cond
+    sort (sort-by #(get % sort) rows)
+    reverse-sort (sort-by #(get % reverse-sort)
+                          ;; Handles int and string
+                          #(compare %2 %1)
+                          rows)
+    :else rows))
 
-               ((some-fn vector? list? set?) (first arg))
-               (map (fn [coll] (zipmap (range) coll)) arg)
+(defn print-rows [arg {:keys [sort reverse-sort print-headers] :as options}]
+  (let [arg_ (if print-headers
+              (let [columns (get-columns arg)]
+                (mapv vector (range 1 (inc (count columns))) columns))
+              arg)
+        rows (cond
+               (map? arg_) (map (fn [[k v]] {"key" k "value" v}) arg_)
 
-               :else arg)
-        processed-rows (cond
-                         sort (sort-by #(get % sort) rows)
-                         reverse-sort (sort-by #(get % reverse-sort)
-                                               #(compare %2 %1)
-                                               rows)
-                         :else rows)]
-    (print-rows* processed-rows)))
+               ((some-fn vector? list? set?) (first arg_))
+               (map (fn [coll] (zipmap (range) coll)) arg_)
 
-(defn -main [{:keys [summary arguments options]}]
+               :else arg_)
+        processed-rows (possibly-sort-rows rows sort reverse-sort)]
+    (print-rows* processed-rows options)))
+
+(defn -main [{:keys [summary _arguments options]}]
   (cond
     (:help options) (util/print-summary "\nReads from stdin if no arguments given" summary)
     (:file options) (print-rows (-> (:file options) slurp edn/read-string)
@@ -43,7 +78,10 @@
 (def cli-options
   [["-h" "--help"]
    ["-f" "--file FILE"]
-   ["-s" "--sort KEY"]
-   ["-r" "--reverse-sort KEY"]])
+   ["-c" "--columns-filter FILTER" "Select columns by comma delimited substring matches or numbers from -H"]
+   ["-H" "--print-headers" "Only print column headers"]
+   ;; Sort and reverse sort don't handle keywords yet
+   ["-s" "--sort COLUMN" "Sort by column"]
+   ["-r" "--reverse-sort COLUMN" "Reverse sort by column"]])
 
 (util/run-command -main *command-line-args* cli-options)

@@ -112,7 +112,7 @@ $ echo '[{:a 4 :b 2} {:a 2 :c 3}]' | clj-table
 |  4 |  2 |    |
 |  2 |    |  3 |
 
-$ clj-table something.edn
+$ clj-table -f something.edn
 ...
 ```
 
