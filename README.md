@@ -4,7 +4,10 @@ An assortment of handy [Babashka](https://github.com/borkdude/babashka) CLIs
 
 ## Setup
 
-To setup using and modifying these scripts, follow the [General section](#general). To just install one script, follow the [Single Script section](#single-script). To setup babashka as I use it, follow the [bb section](#bb).
+First, [install babashka](https://github.com/borkdude/babashka#installation).
+These scripts require babashka >= 0.0.91.
+
+To setup using and modifying these scripts, read the [General section](#general). To just install one script, read the [Single Script section](#single-script). To setup babashka as I use it, read the [bb section](#bb).
 
 ### General
 Setup your $PATH and $BABASHKA_CLASSPATH:
@@ -12,14 +15,20 @@ Setup your $PATH and $BABASHKA_CLASSPATH:
 $ git clone https://github.com/cldwalker/bb-clis
 $ cd bb-clis
 
-$ export PATH=$PATH:$PWD/bin
-$ export BABASHKA_CLASSPATH=$PWD/src
-# To last outside this shell, put the above in your rc file, replacing $PWD
-# with the path to this repo
+$ export PATH=$PATH:$HOME/path/to/bb-clis/bin
+
+# To be able to use the scripts outside of this repository
+$ export BABASHKA_CLASSPATH=$BABASHKA_CLASSPATH:$HOME/path/to/bb-clis/src
 ```
 
-Then [install babashka](https://github.com/borkdude/babashka#installation).
-These scripts require babashka >= 0.0.91.
+#### Script Dependencies
+
+If a script depends on an external library, add them to $BABASHKA_CLASSPATH:
+
+```sh
+$ export BABASHKA_CLASSPATH=$BABASHKA_CLASSPATH:$(clojure -Spath -Sdeps "$(cat $HOME/path/to/bb-clis/deps.edn)")
+```
+
 
 ### Single Script
 
@@ -66,12 +75,7 @@ Prints github url of PR associated with a commit. It assumes a current directory
 
 #### Setup
 
-* Install [clj-http-lite](https://github.com/borkdude/babashka#clj-http-lite) but with a slight tweak:
-  ```sh
-  CLJ_HTTP_LITE_PATH="$(clojure -Sdeps '{:deps {clj-http-lite {:git/url "https://github.com/borkdude/clj-http-lite" :sha "f44ebe45446f0f44f2b73761d102af3da6d0a13e"}}}' -Spath)"
-  # This assumes you have followed the setup above
-  export BABASHKA_CLASSPATH=$BABASHKA_CLASSPATH:$CLJ_HTTP_LITE_PATH
-  ```
+* Install [clj-http-lite](https://github.com/borkdude/clj-http-lite) using [above instructions](#script-dependencies)
 * Optional: To have this executable with private repositories, set `$GITHUB_USER` to your user and [create and set a $GITHUB_OAUTH_TOKEN](https://developer.github.com/apps/building-oauth-apps/authorizing-oauth-apps/#non-web-application-flow)
 
 #### Usage
@@ -105,11 +109,7 @@ Updates lein dependency of specified directories and optionally commits and push
 
 #### Optional Setup
 
-By default, this script prints with `clojure.pprint/print-table`. To print with a table that has more features and a more useful default, pull in the [table clojar](https://github.com/cldwalker/table).
-
-```sh
-export BABASHKA_CLASSPATH=$BABASHKA_CLASSPATH:$(clojure -Spath -Sdeps '{:deps {table {:mvn/version "0.5.0"}}}')
-```
+By default, this script prints with `clojure.pprint/print-table`. To print with a table that has more features and a more useful default, pull in the [table clojar](https://github.com/cldwalker/table) using the [above instructions](#script-dependencies).
 
 #### Usage
 Prints an ascii table given an EDN collection on stdin or as a file:
