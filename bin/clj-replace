@@ -1,0 +1,53 @@
+#!/usr/bin/env bb
+; Light-weight alternative to sed or perl -i. Aims to provide replacements
+; that are more readable by supporting named replacements
+; vim: set filetype=clojure:
+
+(ns clj-replace
+  (:require [clojure.string :as str]
+            [cldwalker.babashka.util :as util]))
+
+(def replacements
+  "Named replacements with experimental format.
+Would be nice to support an optional edn file"
+  {:def-version {:regex #"(def.*?\s+)\"[\d.]+\""
+                 :format-string "$1\"%s\""
+                 :file "project.clj"}
+   :json-version {:regex #"(\"version\":\s+)\"[\d\.]+\""
+                  :format-string "$1\"%s\""
+                  :file "package.json"}})
+
+(defn- update-file-with-replacement
+  [{:keys [regex file format-string]} arguments]
+  (let [body (slurp file)
+        new-body (str/replace-first body regex
+                                    (apply format format-string arguments))]
+    (if (= body new-body)
+      (util/error (str "Unable to find version in " file))
+      (spit file new-body))))
+
+(defn- get-replacement [arguments options]
+  (if-let [replacement (replacements (keyword (first arguments)))]
+    replacement
+    (if-let [file (:file options)]
+      {:regex (re-pattern (first arguments))
+       :format-string "$1\"%s\""
+       :file file}
+      (util/error "File option required if providing a regex as a replacement"))))
+
+(def cli-options
+  [["-h" "--help"]
+   ["-f" "--file FILE" "Overrides default file for a replacement"]
+   ["-F" "--format-string FORMAT" "Overrides default format string for a replacement"]])
+
+(defn -main [{:keys [options arguments summary]}]
+  (if (or (:help options) (zero? (count arguments)))
+    (util/print-summary (str "REPLACEMENT/REGEX [& ARGUMENTS]\nReplacements available: "
+                             (str/join ", " (->> replacements keys (map name))))
+                        summary)
+    (let [replacement (get-replacement arguments options)]
+      (update-file-with-replacement (merge replacement
+                                          (select-keys options [:file :format-string]))
+                                    (rest arguments)))))
+
+(util/run-command -main *command-line-args* cli-options)
