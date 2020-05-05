@@ -19,7 +19,7 @@ $ export BABASHKA_CLASSPATH=$PWD/src
 ```
 
 Then [install babashka](https://github.com/borkdude/babashka#installation).
-These scripts require babashka >= 0.0.89.
+These scripts require babashka >= 0.0.91.
 
 ### Single Script
 
@@ -102,6 +102,16 @@ Updates lein dependency of specified directories and optionally commits and push
 `clj-update-lein-dependency -c -d ../proj1 -d ../proj2 my-dep $(git rev-parse HEAD)`.
 
 ### clj-table
+
+#### Optional Setup
+
+By default, this script prints with `clojure.pprint/print-table`. To print with a table that has more features and a more useful default, pull in the [table clojar](https://github.com/cldwalker/table).
+
+```sh
+export BABASHKA_CLASSPATH=$BABASHKA_CLASSPATH:$(clojure -Spath -Sdeps '{:deps {table {:mvn/version "0.5.0"}}}')
+```
+
+#### Usage
 Prints an ascii table given an EDN collection on stdin or as a file:
 
 ```sh

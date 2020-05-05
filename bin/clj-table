@@ -33,13 +33,20 @@
     (selected-columns-int columns columns-filter)
     (selected-columns-str columns columns-filter)))
 
+(defn- print-table
+  [columns rows]
+  (if-let [table-var (try (require 'table.core) (ns-resolve (find-ns 'table.core) 'table)
+                       (catch Exception))]
+    ((deref table-var) rows :fields columns)
+    (pprint/print-table columns rows)))
+
 (defn- print-rows* [rows {:keys [columns-filter]}]
   (if (and (coll? rows) (-> rows first map?))
     (let [columns (get-columns rows)
           columns_ (if columns-filter
                     (selected-columns columns columns-filter)
                     columns)]
-      (pprint/print-table columns_ rows))
+      (print-table columns_ rows))
     (do
       (println "Error: Input is not an EDN collection of maps")
       (System/exit 1))))
