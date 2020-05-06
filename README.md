@@ -68,6 +68,7 @@ The following CLIs are under bin/:
 * [clj-update-lein-dependency](#clj-update-lein-dependency)
 * [clj-table](#clj-table)
 * [clj-project-clj](#clj-project-clj)
+* [clj-replace](#clj-replace)
 
 ### clj-github-pr-for-commit
 
@@ -132,6 +133,26 @@ Prints a project.clj defproject form as a map. Useful for manipulating this data
 ```sh
 # Pretty prints a project's dependencies
 $ clj-project-clj -d 1 | bb -I '(-> *input* first :dependencies clojure.pprint/pprint)'
+```
+
+### clj-replace
+Replaces a substring in a file using a regex to match it. Much less powerful
+than sed but more user friendly as it supports configuring and naming regexs.
+clj-replace reads configs found in ~/.clj-replace.edn and ./clj-replace.edn. See
+script for documentation on config format.
+
+```sh
+# Use the default name replacements provided
+$ cp .clj-replace.edn ~/.clj-replace.edn
+
+# Navigate to a lein project and update project's version
+$ clj-replace lein-version 1.2.1
+
+# Navigate to a nodejs project and update project's version
+$ clj-replace node-version 2.1.1
+
+# A one-off regex can be used. This updates a map entry to false
+$ clj-replace -f project.clj -F '$1 %s' "(:pseudo-names)\s+\w+" false
 ```
 
 ## Additional Links

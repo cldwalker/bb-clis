@@ -1,27 +1,34 @@
 #!/usr/bin/env bb
 ; Light-weight alternative to sed or perl -i. Aims to provide replacements
-; that are more readable by supporting named replacements
+; that are more readable by supporting named replacements.
+; See get-replacements for config docs
 ; vim: set filetype=clojure:
 
 (ns clj-replace
   (:require [clojure.string :as str]
+            [clojure.java.io :as io]
+            [clojure.edn :as edn]
             [cldwalker.babashka.util :as util]
             [cldwalker.babashka.util.associative :as a]))
 
-(def replacements
-  "Named replacements with experimental format.
-Would be nice to support an optional edn file"
-  {:def-version {:regex "(def.*?\\s+)\"[\\d.]+\""
-                 :format-string "$1\"%s\""
-                 :file "project.clj"}
-   :json-version {:regex "(\"version\":\\s+)\"[\\d\\.]+\""
-                  :format-string "$1\"%s\""
-                  :file "package.json"}})
+(defn- get-replacements
+  "Reads replacements from ./clj-replace.edn and ~/clj-replace.edn.
+A replacement consists of three keys:
+* :regex : re-pattern regex to match target substring using clojure.string/replace-first
+* :format-string - clojure.core/format generates the replacement string using this format and
+  commandline arguments
+* :file - File on which to do replacement"
+  []
+  (cond->> []
+           (.exists (io/file (System/getenv "HOME") ".clj-replace.edn"))
+           (into
+            [(edn/read-string (slurp (io/file (System/getenv "HOME") ".clj-replace.edn")))])
 
-(defn- get-replacements []
-  (->> [replacements]
-       (mapv (fn [m] (a/map-vals #(update % :regex re-pattern) m)))
-       (apply merge)))
+           (.exists (io/file ".clj-replace.edn"))
+           (into [(edn/read-string (slurp ".clj-replace.edn"))])
+
+           true (mapv (fn [m] (a/map-vals #(update % :regex re-pattern) m)))
+           true (apply merge)))
 
 (defn- update-file-with-replacement
   [{:keys [regex file format-string]} arguments]
@@ -29,7 +36,7 @@ Would be nice to support an optional edn file"
         new-body (str/replace-first body regex
                                     (apply format format-string arguments))]
     (if (= body new-body)
-      (util/error (str "Unable to find version in " file))
+      (util/error (str "Replacement did not change " file))
       (spit file new-body))))
 
 (defn- arg->replacement [arg options]
@@ -37,7 +44,8 @@ Would be nice to support an optional edn file"
     replacement
     (if-let [file (:file options)]
       {:regex (re-pattern arg)
-       :format-string "$1\"%s\""
+       ;; Not sure if this is a sensible default
+       :format-string "$1 %s"
        :file file}
       (util/error "File option required if providing a regex as a replacement"))))
 
