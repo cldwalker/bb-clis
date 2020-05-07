@@ -1,0 +1,42 @@
+#!/usr/bin/env bb
+;; vim: set filetype=clojure:
+;; (b)abashka (q)uick - Launches a bb command quickly by matching on start
+;; of command after `clj-`.
+;; bb commands assumed to start with `clj-`.
+
+(ns bq
+  (:require [clojure.java.io :as io]
+            [clojure.string :as str]))
+
+(defn- cmd-exec
+  "Hands over current process to new command. Similar to exec in shell script"
+  [cmd-and-args]
+  (let [pb (doto (ProcessBuilder. cmd-and-args)
+                 (.inheritIO))
+        p (.start pb)]
+    (System/exit (.waitFor p))))
+
+(let [bb-commands (->> (str/split (System/getenv "PATH") #":")
+                       (mapcat (fn [path] (seq (.list (io/file path)))))
+                       (filter #(str/starts-with? % "clj-")))
+      cmd-alias (first *command-line-args*)
+      cmds (filterv #(str/starts-with? % (str "clj-" cmd-alias))
+                    bb-commands)
+      help-string (str "Available commands: " (str/join ", " bb-commands))]
+  (cond
+    (nil? cmd-alias)
+    (println help-string)
+
+    (zero? (count cmds))
+    (do
+      (println (str "Error: No commands matched for " (pr-str cmd-alias)
+                    "\n" help-string))
+      (System/exit 1))
+
+    (> (count cmds) 1)
+    (do
+      (println (str "Error: More than one command matched for " (pr-str cmd-alias)
+                    "\n" help-string))
+      (System/exit 1))
+
+    :else (cmd-exec (into cmds (rest *command-line-args*)))))
