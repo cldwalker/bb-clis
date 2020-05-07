@@ -3,6 +3,7 @@
 ;; (b)abashka (q)uick - Launches a bb command quickly by matching on start
 ;; of command after `clj-`.
 ;; bb commands assumed to start with `clj-`.
+;; Example: `bb t -h` -> clj-table -h
 
 (ns bq
   (:require [clojure.java.io :as io]
