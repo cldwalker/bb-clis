@@ -2,7 +2,7 @@
 ; Updates a lein dependency on specified git-able dir(s)
 ; vim: set filetype=clojure:
 
-(ns clj-update-lein-dependency
+(ns bb-update-lein-dependency
   (:require [cldwalker.babashka.util :as util]
             [clojure.java.io :as io]
             [clojure.string :as str]

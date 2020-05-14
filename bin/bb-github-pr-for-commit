@@ -1,7 +1,7 @@
 #!/usr/bin/env bb
 ; vim: set filetype=clojure:
 
-(ns clj-github-pr-for-commit
+(ns bb-github-pr-for-commit
   (:require [clj-http.lite.client :as client]
             [cheshire.core :as json]
             [cldwalker.babashka.util :as util]))

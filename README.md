@@ -35,13 +35,13 @@ $ export BABASHKA_CLASSPATH=$BABASHKA_CLASSPATH:$(clojure -Spath -Sdeps "$(cat $
 To use a single babashka script without the General setup, simply export one using --uberscript:
 ```sh
 # -f can be any of my babashka scripts that don't have options
-$ bb -f clj-github-repo --uberscript my-clj-github-repo.clj
+$ bb -f bb-github-repo --uberscript my-bb-github-repo.clj
 
 # To run the exported script
-$ bb -f my-clj-github-repo.clj
+$ bb -f my-bb-github-repo.clj
 
 # Optionally, use https://github.com/borkdude/carve to delete unused code
-$ clojure -A:carve --opts '{:paths ["my-clj-github-repo.clj"] :interactive? false}'
+$ clojure -A:carve --opts '{:paths ["my-bb-github-repo.clj"] :interactive? false}'
 ```
 
 ### bb
@@ -62,15 +62,15 @@ $ bb '(->> (System/getenv) (into {}) (map-keys #(-> % (str/replace "_" "-") str/
 
 The following CLIs are under bin/:
 
-* [clj-github-pr-for-commit](#clj-github-pr-for-commit)
-* [clj-github-repo](#clj-github-repo)
-* [clj-grep-result-frequencies](#clj-grep-result-frequencies)
-* [clj-update-lein-dependency](#clj-update-lein-dependency)
-* [clj-table](#clj-table)
-* [clj-project-clj](#clj-project-clj)
-* [clj-replace](#clj-replace)
+* [bb-github-pr-for-commit](#bb-github-pr-for-commit)
+* [bb-github-repo](#bb-github-repo)
+* [bb-grep-result-frequencies](#bb-grep-result-frequencies)
+* [bb-update-lein-dependency](#bb-update-lein-dependency)
+* [bb-table](#bb-table)
+* [bb-project-clj](#bb-project-clj)
+* [bb-replace](#bb-replace)
 
-### clj-github-pr-for-commit
+### bb-github-pr-for-commit
 
 Prints github url of PR associated with a commit. It assumes a current directory's repository but any repository can be specified. See https://github.com/mislav/hub-api-utils/blob/master/bin/hub-pr-with-commit for an alternative implementation.
 
@@ -83,30 +83,30 @@ Prints github url of PR associated with a commit. It assumes a current directory
 
 ```sh
 # Prints url and opens url for osx
-$ ./clj-github-pr-for-commit -r atom/atom 0f521f1e8afbcaf73479ea93dd4c87d9187903cb
+$ ./bb-github-pr-for-commit -r atom/atom 0f521f1e8afbcaf73479ea93dd4c87d9187903cb
 "https://github.com/atom/atom/pull/20350"
 
 # Open url of current github repository
-$ ./clj-github-pr-for-commit SHA
+$ ./bb-github-pr-for-commit SHA
 ```
 
-### clj-github-repo
+### bb-github-repo
 
 For the current github repo, open different repo urls e.g. commit or branch. Inspired by [this ruby version](https://github.com/cldwalker/irbfiles/blob/1fb97d84bcdf491325176d08e386468b12ece738/boson/commands/public/url/github.rb#L20-L50).
 
-To open a commit, `clj-github-repo -c SHA`.
+To open a commit, `bb-github-repo -c SHA`.
 
-### clj-grep-result-frequencies
+### bb-grep-result-frequencies
 
-For use with grep command to group results by frequency e.g. `git grep protocol | clj-group-grep-results`.
+For use with grep command to group results by frequency e.g. `git grep protocol | bb-group-grep-results`.
 
-### clj-update-lein-dependency
+### bb-update-lein-dependency
 
 Updates lein dependency of specified directories and optionally commits and pushes the change. For example, if I'm in the dependency's directory and I want to update two dependent projects to use its latest SHA, commit and git push:
 
-`clj-update-lein-dependency -c -d ../proj1 -d ../proj2 my-dep $(git rev-parse HEAD)`.
+`bb-update-lein-dependency -c -d ../proj1 -d ../proj2 my-dep $(git rev-parse HEAD)`.
 
-### clj-table
+### bb-table
 
 #### Optional Setup
 
@@ -116,43 +116,43 @@ By default, this script prints with `clojure.pprint/print-table`. To print with 
 Prints an ascii table given an EDN collection on stdin or as a file:
 
 ```sh
-$ echo '[{:a 4 :b 2} {:a 2 :c 3}]' | clj-table
+$ echo '[{:a 4 :b 2} {:a 2 :c 3}]' | bb-table
 
 | :a | :b | :c |
 |----+----+----|
 |  4 |  2 |    |
 |  2 |    |  3 |
 
-$ clj-table -f something.edn
+$ bb-table -f something.edn
 ...
 ```
 
-### clj-project-clj
+### bb-project-clj
 Prints a project.clj defproject form as a map. Useful for manipulating this data on the commandline
 
 ```sh
 # Pretty prints a project's dependencies
-$ clj-project-clj -d 1 | bb -I '(-> *input* first :dependencies clojure.pprint/pprint)'
+$ bb-project-clj -d 1 | bb -I '(-> *input* first :dependencies clojure.pprint/pprint)'
 ```
 
-### clj-replace
+### bb-replace
 Replaces a substring in a file using a regex to match it. Much less powerful
 than sed but more user friendly as it supports configuring and naming regexs.
-clj-replace reads configs found in ~/.clj-replace.edn and ./clj-replace.edn. See
+bb-replace reads configs found in ~/.bb-replace.edn and ./bb-replace.edn. See
 script for documentation on config format.
 
 ```sh
 # Use the default name replacements provided
-$ cp .clj-replace.edn ~/.clj-replace.edn
+$ cp .bb-replace.edn ~/.bb-replace.edn
 
 # Navigate to a lein project and update project's version
-$ clj-replace lein-version 1.2.1
+$ bb-replace lein-version 1.2.1
 
 # Navigate to a nodejs project and update project's version
-$ clj-replace node-version 2.1.1
+$ bb-replace node-version 2.1.1
 
 # A one-off regex can be used. This updates a map entry to false
-$ clj-replace -f project.clj -F '$1 %s' "(:pseudo-names)\s+\w+" false
+$ bb-replace -f project.clj -F '$1 %s' "(:pseudo-names)\s+\w+" false
 ```
 
 ## Additional Links

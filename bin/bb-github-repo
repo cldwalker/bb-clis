@@ -2,7 +2,7 @@
 ; Opens urls related to current or specified github repository
 ; vim: set filetype=clojure:
 
-(ns clj-github-repo
+(ns bb-github-repo
   (:require [cldwalker.babashka.util :as util]
             [clojure.string :as str]
             [clojure.java.shell :as shell]))

@@ -1,10 +1,10 @@
 #!/usr/bin/env bb
+; vim: set filetype=clojure:
 ; Light-weight alternative to sed or perl -i. Aims to provide replacements
 ; that are more readable by supporting named replacements.
 ; See get-replacements for config docs
-; vim: set filetype=clojure:
 
-(ns clj-replace
+(ns bb-replace
   (:require [clojure.string :as str]
             [clojure.java.io :as io]
             [clojure.edn :as edn]
@@ -12,7 +12,7 @@
             [cldwalker.babashka.util.associative :as a]))
 
 (defn- get-replacements
-  "Reads replacements from ./clj-replace.edn and ~/clj-replace.edn.
+  "Reads replacements from ./bb-replace.edn and ~/.bb-replace.edn.
 A replacement consists of three keys:
 * :regex : re-pattern regex to match target substring using clojure.string/replace-first
 * :format-string - clojure.core/format generates the replacement string using this format and
@@ -20,12 +20,12 @@ A replacement consists of three keys:
 * :file - File on which to do replacement"
   []
   (cond->> []
-           (.exists (io/file (System/getenv "HOME") ".clj-replace.edn"))
+           (.exists (io/file (System/getenv "HOME") ".bb-replace.edn"))
            (into
-            [(edn/read-string (slurp (io/file (System/getenv "HOME") ".clj-replace.edn")))])
+            [(edn/read-string (slurp (io/file (System/getenv "HOME") ".bb-replace.edn")))])
 
-           (.exists (io/file ".clj-replace.edn"))
-           (into [(edn/read-string (slurp ".clj-replace.edn"))])
+           (.exists (io/file ".bb-replace.edn"))
+           (into [(edn/read-string (slurp ".bb-replace.edn"))])
 
            true (mapv (fn [m] (a/map-vals #(update % :regex re-pattern) m)))
            true (apply merge)))

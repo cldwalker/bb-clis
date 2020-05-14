@@ -4,11 +4,11 @@
 ;; aren't. Assumes you're using postgres and have multiple migration dirs though
 ;; that can be changed easily with migration-dirs This script is useful to run
 ;; as a precursor to a long-running process e.g.
-;; clj-check-flyway-migrations $DATABASE_URL site && lein repl
+;; bb-check-flyway-migrations $DATABASE_URL site && lein repl
 ;; NOTE: This does _not_ check if repeatable or other callback migrations have
 ;; changed since you last run them
 
-(let [usage "Usage: clj-check-flyway-migrations DB_NAME MIGRATION_TYPE"
+(let [usage "Usage: bb-check-flyway-migrations DB_NAME MIGRATION_TYPE"
       ;; Specific to work
       migration-dirs {:site "resources/db/site_migration"
                       :sponsor "resources/db/sponsor_migration"}

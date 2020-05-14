@@ -3,7 +3,7 @@
 ;; Prints an ascii table for streamed in edn or edn file
 ;; Edn must be a map or a collection of collections
 
-(ns clj-table
+(ns bb-table
   (:require [clojure.pprint :as pprint]
             [clojure.edn :as edn]
             [clojure.string :as string]

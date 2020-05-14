@@ -1,9 +1,9 @@
 #!/usr/bin/env bb
 ;; vim: set filetype=clojure:
-;; (b)abashka (q)uick - Launches a bb command quickly by matching on start
-;; of command after `clj-`.
-;; bb commands assumed to start with `clj-`.
-;; Example: `bb t -h` -> clj-table -h
+;; (b)abashka (l)aunch - Launches a bb command quickly by matching on start
+;; of command after `bb-`.
+;; bb commands assumed to start with `bb-`.
+;; Example: `bl t -h` -> bb-table -h
 
 (ns bq
   (:require [clojure.java.io :as io]
@@ -19,9 +19,9 @@
 
 (let [bb-commands (->> (str/split (System/getenv "PATH") #":")
                        (mapcat (fn [path] (seq (.list (io/file path)))))
-                       (filter #(str/starts-with? % "clj-")))
+                       (filter #(str/starts-with? % "bb-")))
       cmd-alias (first *command-line-args*)
-      cmds (filterv #(str/starts-with? % (str "clj-" cmd-alias))
+      cmds (filterv #(str/starts-with? % (str "bb-" cmd-alias))
                     bb-commands)
       help-string (str "Available commands: " (str/join ", " bb-commands))]
   (cond

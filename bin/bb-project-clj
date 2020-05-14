@@ -2,7 +2,7 @@
 ; Prints out a lein project.clj file as a map
 ; vim: set filetype=clojure:
 
-(ns clj-project-clj
+(ns bb-project-clj
   (:require [cldwalker.babashka.util :as util]
             [clojure.string :as string]
             [clojure.pprint :as pprint]))
