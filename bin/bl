@@ -5,7 +5,7 @@
 ;; bb commands assumed to start with `bb-`.
 ;; Example: `bl t -h` -> bb-table -h
 
-(ns bq
+(ns bl
   (:require [clojure.java.io :as io]
             [clojure.string :as str]))
 
@@ -17,12 +17,36 @@
         p (.start pb)]
     (System/exit (.waitFor p))))
 
+(defn- match-alias
+  "Tries matching a query substring on a list of potential candidates. The following
+approaches are tried in order:
+* Match full word on first letter of each clojure cased word of a candidate e.g.
+  gr -> github-repo but not grep-result-frequencies
+* Same as last match but match on partial word e.g. gp -> github-pr-for-commit
+* Match on start of candidate e.g. ta -> table"
+  [query candidates]
+  (let [full-clojure-case-abbrev
+        (let [match-regex (re-pattern (str "^bb-"
+                                           (->> query seq (map #(str % "[^-]+")) (str/join "-"))
+                                           "$"))]
+          #(re-find match-regex %))
+        matches (filterv full-clojure-case-abbrev candidates)]
+    (if (= 1 (count matches))
+      matches
+      (let [partial-clojure-case-abbrev
+            (let [match-regex (re-pattern (str "^bb-"
+                                               (->> query seq (map #(str % "[^-]+")) (str/join "-"))))]
+              #(re-find match-regex %))
+            matches_ (filterv partial-clojure-case-abbrev candidates)]
+        (if (= 1 (count matches_))
+          matches_
+          (filterv #(str/starts-with? % (str "bb-" query)) candidates))))))
+
 (let [bb-commands (->> (str/split (System/getenv "PATH") #":")
                        (mapcat (fn [path] (seq (.list (io/file path)))))
                        (filter #(str/starts-with? % "bb-")))
       cmd-alias (first *command-line-args*)
-      cmds (filterv #(str/starts-with? % (str "bb-" cmd-alias))
-                    bb-commands)
+      cmds (match-alias cmd-alias bb-commands)
       help-string (str "Available commands: " (str/join ", " bb-commands))]
   (cond
     (nil? cmd-alias)
