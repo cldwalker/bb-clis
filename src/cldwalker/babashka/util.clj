@@ -6,13 +6,6 @@
             [clojure.edn :as edn]
             [clojure.tools.cli :as cli]))
 
-;; Misc
-;; ====
-(defn open-url
-  "Osx specific way to open url in browser"
-  [url]
-  (shell/sh "open" url))
-
 ;; CLI
 ;; ===
 (defn error
@@ -35,6 +28,35 @@
     (if (seq errors)
       (error (str/join "\n" (into ["Options failed to parse:"] errors)))
       (command-fn parsed-input))))
+
+;; Misc
+;; ====
+(defn open-url
+  "Osx specific way to open url in browser"
+  [url]
+  (shell/sh "open" url))
+
+
+(defn sh
+  "Wrapper around a shell command which fails fast like bash's -e flag.
+Takes following options:
+* :dry-run: Prints command instead of executing it"
+  [& args*]
+  (let [default-opts {:is-error-fn #(-> % :exit (not= 0))}
+        [options args] (if (map? (last args*))
+                         [(merge default-opts (last args*))
+                          (drop-last args*)]
+                         [default-opts args*])]
+    (if (:dry-run options)
+      (apply println "Command: " args)
+      (let [{:keys [out err] :as res}
+            (apply shell/sh
+              (concat args [:dir (:dir options)]))]
+        (if ((:is-error-fn options) res)
+          (error (format "Command '%s' failed with:\n%s"
+                         (str/join " " args)
+                         (str out "\n" err)))
+          out)))))
 
 ;; Github
 ;; ======

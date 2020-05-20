@@ -1,0 +1,71 @@
+#!/usr/bin/env bb
+;; vim: set filetype=clojure:
+;; Generates a png, pdf or svg visualization from a vega-lite spec.
+;; Spec file can be json or edn.
+;; See create-visualization for credits to oz
+
+(ns vis
+  (:require [cldwalker.babashka.util :as util]
+            [clojure.string :as str]
+            [clojure.edn :as edn]
+            [cheshire.core :as json])
+  (:import (java.io File)
+           (java.util UUID)))
+
+(defn- tmp-filename
+  [ext]
+  (str (File/createTempFile (str (UUID/randomUUID)) (str "." (name ext)))))
+
+(defn- json-spec-file
+  "Given a vega-lite spec json file, this automatically allows examples
+from https://vega.github.io/vega-lite/examples/ to just work. It does this
+by detecting if a data url starts with 'data/' and then fully expanding the url."
+  [input-file format]
+  (let [input-body (try
+                     (json/parse-string (slurp input-file))
+                     (catch Exception e
+                       (util/error "Unexpected failure while parsing json file:\n" (str e))))
+        url (get-in input-body ["data" "url"])]
+    (if (and url (str/starts-with? url "data/"))
+      (doto (tmp-filename format)
+            (spit (json/generate-string
+                   (assoc-in input-body
+                             ["data" "url"]
+                             (str "https://raw.githubusercontent.com/vega/vega/master/docs/"
+                                  url)))))
+      input-file)))
+
+(defn- create-visualization
+  "Parts of this were taken from oz's vega-cli -
+https://github.com/metasoarous/oz/blob/a7881779d11a9b3ed1893a023aed6aed28f65592/src/clj/oz/core.clj#L366"
+  [[input-file] {:keys [file open format]}]
+  (let [spec-file (if (str/ends-with? input-file ".edn")
+                    (doto (tmp-filename format)
+                          (spit (json/generate-string (edn/read-string (slurp input-file)))))
+                    (json-spec-file input-file format))
+        _out (util/sh (str "vl2" format) spec-file file
+                      ;; Have to override this b/c commands like vl2png don't exit
+                      ;; properly when they fail
+                      {:is-error-fn #(or (not= 0 (:exit %))
+                                         (str/includes? (:err %) "Error"))})]
+    (when open
+      (util/sh "open" file))
+    {:input-file spec-file :output-file file}))
+
+(defn -main [{:keys [summary arguments options]}]
+  (cond
+    (or (:help options) (not= 1 (count arguments)))
+    (util/print-summary "FILE" summary)
+
+    :else (create-visualization arguments options)))
+
+(def cli-options
+  [["-h" "--help"]
+   ["-o" "--open"]
+   ["-F" "--format FORMAT"
+    :validate [#{"png" "pdf" "svg"} "Must be png, pdf or svg"]
+    :default "png"]
+   ["-f" "--file FILE"
+    :default-fn (fn [{:keys [format]}] (str "output." format))]])
+
+(util/run-command -main *command-line-args* cli-options)
