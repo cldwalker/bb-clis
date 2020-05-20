@@ -155,6 +155,9 @@ $ bb-replace node-version 2.1.1
 $ bb-replace -f project.clj -F '$1 %s' "(:pseudo-names)\s+\w+" false
 ```
 
+## License
+See LICENSE.md
+
 ## Additional Links
 
 * For more bb setup and aliases, see [my dotfiles repo](https://github.com/cldwalker/dotfiles/search?q=bb&unscoped_q=bb)
