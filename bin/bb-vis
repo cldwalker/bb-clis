@@ -35,27 +35,43 @@ by detecting if a data url starts with 'data/' and then fully expanding the url.
                                   url)))))
       input-file)))
 
+(defn- input-file-from-stdin
+  [format]
+  (let [body (slurp System/in)]
+    (doto (tmp-filename format)
+          (spit body))))
+
+(defn- get-output-file [input-file {:keys [output-file format]}]
+  (or output-file
+      (str (or (some-> input-file
+                       (str/replace-first #"\.\w+$" ""))
+               "output")
+           "." format)))
+
 (defn- create-visualization
   "Parts of this were taken from oz's vega-cli -
 https://github.com/metasoarous/oz/blob/a7881779d11a9b3ed1893a023aed6aed28f65592/src/clj/oz/core.clj#L366"
-  [[input-file] {:keys [file open format]}]
-  (let [spec-file (if (str/ends-with? input-file ".edn")
+  [[input-file] {:keys [open format] :as opts}]
+  (let [output-file (get-output-file input-file opts)
+        input-file_ (if (nil? input-file) (input-file-from-stdin format) input-file)
+        spec-file (if (str/ends-with? input-file_ ".edn")
                     (doto (tmp-filename format)
-                          (spit (json/generate-string (edn/read-string (slurp input-file)))))
-                    (json-spec-file input-file format))
-        _out (util/sh (str "vl2" format) spec-file file
-                      ;; Have to override this b/c commands like vl2png don't exit
-                      ;; properly when they fail
-                      {:is-error-fn #(or (not= 0 (:exit %))
-                                         (str/includes? (:err %) "Error"))})]
+                          (spit (json/generate-string (edn/read-string (slurp input-file_)))))
+                    (json-spec-file input-file_ format))]
+
+    (util/sh (str "vl2" format) spec-file output-file
+             ;; Have to override this b/c commands like vl2png don't exit
+             ;; properly when they fail
+             {:is-error-fn #(or (not= 0 (:exit %))
+                                (str/includes? (:err %) "Error"))})
     (when open
-      (util/sh "open" file))
-    {:input-file spec-file :output-file file}))
+      (util/sh "open" output-file))
+    {:input-file spec-file :output-file output-file}))
 
 (defn -main [{:keys [summary arguments options]}]
   (cond
-    (or (:help options) (not= 1 (count arguments)))
-    (util/print-summary "FILE" summary)
+    (or (:help options) (> (count arguments) 1))
+    (util/print-summary "FILE\nReads json from stdin if no file given." summary)
 
     :else (create-visualization arguments options)))
 
@@ -65,7 +81,7 @@ https://github.com/metasoarous/oz/blob/a7881779d11a9b3ed1893a023aed6aed28f65592/
    ["-F" "--format FORMAT"
     :validate [#{"png" "pdf" "svg"} "Must be png, pdf or svg"]
     :default "png"]
-   ["-f" "--file FILE"
-    :default-fn (fn [{:keys [format]}] (str "output." format))]])
+   ["-f" "--output-file OUTPUT_FILE"
+    :default-desc "Defaults to FILE.FORMAT"]])
 
 (util/run-command -main *command-line-args* cli-options)
