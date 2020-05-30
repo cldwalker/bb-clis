@@ -58,6 +58,15 @@ Takes following options:
                          (str out "\n" err)))
           out)))))
 
+(defn exec
+  "Hands over current process to new command. Similar to exec in shell script.
+Thanks to https://github.com/borkdude/babashka/issues/299"
+  [cmd-and-args]
+  (let [pb (doto (ProcessBuilder. cmd-and-args)
+                 (.inheritIO))
+        p (.start pb)]
+    (System/exit (.waitFor p))))
+
 ;; Github
 ;; ======
 (defn find-current-user-repo

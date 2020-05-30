@@ -7,15 +7,8 @@
 
 (ns bl
   (:require [clojure.java.io :as io]
+            [cldwalker.babashka.util :as util]
             [clojure.string :as str]))
-
-(defn- cmd-exec
-  "Hands over current process to new command. Similar to exec in shell script"
-  [cmd-and-args]
-  (let [pb (doto (ProcessBuilder. cmd-and-args)
-                 (.inheritIO))
-        p (.start pb)]
-    (System/exit (.waitFor p))))
 
 (defn- match-alias
   "Tries matching a query substring on a list of potential candidates. The following
@@ -43,6 +36,7 @@ approaches are tried in order:
           (filterv #(str/starts-with? % (str "bb-" query)) candidates))))))
 
 (let [bb-commands (->> (str/split (System/getenv "PATH") #":")
+                       distinct
                        (mapcat (fn [path] (seq (.list (io/file path)))))
                        (filter #(str/starts-with? % "bb-")))
       cmd-alias (first *command-line-args*)
@@ -64,4 +58,4 @@ approaches are tried in order:
                     "\n" help-string))
       (System/exit 1))
 
-    :else (cmd-exec (into cmds (rest *command-line-args*)))))
+    :else (util/exec (into cmds (rest *command-line-args*)))))
