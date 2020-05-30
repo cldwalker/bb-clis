@@ -22,9 +22,9 @@
                    args-string
                    options-summary)))
 
-(defn run-command [command-fn args cli-opts]
+(defn run-command [command-fn args cli-opts & parse-opts-options]
   (let [{:keys [errors] :as parsed-input}
-        (cli/parse-opts args cli-opts)]
+        (apply cli/parse-opts args cli-opts parse-opts-options)]
     (if (seq errors)
       (error (str/join "\n" (into ["Options failed to parse:"] errors)))
       (command-fn parsed-input))))
