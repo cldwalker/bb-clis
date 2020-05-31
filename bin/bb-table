@@ -39,13 +39,16 @@
     ((deref table-var) rows :fields columns :style style)
     (pprint/print-table columns rows)))
 
-(defn- print-rows* [rows {:keys [columns-filter style]}]
+(defn- print-rows* [rows {:keys [columns-filter style number-rows]}]
   (if (and (coll? rows) (-> rows first map?))
     (let [columns (get-columns rows)
-          columns_ (if columns-filter
-                    (selected-columns columns columns-filter)
-                    columns)]
-      (print-table columns_ rows style))
+          columns_ (if number-rows
+                     (into [:number] (remove #(= % :number) columns))
+                     columns)
+          columns__ (if columns-filter
+                      (selected-columns columns_ columns-filter)
+                      columns_)]
+      (print-table columns__ rows style))
     (do
       (println "Error: Input is not an EDN collection of maps")
       (System/exit 1))))
@@ -76,21 +79,27 @@
   "Currently processes all row values even when we know certain columns are
   selected. Future improvement would be to only operate on selected column
   values"
-  [rows {:keys [sort reverse-sort]}]
-  (possibly-sort-rows rows sort reverse-sort))
+  [rows {:keys [sort reverse-sort number-rows]}]
+  (let [rows_
+        (if number-rows
+          (mapv #(assoc %1 :number %2)
+                rows
+                (range 1 (inc (count rows))))
+          rows)]
+    (possibly-sort-rows rows_ sort reverse-sort)))
 
-(defn- printing-headers [rows]
+(defn- header-counts [rows]
   (let [columns (get-columns rows)
         column-counts (->> rows
                            (map #(zipmap (keys %) (repeat 1)))
                            (apply merge-with +))]
-    (mapv (fn [num col]
-            {:num num :column col :count (column-counts col 0)})
-          (range 1 (inc (count columns))) columns)))
+    (mapv (fn [col]
+            {:column col :count (column-counts col 0)})
+          columns)))
 
 (defn print-rows [arg {:keys [print-headers] :as options}]
   (let [arg_ (if print-headers
-               (printing-headers arg)
+               (header-counts arg)
                arg)
         rows (cond
                (map? arg_) (map (fn [[k v]] {"key" k "value" v}) arg_)
@@ -122,7 +131,8 @@
   [["-h" "--help"]
    ["-f" "--file FILE"]
    ["-c" "--columns-filter FILTER" "Select columns by comma delimited substring matches or numbers from -H"]
-   ["-H" "--print-headers" "Only print column headers"]
+   ["-H" "--print-headers" "Print column headers and their counts across rows"]
+   ["-n" "--number-rows"]
    ;; Sort and reverse sort don't handle keywords yet
    ["-s" "--sort COLUMN" "Sort by column"]
    ["-r" "--reverse-sort COLUMN" "Reverse sort by column"]
