@@ -73,25 +73,13 @@
 
     :else rows))
 
-(defn- format-width [string width]
-  (if (zero? width)
-    ""
-    (format
-     (str "%-" width "." width "s")
-     (if (> (count string) width)
-       (str (.substring string 0 (- width 3)) "...")
-       string))))
-
 (defn- process-rows
-  "Currently processes all row values even when we know certain columns are selected.
-Future improvement would be to only operate on selected column values"
-  [rows {:keys [sort reverse-sort shorten]}]
-  (cond->> (possibly-sort-rows rows sort reverse-sort)
-           shorten (mapv (fn [row] (a/map-vals
-                                    #(if (string? %)
-                                       (format-width % shorten)
-                                       (format-width (pr-str %) shorten))
-                                    row)))))
+  "Currently processes all row values even when we know certain columns are
+  selected. Future improvement would be to only operate on selected column
+  values"
+  [rows {:keys [sort reverse-sort]}]
+  (possibly-sort-rows rows sort reverse-sort))
+
 (defn- printing-headers [rows]
   (let [columns (get-columns rows)
         column-counts (->> rows
@@ -130,8 +118,6 @@ Future improvement would be to only operate on selected column values"
    ["-H" "--print-headers" "Only print column headers"]
    ;; Sort and reverse sort don't handle keywords yet
    ["-s" "--sort COLUMN" "Sort by column"]
-   ["-r" "--reverse-sort COLUMN" "Reverse sort by column"]
-   ["-S" "--shorten WIDTH" "Shortens all column value widths by WIDTH char"
-    :parse-fn #(Integer/parseInt %)]])
+   ["-r" "--reverse-sort COLUMN" "Reverse sort by column"]])
 
 (util/run-command -main *command-line-args* cli-options)
