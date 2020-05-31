@@ -51,13 +51,25 @@
       (println "Error: Input is not an EDN collection of maps")
       (System/exit 1))))
 
+(defn get-sort-key [rows query]
+  (let [columns (get-columns rows)]
+    (or (first (selected-columns-str columns query))
+        ;; Since no matches, auto-try keyword
+        (first (selected-columns-str columns (keyword query)))
+        query)))
 (defn- possibly-sort-rows [rows sort reverse-sort]
   (cond
-    sort (sort-by #(get % sort) rows)
-    reverse-sort (sort-by #(get % reverse-sort)
-                          ;; Handles int and string
-                          #(compare %2 %1)
-                          rows)
+    sort
+    (let [sort-key (get-sort-key rows sort)]
+      (sort-by #(get % sort-key) rows))
+
+    reverse-sort
+    (let [sort-key (get-sort-key rows reverse-sort)]
+      (sort-by #(get % sort-key)
+               ;; Handles int and string
+               #(compare %2 %1)
+               rows))
+
     :else rows))
 
 (defn- format-width [string width]
