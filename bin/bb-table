@@ -7,8 +7,7 @@
   (:require [clojure.pprint :as pprint]
             [clojure.edn :as edn]
             [clojure.string :as string]
-            [cldwalker.babashka.util :as util]
-            [cldwalker.babashka.util.associative :as a]))
+            [cldwalker.babashka.util :as util]))
 
 (defn- get-columns
   "Extract columns from rows. Defaults to searching across all rows"
@@ -34,19 +33,19 @@
     (selected-columns-str columns columns-filter)))
 
 (defn- print-table
-  [columns rows]
+  [columns rows style]
   (if-let [table-var (try (require 'table.core) (ns-resolve (find-ns 'table.core) 'table)
                        (catch Exception))]
-    ((deref table-var) rows :fields columns)
+    ((deref table-var) rows :fields columns :style style)
     (pprint/print-table columns rows)))
 
-(defn- print-rows* [rows {:keys [columns-filter]}]
+(defn- print-rows* [rows {:keys [columns-filter style]}]
   (if (and (coll? rows) (-> rows first map?))
     (let [columns (get-columns rows)
           columns_ (if columns-filter
                     (selected-columns columns columns-filter)
                     columns)]
-      (print-table columns_ rows))
+      (print-table columns_ rows style))
     (do
       (println "Error: Input is not an EDN collection of maps")
       (System/exit 1))))
@@ -111,6 +110,14 @@
     :else           (print-rows (first (util/read-stdin-edn))
                                 options)))
 
+(def table-styles
+  #{:plain :org :unicode :github-markdown})
+
+(defn- unalias-choice [choices query]
+  (first
+   (filter #(string/starts-with? (name %) query)
+           choices)))
+
 (def cli-options
   [["-h" "--help"]
    ["-f" "--file FILE"]
@@ -118,6 +125,10 @@
    ["-H" "--print-headers" "Only print column headers"]
    ;; Sort and reverse sort don't handle keywords yet
    ["-s" "--sort COLUMN" "Sort by column"]
-   ["-r" "--reverse-sort COLUMN" "Reverse sort by column"]])
+   ["-r" "--reverse-sort COLUMN" "Reverse sort by column"]
+   ["-S" "--style STYLE" "Table style when using table clojar. Available styles are :plain, :org, :unicode and :github-markdown. Default is :plain."
+    :default :plain
+    :parse-fn #(keyword (unalias-choice table-styles %))
+    :validate [table-styles]]])
 
 (util/run-command -main *command-line-args* cli-options)
