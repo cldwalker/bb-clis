@@ -57,6 +57,7 @@
         ;; Since no matches, auto-try keyword
         (first (selected-columns-str columns (keyword query)))
         query)))
+
 (defn- possibly-sort-rows [rows sort reverse-sort]
   (cond
     sort
@@ -91,12 +92,19 @@ Future improvement would be to only operate on selected column values"
                                        (format-width % shorten)
                                        (format-width (pr-str %) shorten))
                                     row)))))
+(defn- printing-headers [rows]
+  (let [columns (get-columns rows)
+        column-counts (->> rows
+                           (map #(zipmap (keys %) (repeat 1)))
+                           (apply merge-with +))]
+    (mapv (fn [num col]
+            {:num num :column col :count (column-counts col 0)})
+          (range 1 (inc (count columns))) columns)))
 
 (defn print-rows [arg {:keys [print-headers] :as options}]
   (let [arg_ (if print-headers
-              (let [columns (get-columns arg)]
-                (mapv vector (range 1 (inc (count columns))) columns))
-              arg)
+               (printing-headers arg)
+               arg)
         rows (cond
                (map? arg_) (map (fn [[k v]] {"key" k "value" v}) arg_)
 
