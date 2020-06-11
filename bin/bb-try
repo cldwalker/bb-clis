@@ -1,0 +1,20 @@
+#!/usr/bin/env bb
+;; vim: set filetype=clojure:
+;; Try a dependency with bb like lein-try
+
+(ns bb-try
+  (:require [cldwalker.babashka.util :as util]
+            [clojure.java.shell :as sh]))
+
+(let [[dependency & bb-args] *command-line-args*
+      deps-string (format "{:deps {%s {:mvn/version \"RELEASE\"}}}"
+                          dependency)
+      new-classpath (str (System/getenv "BABASHKA_CLASSPATH")
+                         ":"
+                         ;; Use this sh because it fails fast on non-zero exit code
+                         (util/sh "clojure" "-Spath" "-Sdeps" deps-string))
+      bb-invocation (if (-> (sh/sh "which" "rlwrap") :exit zero?)
+                      ["rlwrap" "bb"]
+                      ["bb"])]
+  (util/exec (concat bb-invocation bb-args)
+             {"BABASHKA_CLASSPATH" new-classpath}))

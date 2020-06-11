@@ -5,7 +5,7 @@ An assortment of handy [Babashka](https://github.com/borkdude/babashka) CLIs
 ## Setup
 
 First, [install babashka](https://github.com/borkdude/babashka#installation).
-These scripts require babashka >= 0.0.91.
+These scripts require babashka >= 0.1.1.
 
 To setup using and modifying these scripts, read the [General section](#general). To just install one script, read the [Single Script section](#single-script). To setup babashka as I use it, read the [bb section](#bb).
 
@@ -236,6 +236,21 @@ EOF
 Generated image:
 
 ![this](images/2d-histogram-heatmap.png)
+
+## bb-try
+
+Try a Clojure library easily with bb. Inspired by https://github.com/avescodes/lein-try.
+
+```sh
+# Adds latest version of this library to classpath and starts repl
+$ bb-try camel-snake-kebab
+
+# Any additional arguments are passed on to bb
+$ bb-try camel-snake-kebab "(require '[camel-snake-kebab.core :as csk]) (csk/->SCREAMING_SNAKE_CASE :babashka-classpath)"
+:BABASHKA_CLASSPATH
+```
+
+Currently it only fetches the latest version of a library but I'm thinking of making a version optional.
 
 ## License
 See LICENSE.md
