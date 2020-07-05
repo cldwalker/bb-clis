@@ -1,0 +1,13 @@
+name: test
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Babashka test
+        uses: liquidz/babashka-test-action@v1
+        with:
+          source-paths: 'src'
+          test-paths: 'test'
+          test-file-pattern: '_test.clj$'

@@ -71,7 +71,7 @@ Takes following options:
 
 (defn -main [{:keys [options arguments summary]}]
   (if (or (:help options) (< (count arguments) 2))
-    (util/print-summary "DEPENDENCY VERSION" summary)
+    (util/print-summary " DEPENDENCY VERSION" summary)
     (doseq [dir (:directories options)]
       (update-dir arguments dir options))))
 

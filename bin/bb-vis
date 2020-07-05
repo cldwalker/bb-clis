@@ -71,7 +71,7 @@ https://github.com/metasoarous/oz/blob/a7881779d11a9b3ed1893a023aed6aed28f65592/
 (defn -main [{:keys [summary arguments options]}]
   (cond
     (or (:help options) (> (count arguments) 1))
-    (util/print-summary "FILE\nReads json from stdin if no file given." summary)
+    (util/print-summary " FILE\nReads json from stdin if no file given." summary)
 
     :else (create-visualization arguments options)))
 

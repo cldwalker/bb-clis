@@ -17,7 +17,7 @@
 (defn print-summary
   "Print help summary given args and opts strings"
   [args-string options-summary]
-  (println (format "Usage: %s [OPTIONS] %s\nOptions:\n%s"
+  (println (format "Usage: %s [OPTIONS]%s\nOptions:\n%s"
                    (.getName (io/file *file*))
                    args-string
                    options-summary)))

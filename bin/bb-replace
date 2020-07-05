@@ -56,7 +56,7 @@ A replacement consists of three keys:
 
 (defn -main [{:keys [options arguments summary]}]
   (if (or (:help options) (zero? (count arguments)))
-    (util/print-summary (str "REPLACEMENT/REGEX [& ARGUMENTS]\nReplacements available: "
+    (util/print-summary (str " REPLACEMENT/REGEX [& ARGUMENTS]\nReplacements available: "
                              (str/join ", " (->> (get-replacements) keys (map name))))
                         summary)
     (let [replacement (arg->replacement (first arguments) options)]
