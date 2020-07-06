@@ -1,2 +1,3 @@
-.cpcache
-.clj-kondo/.cache
+/.cpcache
+/.clj-kondo/.cache
+/later
