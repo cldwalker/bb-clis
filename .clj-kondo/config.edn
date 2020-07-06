@@ -1,0 +1,6 @@
+{:linters
+ {:unresolved-symbol
+  ;; linter doesn't know bb dynamic vars
+  {:exclude [*input*]}
+  ;; common bb namespaces that don't need to be required
+  :unresolved-namespace {:exclude [shell str set]}}}

@@ -1,7 +1,7 @@
-name: test
+name: Tests
 on: push
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -11,3 +11,11 @@ jobs:
           source-paths: 'src'
           test-paths: 'test'
           test-file-pattern: '_test.clj$'
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: DeLaGuardo/setup-clj-kondo@v1
+        with:
+          version: '2020.06.21'
+      - run: clj-kondo --lint src test bin/*
