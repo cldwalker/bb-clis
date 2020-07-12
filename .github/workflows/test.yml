@@ -18,4 +18,4 @@ jobs:
       - uses: DeLaGuardo/setup-clj-kondo@v1
         with:
           version: '2020.06.21'
-      - run: clj-kondo --lint src test bin/*
+      - run: clj-kondo --lint src:resources test bin/*

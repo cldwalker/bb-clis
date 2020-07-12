@@ -1,23 +1,17 @@
 (ns bin.bb-table-test
   (:require [clojure.test :refer [deftest is]]
+            [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.java.shell :as shell]))
 
-(def expected-help
-  "Usage: bb-table [OPTIONS]
-Reads from stdin if no arguments given
-Options:
-  -h, --help
-  -f, --file FILE
-  -c, --columns-filter FILTER          Select columns by comma delimited substring matches or numbers from -H
-  -H, --print-headers                  Print column headers and their counts across rows
-  -n, --number-rows
-  -s, --sort COLUMN                    Sort by column
-  -r, --reverse-sort COLUMN            Reverse sort by column
-  -S, --style STYLE            :plain  Table style when using table clojar. Available styles are :plain, :org, :unicode and :github-markdown. Default is :plain.
-")
-
-(deftest help-option-prints-correctly
+(deftest help-option
+  ;; Using bin/bb-table b/c setting $PATH doesn't work with current CI setup
   (let [cmd-results (shell/sh "bin/bb-table" "-h"
-                              :env {"BABASHKA_CLASSPATH" "src"})]
-    (is (zero? (:exit cmd-results)))
-    (is (= expected-help (:out cmd-results)))))
+                              :env {"BABASHKA_CLASSPATH" "src"
+                                    "PATH" (str "bin:" (System/getenv "PATH"))})
+        expected-results (-> (io/resource "bin/bb_table_test/help_option.edn")
+                             slurp
+                             edn/read-string)]
+    (is (= (:exit expected-results) (:exit cmd-results)))
+    (is (= (:out expected-results) (:out cmd-results)))
+    (is (= (:err expected-results) (:err cmd-results)))))
