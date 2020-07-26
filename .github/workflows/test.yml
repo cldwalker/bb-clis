@@ -34,4 +34,4 @@ jobs:
            rm install-bb
       - run: bb --version
       - name: Check for unused vars
-        run: bin/bb-unused-vars bin/* src
+        run: bin/bb-unused-vars -i .github/workflows/unused-vars-to-ignore.edn  bin/* src

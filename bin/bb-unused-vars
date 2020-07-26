@@ -5,17 +5,21 @@
   "A slightly modified version of https://github.com/borkdude/clj-kondo/blob/master/analysis/src/clj_kondo/tools/unused_vars.clj"
   (:require [clojure.set :as set]
             [clojure.string :as str]
+            [clojure.edn :as edn]
+            [cldwalker.babashka.util :as util]
             [babashka.pods :as pods]))
 
 (pods/load-pod "clj-kondo")
 (require '[pod.borkdude.clj-kondo :as clj-kondo])
 
-(defn -main [paths]
+(defn check-unused-vars [paths {:keys [ignore-file]}]
   (let [analysis (:analysis (clj-kondo/run! {:lint paths
                                              :config {:output {:analysis true}}}))
         {:keys [:var-definitions :var-usages]} analysis
         defined-vars (set (map (juxt :ns :name) var-definitions))
-        used-vars (set (map (juxt :to :name) var-usages))
+        used-vars (cond-> (set (map (juxt :to :name) var-usages))
+                          ignore-file
+                          (set/union (edn/read-string (slurp ignore-file))))
         unused-vars (map (fn [[ns v]]
                            (symbol (str ns) (str v)))
                          (set/difference defined-vars used-vars))]
@@ -26,4 +30,13 @@
       (do (println "No unused vars found.")
         (System/exit 0)))))
 
-(-main *command-line-args*)
+(defn -main [{:keys [summary arguments options]}]
+  (if (or (:help options) (zero? (count arguments)))
+    (util/print-summary " SOURCE-PATHS" summary)
+    (check-unused-vars arguments options)))
+
+(def cli-options
+  [["-h" "--help"]
+   ["-i" "--ignore-file FILE"]])
+
+(util/run-command -main *command-line-args* cli-options)
