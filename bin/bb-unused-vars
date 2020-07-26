@@ -1,0 +1,29 @@
+#!/usr/bin/env bb
+;; vim: set filetype=clojure:
+
+(ns bb-unused-vars
+  "A slightly modified version of https://github.com/borkdude/clj-kondo/blob/master/analysis/src/clj_kondo/tools/unused_vars.clj"
+  (:require [clojure.set :as set]
+            [clojure.string :as str]
+            [babashka.pods :as pods]))
+
+(pods/load-pod "clj-kondo")
+(require '[pod.borkdude.clj-kondo :as clj-kondo])
+
+(defn -main [paths]
+  (let [analysis (:analysis (clj-kondo/run! {:lint paths
+                                             :config {:output {:analysis true}}}))
+        {:keys [:var-definitions :var-usages]} analysis
+        defined-vars (set (map (juxt :ns :name) var-definitions))
+        used-vars (set (map (juxt :to :name) var-usages))
+        unused-vars (map (fn [[ns v]]
+                           (symbol (str ns) (str v)))
+                         (set/difference defined-vars used-vars))]
+    (if (seq unused-vars)
+      (do (println "The following vars are unused:")
+        (println (str/join "\n" unused-vars))
+        (System/exit 1))
+      (do (println "No unused vars found.")
+        (System/exit 0)))))
+
+(-main *command-line-args*)

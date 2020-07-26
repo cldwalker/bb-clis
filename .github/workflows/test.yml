@@ -23,6 +23,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - uses: DeLaGuardo/setup-clj-kondo@v1
+        with:
+          version: '2020.06.21'
       - name: Install babashka
         run: |
            curl -s https://raw.githubusercontent.com/borkdude/babashka/master/install -o install-bb
@@ -30,3 +33,5 @@ jobs:
            sudo ./install-bb
            rm install-bb
       - run: bb --version
+      - name: Check for unused vars
+        run: bin/bb-unused-vars bin/* src
