@@ -19,3 +19,14 @@ jobs:
         with:
           version: '2020.06.21'
       - run: clj-kondo --lint src:resources test bin/*
+  unused-vars:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install babashka
+        run: |
+           curl -s https://raw.githubusercontent.com/borkdude/babashka/master/install -o install-bb
+           chmod +x install-bb
+           sudo ./install-bb
+           rm install-bb
+      - run: bb --version
