@@ -8,7 +8,7 @@ jobs:
       - name: Babashka test
         uses: liquidz/babashka-test-action@v1
         with:
-          source-paths: 'src'
+          source-paths: 'src:resources'
           test-paths: 'test'
           test-file-pattern: '_test.clj$'
   lint:
