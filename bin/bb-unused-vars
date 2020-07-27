@@ -19,7 +19,9 @@
         defined-vars (set (map (juxt :ns :name) var-definitions))
         used-vars (cond-> (set (map (juxt :to :name) var-usages))
                           ignore-file
-                          (set/union (edn/read-string (slurp ignore-file))))
+                          (set/union (set (map
+                                           (juxt (comp symbol namespace) (comp symbol name))
+                                           (edn/read-string (slurp ignore-file))))))
         unused-vars (map (fn [[ns v]]
                            (symbol (str ns) (str v)))
                          (set/difference defined-vars used-vars))]

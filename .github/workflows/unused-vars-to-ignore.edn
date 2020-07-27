@@ -1,2 +1,3 @@
-[[cldwalker.babashka.util.associative map-keys]
- [cldwalker.babashka.util stdin-active?]]
+[:cldwalker.babashka.util.associative/map-keys ; util fn
+ ;; wip fn that may be used soon
+ :cldwalker.babashka.util/stdin-active?]
