@@ -12,7 +12,9 @@
 (pods/load-pod "clj-kondo")
 (require '[pod.borkdude.clj-kondo :as clj-kondo])
 
-(defn check-unused-vars [paths {:keys [ignore-file]}]
+(defn check-unused-vars
+  "Checks for unused vars. If found prints them and fails with exit 1."
+  [paths {:keys [ignore-file]}]
   (let [analysis (:analysis (clj-kondo/run! {:lint paths
                                              :config {:output {:analysis true}}}))
         {:keys [:var-definitions :var-usages]} analysis

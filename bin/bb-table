@@ -53,7 +53,7 @@
       (println "Error: Input is not an EDN collection of maps")
       (System/exit 1))))
 
-(defn get-sort-key [rows query]
+(defn- get-sort-key [rows query]
   (let [columns (get-columns rows)]
     (or (first (selected-columns-str columns query))
         ;; Since no matches, auto-try keyword
@@ -97,7 +97,9 @@
             {:column col :count (column-counts col 0)})
           columns)))
 
-(defn print-rows [arg {:keys [print-headers] :as options}]
+(defn print-rows
+  "Prints rows in a table, handling a couple different data structures as input"
+  [arg {:keys [print-headers] :as options}]
   (let [arg_ (if print-headers
                (header-counts arg)
                arg)
@@ -120,6 +122,7 @@
                                 options)))
 
 (def table-styles
+  "Table styles that can be passed to table library via :style"
   #{:plain :org :unicode :github-markdown})
 
 (defn- unalias-choice [choices query]

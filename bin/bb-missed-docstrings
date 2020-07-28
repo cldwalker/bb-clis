@@ -1,0 +1,34 @@
+#!/usr/bin/env bb
+;; vim: set filetype=clojure:
+
+(ns bb-missed-docs
+  "A slightly modified version of https://github.com/borkdude/clj-kondo/blob/master/analysis/src/clj_kondo/tools/missing_docstrings.clj"
+  (:require [cldwalker.babashka.util :as util]
+            [babashka.pods :as pods]))
+
+(pods/load-pod "clj-kondo")
+(require '[pod.borkdude.clj-kondo :as clj-kondo])
+
+(defn- missed-docstrings [paths {:keys [ignore-regex]}]
+  (let [analysis (:analysis (clj-kondo/run! {:lint paths
+                                             :config {:output {:analysis true}}}))
+        {:keys [var-definitions]} analysis
+        ignore-var? (if ignore-regex
+                      #(re-find (re-pattern ignore-regex) %)
+                      (constantly false))]
+    (doseq [{:keys [:ns :name :private :doc]} var-definitions]
+      (when (and (not private)
+                 (not doc)
+                 (not (ignore-var? (str name))))
+        (println (str ns "/" name ": missing docstring"))))))
+
+(defn -main [{:keys [arguments summary options]}]
+  (if (:help options)
+    (util/print-summary " SOURCE-PATHS" summary)
+    (missed-docstrings arguments options)))
+
+(def cli-options
+  [["-h" "--help"]
+   ["-i" "--ignore-regex REGEX"]])
+
+(util/run-command -main *command-line-args* cli-options)

@@ -22,7 +22,11 @@
                    args-string
                    options-summary)))
 
-(defn run-command [command-fn args cli-opts & parse-opts-options]
+(defn run-command
+  "Processes a command's functionality given a cli options definition, arguments
+  and primary command fn. This handles option parsing, handles any errors with
+  parsing and then passes parsed input to command fn"
+  [command-fn args cli-opts & parse-opts-options]
   (let [{:keys [errors] :as parsed-input}
         (apply cli/parse-opts args cli-opts parse-opts-options)]
     (if (seq errors)
