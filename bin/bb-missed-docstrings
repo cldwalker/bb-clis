@@ -16,7 +16,7 @@
         ignore-var? (if ignore-regex
                       #(re-find (re-pattern ignore-regex) %)
                       (constantly false))]
-    (doseq [{:keys [:ns :name :private :doc]} var-definitions]
+    (doseq [{:keys [ns name private doc]} var-definitions]
       (when (and (not private)
                  (not doc)
                  (not (ignore-var? (str name))))
