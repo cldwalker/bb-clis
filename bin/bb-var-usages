@@ -1,0 +1,28 @@
+#!/usr/bin/env bb
+;; vim: set filetype=clojure:
+;; Print usages of a var for given source paths
+
+(ns bb-var-usages
+  "Modified version of https://github.com/borkdude/clj-kondo/blob/master/analysis/src/clj_kondo/tools/find_var.clj"
+  (:require [babashka.pods :as pods]
+            [clojure.string :as str]))
+
+(pods/load-pod "clj-kondo")
+(require '[pod.borkdude.clj-kondo :as clj-kondo])
+
+(defn -main [var & paths]
+  (let [[var-ns var-name] (map symbol (str/split var #"/"))
+        analysis (:analysis (clj-kondo/run! {:lint paths
+                                             :config {:output {:analysis true}}}))
+        {:keys [var-usages]} analysis
+        usages (keep (fn [{:keys [to name] :as d}]
+                       (when (and (= var-ns to)
+                                  (= var-name name))
+                         d))
+                     var-usages)]
+    (doseq [{:keys [filename from from-var row col]}
+            (sort-by (juxt :filename :row :col) usages)]
+      (println (str var " is used in " from "/" from-var
+                    " at " filename ":" row ":" col)))))
+
+(apply -main *command-line-args*)
