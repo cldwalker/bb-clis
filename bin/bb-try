@@ -9,13 +9,15 @@
 (def cli-options
   [["-h" "--help"]
    ["-c" "--command COMMAND"]
+   ["-v" "--version DEPENDENCY_VERSION"]
    ;; print-command only works for commands without env var e.g. clj
    ["-p" "--print-command"]])
 
 (defn- create-deps-string
-  [dependency]
-  (format "{:deps {%s {:mvn/version \"RELEASE\"}}}"
-                            dependency))
+  [dependency {:keys [version] :or {version "RELEASE"}}]
+  (format "{:deps {%s {:mvn/version \"%s\"}}}"
+          dependency version))
+
 (defn- exec [args env print-command?]
   ;; print-command doesn't work for bb b/c it can't print env var in a way that's
   ;; reproducible for others
@@ -27,9 +29,9 @@
     (util/exec args env)))
 
 (defn- bb-main
-  [arguments {:keys [command print-command]}]
+  [arguments {:keys [command print-command] :as options}]
   (let [[dependency & bb-args] arguments
-        deps-string (create-deps-string dependency)
+        deps-string (create-deps-string dependency options)
         new-classpath (str (System/getenv "BABASHKA_CLASSPATH")
                            ":"
                            ;; Use this sh because it fails fast on non-zero exit code
@@ -41,27 +43,27 @@
           {"BABASHKA_CLASSPATH" new-classpath}
           print-command)))
 
-(defn- clj-main [arguments print-command?]
+(defn- clj-main [arguments {:keys [print-command] :as options}]
   (let [[dependency & clj-args] arguments
-        deps-string (create-deps-string dependency)
+        deps-string (create-deps-string dependency options)
         clj-options ["-Sdeps" deps-string]
         clj-invocation (if (-> (sh/sh "which" "rlwrap") :exit zero?)
                          ["rlwrap" "clojure"]
                          ["clojure"])]
     (exec (concat clj-invocation clj-options clj-args)
           {}
-          print-command?)))
+          print-command)))
 
 (defn- -main*
   [arguments {:keys [command print-command] :or {command "bb"} :as options}]
   (if (#{"clj" "clojure"} command)
-    (clj-main arguments print-command)
+    (clj-main arguments options)
     (bb-main arguments (assoc options :command command))))
 
 (defn -main
   [{:keys [summary arguments options]}]
   (cond
-    (:help options) (util/print-summary "" summary)
+    (:help options) (util/print-summary " DEPENDENCY [& ARGS]" summary)
     :else (-main* arguments options)))
 
 (util/run-command -main *command-line-args* cli-options :in-order true)
