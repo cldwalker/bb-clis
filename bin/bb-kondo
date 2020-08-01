@@ -1,0 +1,26 @@
+#!/usr/bin/env bb
+;; vim: set filetype=clojure:
+
+(ns bb-kondo
+  (:require [babashka.pods :as pods]))
+
+(pods/load-pod "clj-kondo")
+(require '[pod.borkdude.clj-kondo :as clj-kondo])
+
+(defn -main [paths]
+  (let [analysis (:analysis (clj-kondo/run! {:lint paths
+                                             :config {:output {:analysis true}}}))]
+
+    {:vars (count (:var-definitions analysis))
+     :ns (count (:namespace-definitions analysis))
+     :files (map (juxt :filename :name) (:namespace-definitions analysis))
+     ;; TODO:
+     ;; - Add ns -> file mapping
+     ;; - file -> LOC mapping
+     ;; - average LOC per fn per ns
+     :ns-vars (->> (:var-definitions analysis)
+                   (group-by :ns)
+                   (map (fn [[k v]] [k (count v)]))
+                   (sort-by second >))}))
+
+(-main *command-line-args*)
