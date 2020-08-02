@@ -5,12 +5,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Babashka test
-        uses: liquidz/babashka-test-action@v1
-        with:
-          source-paths: 'src:resources'
-          test-paths: 'test'
-          test-file-pattern: '_test.clj$'
+      - name: Install babashka
+        run: |
+           curl -s https://raw.githubusercontent.com/borkdude/babashka/master/install -o install-bb
+           chmod +x install-bb
+           sudo ./install-bb
+           rm install-bb
+      - name: Run bb tests
+        run: bb -cp src:test:resources -m test-runner
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -32,7 +34,6 @@ jobs:
            chmod +x install-bb
            sudo ./install-bb
            rm install-bb
-      - run: bb --version
       - name: Check for unused vars
         run: BABASHKA_CLASSPATH=src bin/bb-unused-vars -i .github/workflows/unused-vars-to-ignore.edn  bin/* src
       - name: Check for missed docstrings
