@@ -4,7 +4,7 @@
 
 (ns bb-try
   (:require [cldwalker.babashka.util :as util]
-            [clojure.java.shell :as sh]))
+            [clojure.java.shell :as shell]))
 
 (def cli-options
   [["-h" "--help"]
@@ -36,7 +36,7 @@
                            ":"
                            ;; Use this sh because it fails fast on non-zero exit code
                            (util/sh "clojure" "-Spath" "-Sdeps" deps-string))
-        bb-invocation (if (-> (sh/sh "which" "rlwrap") :exit zero?)
+        bb-invocation (if (-> (shell/sh "which" "rlwrap") :exit zero?)
                         ["rlwrap" command]
                         [command])]
     (exec (concat bb-invocation bb-args)
@@ -47,7 +47,7 @@
   (let [[dependency & clj-args] arguments
         deps-string (create-deps-string dependency options)
         clj-options ["-Sdeps" deps-string]
-        clj-invocation (if (-> (sh/sh "which" "rlwrap") :exit zero?)
+        clj-invocation (if (-> (shell/sh "which" "rlwrap") :exit zero?)
                          ["rlwrap" "clojure"]
                          ["clojure"])]
     (exec (concat clj-invocation clj-options clj-args)

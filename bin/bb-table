@@ -6,7 +6,7 @@
 (ns bb-table
   (:require [clojure.pprint :as pprint]
             [clojure.edn :as edn]
-            [clojure.string :as string]
+            [clojure.string :as str]
             [cldwalker.babashka.util :as util]))
 
 (defn- get-columns
@@ -17,13 +17,13 @@
 (defn- selected-columns-int
   [columns columns-filter]
   (let [selected (mapv #(Integer/parseInt %)
-                      (string/split columns-filter #"\s*,\s*"))]
+                       (str/split columns-filter #"\s*,\s*"))]
     (mapv #(nth columns (dec %)) selected)))
 
 (defn- selected-columns-str
   [columns columns-filter]
-  (->> (string/split columns-filter #"\s*,\s*")
-       (map #(filter (fn [c] (string/starts-with? (name c) %)) columns))
+  (->> (str/split columns-filter #"\s*,\s*")
+       (map #(filter (fn [c] (str/starts-with? (name c) %)) columns))
        (apply concat)))
 
 (defn- selected-columns
@@ -127,7 +127,7 @@
 
 (defn- unalias-choice [choices query]
   (first
-   (filter #(string/starts-with? (name %) query)
+   (filter #(str/starts-with? (name %) query)
            choices)))
 
 (def cli-options

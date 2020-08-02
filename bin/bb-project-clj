@@ -4,7 +4,7 @@
 
 (ns bb-project-clj
   (:require [cldwalker.babashka.util :as util]
-            [clojure.string :as string]
+            [clojure.string :as str]
             [clojure.pprint :as pprint]))
 
 ;; While these are preventing breakages, these may be worth putting
@@ -12,9 +12,9 @@
 (defn- modify-project-clj [string]
   (-> string
       ;; Ignore eval forms that break read-string
-      (string/replace "#=" "")
+      (str/replace "#=" "")
       ;; Turn regexs into strings as regexs aren't supported by read-string
-      (string/replace "#\"" "\"")))
+      (str/replace "#\"" "\"")))
 
 (defn- extract-project-form
   "Extracts defproject form from given project.clj string. drop-forms is the

@@ -1,5 +1,15 @@
 {:linters
- {:unresolved-symbol
+ {:consistent-alias
+  {:aliases
+   {clojure.java.shell shell
+    clojure.string str
+    cheshire.core json
+    clojure.edn edn
+    clojure.java.io io
+    cldwalker.babashka.util util
+    clojure.pprint pprint
+    babashka.pods pods}}
+  :unresolved-symbol
   ;; linter doesn't know bb dynamic vars
   {:exclude [*input*]}
   ;; common bb namespaces that don't need to be required
