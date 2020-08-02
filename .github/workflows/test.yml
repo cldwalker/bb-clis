@@ -12,7 +12,7 @@ jobs:
            sudo ./install-bb
            rm install-bb
       - name: Run bb tests
-        run: PATH=bin:$PATH bb -cp src:test:resources -m test-runner
+        run: PATH=bin:$PATH BABASHKA_CLASSPATH=src bb -cp src:test:resources -m test-runner
   lint:
     runs-on: ubuntu-latest
     steps:

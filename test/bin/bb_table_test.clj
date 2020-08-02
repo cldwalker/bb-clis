@@ -5,9 +5,7 @@
             [clojure.java.shell :as shell]))
 
 (deftest help-option
-  (let [cmd-results (shell/sh "bb-table" "-h"
-                              :env (merge (into {} (System/getenv))
-                                          {"BABASHKA_CLASSPATH" "src"}))
+  (let [cmd-results (shell/sh "bb-table" "-h")
         expected-results (-> (io/resource "bin/bb_table_test/help-option.edn")
                              slurp
                              edn/read-string)]
