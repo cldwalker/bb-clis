@@ -1,4 +1,5 @@
 (ns bin.bb-table-test
+  "All these tests were run in an environment with table clojar installed"
   (:require [clojure.test :refer [deftest is]]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
