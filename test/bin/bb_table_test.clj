@@ -9,7 +9,7 @@
   (let [cmd-results (shell/sh "bin/bb-table" "-h"
                               :env {"BABASHKA_CLASSPATH" "src"
                                     "PATH" (str "bin:" (System/getenv "PATH"))})
-        expected-results (-> (io/resource "bin/bb_table_test/help_option.edn")
+        expected-results (-> (io/resource "bin/bb_table_test/help-option.edn")
                              slurp
                              edn/read-string)]
     (is (= (:exit expected-results) (:exit cmd-results)))
