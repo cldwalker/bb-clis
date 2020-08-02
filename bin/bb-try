@@ -55,7 +55,7 @@
           print-command)))
 
 (defn- -main*
-  [arguments {:keys [command print-command] :or {command "bb"} :as options}]
+  [arguments {:keys [command] :or {command "bb"} :as options}]
   (if (#{"clj" "clojure"} command)
     (clj-main arguments options)
     (bb-main arguments (assoc options :command command))))

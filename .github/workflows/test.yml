@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: DeLaGuardo/setup-clj-kondo@v1
         with:
-          version: '2020.06.21'
+          version: '2020.07.29'
       - run: clj-kondo --lint src:resources test bin/*
   custom-lint:
     runs-on: ubuntu-latest

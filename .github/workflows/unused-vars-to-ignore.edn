@@ -1,3 +1,4 @@
-[:cldwalker.babashka.util.associative/map-keys ; util fn
+[:cldwalker.babashka.util.associative/map-keys ; repl fn
+ :cldwalker.babashka.util.maven-artifact/artifact-files ; repl fn
  ;; wip fn that may be used soon
  :cldwalker.babashka.util/stdin-active?]
