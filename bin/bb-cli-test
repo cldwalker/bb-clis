@@ -1,0 +1,65 @@
+#!/usr/bin/env bb
+;; vim: set filetype=clojure:
+
+(ns bb-cli-test
+  (:require [clojure.string :as str]
+            [clojure.java.shell :as shell]
+            [clojure.pprint :as pprint]
+            [clojure.java.io :as io]
+            [cldwalker.babashka.util :as util]))
+
+(def default-test-format
+    "(deftest %s
+  (let [cmd-results (shell/sh %s)
+        expected-results (-> (io/resource \"%s\")
+                             slurp
+                             edn/read-string)]
+    (is (= (:exit expected-results) (:exit cmd-results)))
+    (is (= (:out expected-results) (:out cmd-results)))
+    (is (= (:err expected-results) (:err cmd-results)))))
+")
+
+(defn- generate-test [test-name fixture-file cmd-vec]
+  (format default-test-format
+          test-name
+          (str/join " " (mapv #(str "\"" % "\"") cmd-vec))
+          fixture-file))
+
+(defn- add-test
+  "Runs the given command and args and saves its output to a fixture file. Adds
+  a test to the given file and points it to the recorded fixture file. If
+  command and args is a one string with whitespace, the string is automatically
+  wrapped in `bash -c`. This is useful for testing multiple commands e.g. `cat
+  foo.edn | baz`."
+  [cmd-and-args {:keys [test file]}]
+  (assert (and test file) "--test and --file are required options")
+  (let [fixture-file (-> file
+                         (str/replace-first #"^test/"  "resources/")
+                         (str/replace-first #"\.clj$" (str "/" test ".edn")))
+        ;; Wrap in bash if multiple commands
+        cmd-and-args_ (if (and (= 1 (count cmd-and-args))
+                               (str/includes? (first cmd-and-args) " "))
+                        (concat ["bash" "-c"] cmd-and-args)
+                        cmd-and-args)
+        new-test-string (generate-test test
+                                       (str/replace-first fixture-file "resources/" "")
+                                       cmd-and-args_)
+        cmd-output (apply shell/sh cmd-and-args_)]
+    (pprint/pprint cmd-output (io/writer fixture-file))
+    (spit file (str "\n" new-test-string) :append true)))
+
+(def cli-options
+  [["-h" "--help"]
+   ["-f" "--file FILE"]
+   ["-t" "--test TEST"]])
+
+(defn -main
+  [{:keys [summary arguments options]}]
+  (cond
+    (or (:help options) (zero? (count arguments)))
+    (util/print-summary "" summary)
+
+    (= "add" (first arguments)) (add-test (rest arguments) options)
+    :else (util/error "Unknown subcommand given")))
+
+(util/run-command -main *command-line-args* cli-options :in-order true :strict true)
