@@ -6,8 +6,8 @@
 
 (deftest help-option
   (let [cmd-results (shell/sh "bb-table" "-h"
-                              :env {"BABASHKA_CLASSPATH" "src"
-                                    "PATH" (str "bin:" (System/getenv "PATH"))})
+                              :env (merge (into {} (System/getenv))
+                                          {"BABASHKA_CLASSPATH" "src"}))
         expected-results (-> (io/resource "bin/bb_table_test/help-option.edn")
                              slurp
                              edn/read-string)]
