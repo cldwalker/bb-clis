@@ -34,7 +34,7 @@
   [cmd-and-args {:keys [test file verbose]}]
   (assert (and test file) "--test and --file are required options")
   (let [fixture-file (-> file
-                         (str/replace-first #"^test/"  "resources/")
+                         (str/replace-first #"^test/"  "test/resources/")
                          (str/replace-first #"\.clj$" (str "/" test ".edn")))
         ;; Wrap in bash if multiple commands
         cmd-and-args_ (if (and (= 1 (count cmd-and-args))
@@ -42,7 +42,7 @@
                         (concat ["bash" "-c"] cmd-and-args)
                         cmd-and-args)
         new-test-string (generate-test test
-                                       (str/replace-first fixture-file "resources/" "")
+                                       (str/replace-first fixture-file "test/resources/" "")
                                        cmd-and-args_)
         cmd-output (apply shell/sh cmd-and-args_)]
     (when verbose

@@ -87,7 +87,7 @@
     (is (= (:err expected-results) (:err cmd-results)))))
 
 (deftest file-option
-  (let [cmd-results (shell/sh "bb-table" "-f" "resources/bb-table-file-input.edn")
+  (let [cmd-results (shell/sh "bb-table" "-f" "test/resources/bb-table-file-input.edn")
         expected-results (-> (io/resource "bin/bb_table_test/file-option.edn")
                              slurp
                              edn/read-string)]
