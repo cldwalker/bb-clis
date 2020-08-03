@@ -78,7 +78,7 @@ Prints github url of PR associated with a commit. It assumes a current directory
 
 #### Setup
 
-* Install [clj-http-lite](https://github.com/borkdude/clj-http-lite) using [above instructions](#script-dependencies)
+* Install [clj-http-lite](https://github.com/babashka/clj-http-lite) using [above instructions](#script-dependencies)
 * Optional: To have this executable with private repositories, set `$GITHUB_USER` to your user and [create and set a $GITHUB_OAUTH_TOKEN](https://developer.github.com/apps/building-oauth-apps/authorizing-oauth-apps/#non-web-application-flow)
 
 #### Usage

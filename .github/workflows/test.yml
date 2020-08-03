@@ -19,7 +19,7 @@ jobs:
         # https://docs.github.com/en/actions/reference/workflow-commands-for-github-actions#setting-an-environment-variable
         run: echo "::set-env name=DEPS_EDN_PATHS::$(clojure -Spath -Sdeps '')"
       - name: Run bb tests
-        run: echo "PATHS - $DEPS_EDN_PATHS" && PATH=bin:$PATH BABASHKA_CLASSPATH=src:$DEPS_EDN_PATHS bb -cp src:test:resources -m test-runner
+        run: PATH=bin:$PATH BABASHKA_CLASSPATH=src:$DEPS_EDN_PATHS bb -cp src:test:resources -m test-runner
   lint:
     runs-on: ubuntu-latest
     steps:
