@@ -31,7 +31,7 @@
   command and args is a one string with whitespace, the string is automatically
   wrapped in `bash -c`. This is useful for testing multiple commands e.g. `cat
   foo.edn | baz`."
-  [cmd-and-args {:keys [test file]}]
+  [cmd-and-args {:keys [test file verbose]}]
   (assert (and test file) "--test and --file are required options")
   (let [fixture-file (-> file
                          (str/replace-first #"^test/"  "resources/")
@@ -45,12 +45,17 @@
                                        (str/replace-first fixture-file "resources/" "")
                                        cmd-and-args_)
         cmd-output (apply shell/sh cmd-and-args_)]
+    (when verbose
+      (println "Ran command:" cmd-and-args "\nSTDOUT:")
+      (println (:out cmd-output)))
     (pprint/pprint cmd-output (io/writer fixture-file))
-    (spit file (str "\n" new-test-string) :append true)))
+    (spit file (str "\n" new-test-string) :append true)
+    (println "Successfully added test!")))
 
 (def cli-options
   [["-h" "--help"]
    ["-f" "--file FILE"]
+   ["-v" "--verbose"]
    ["-t" "--test TEST"]])
 
 (defn -main
