@@ -25,12 +25,11 @@
           (str/join " " (mapv #(str "\"" % "\"") cmd-vec))
           fixture-file))
 
-(defn- add-test
-  "Runs the given command and args and saves its output to a fixture file. Adds
-  a test to the given file and points it to the recorded fixture file. If
-  command and args is a one string with whitespace, the string is automatically
-  wrapped in `bash -c`. This is useful for testing multiple commands e.g. `cat
-  foo.edn | baz`."
+(defn- record-test
+  "Records test by running the given command and args and saving its output to a
+  fixture file. If command and args is a single argument containing whitespace,
+  the string is automatically wrapped in `bash -c`. This is useful for testing
+  multiple commands e.g. `cat foo.edn | baz`."
   [cmd-and-args {:keys [test file verbose]}]
   (assert (and test file) "--test and --file are required options")
   (let [fixture-file (-> file
@@ -41,14 +40,24 @@
                                (str/includes? (first cmd-and-args) " "))
                         (concat ["bash" "-c"] cmd-and-args)
                         cmd-and-args)
-        new-test-string (generate-test test
-                                       (str/replace-first fixture-file "test/resources/" "")
-                                       cmd-and-args_)
         cmd-output (apply shell/sh cmd-and-args_)]
     (when verbose
       (println "Ran command:" cmd-and-args "\nSTDOUT:")
       (println (:out cmd-output)))
     (pprint/pprint cmd-output (io/writer fixture-file))
+    (println "Successfully recorded test!")
+
+    {:fixture-file fixture-file
+     :cmd-and-args cmd-and-args_}))
+
+(defn- record-and-add-test
+  "Records output of cmd and args. Then adds a test to the given file and points it to
+  the recorded fixture file."
+  [args {:keys [test file] :as options}]
+  (let [{:keys [fixture-file cmd-and-args]} (record-test args options)
+        new-test-string (generate-test test
+                                       (str/replace-first fixture-file "test/resources/" "")
+                                       cmd-and-args)]
     (spit file (str "\n" new-test-string) :append true)
     (println "Successfully added test!")))
 
@@ -62,9 +71,10 @@
   [{:keys [summary arguments options]}]
   (cond
     (or (:help options) (zero? (count arguments)))
-    (util/print-summary "" summary)
+    (util/print-summary " add|record &COMMAND-AND-ARGS" summary)
 
-    (= "add" (first arguments)) (add-test (rest arguments) options)
+    (= "add" (first arguments))    (record-and-add-test (rest arguments) options)
+    (= "record" (first arguments)) (do (record-test (rest arguments) options) nil)
     :else (util/error "Unknown subcommand given")))
 
 (util/run-command -main *command-line-args* cli-options :in-order true :strict true)
