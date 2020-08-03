@@ -34,7 +34,7 @@ jobs:
       - uses: DeLaGuardo/setup-clj-kondo@v1
         with:
           version: '2020.07.29'
-      - run: clj-kondo --lint src:resources test bin/*
+      - run: clj-kondo --lint src test bin/*
   custom-lint:
     runs-on: ubuntu-latest
     steps:
