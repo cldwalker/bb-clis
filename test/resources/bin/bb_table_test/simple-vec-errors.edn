@@ -1,0 +1,3 @@
+{:exit 1,
+ :out "Error: Input is not an EDN collection of maps\n",
+ :err ""}

@@ -49,9 +49,7 @@
                       (selected-columns columns_ columns-filter)
                       columns_)]
       (print-table columns__ rows style))
-    (do
-      (println "Error: Input is not an EDN collection of maps")
-      (System/exit 1))))
+    (util/error "Input is not an EDN collection of maps")))
 
 (defn- get-sort-key [rows query]
   (let [columns (get-columns rows)]

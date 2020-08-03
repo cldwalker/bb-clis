@@ -94,3 +94,12 @@
     (is (= (:exit expected-results) (:exit cmd-results)))
     (is (= (:out expected-results) (:out cmd-results)))
     (is (= (:err expected-results) (:err cmd-results)))))
+
+(deftest simple-vec-errors
+  (let [cmd-results (shell/sh "bash" "-c" "echo '[:a :b]' |bb-table")
+        expected-results (-> (io/resource "bin/bb_table_test/simple-vec-errors.edn")
+                             slurp
+                             edn/read-string)]
+    (is (= (:exit expected-results) (:exit cmd-results)))
+    (is (= (:out expected-results) (:out cmd-results)))
+    (is (= (:err expected-results) (:err cmd-results)))))
