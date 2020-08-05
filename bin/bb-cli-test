@@ -44,11 +44,21 @@
     (when verbose
       (println "Ran command:" cmd-and-args "\nSTDOUT:")
       (println (:out cmd-output)))
+    (when-not (-> fixture-file io/file .getParentFile .exists)
+      (io/make-parents fixture-file))
     (pprint/pprint cmd-output (io/writer fixture-file))
     (println "Successfully recorded test!")
 
     {:fixture-file fixture-file
      :cmd-and-args cmd-and-args_}))
+
+(def default-ns-format
+  "(ns %s
+  (:require [clojure.test :refer [deftest is]]
+            [clojure.edn :as edn]
+            [clojure.java.io :as io]
+            [clojure.java.shell :as shell]))
+")
 
 (defn- record-and-add-test
   "Records output of cmd and args. Then adds a test to the given file and points it to
@@ -58,6 +68,13 @@
         new-test-string (generate-test test
                                        (str/replace-first fixture-file "test/resources/" "")
                                        cmd-and-args)]
+    (when-not (.exists (io/file file))
+      (spit file
+            (format default-ns-format (-> file
+                                          (str/replace #"(^test/|\.clj$)" "")
+                                          (str/replace "/" ".")
+                                          (str/replace "_" "-"))))
+      (println "Created test file!"))
     (spit file (str "\n" new-test-string) :append true)
     (println "Successfully added test!")))
 
