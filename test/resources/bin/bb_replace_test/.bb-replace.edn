@@ -1,0 +1,8 @@
+{
+ :lein-version {:regex "(def.*?\\s+)\"[\\d.]+\""
+                :format-string "$1\"%s\""
+                :file "project.clj"}
+ :json-version {:regex "(\"version\":\\s+)\"[\\d\\.]+\""
+                :format-string "$1\"%s\""
+                :file "package.json"}
+ }

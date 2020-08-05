@@ -1,0 +1,3 @@
+{:exit 0,
+ :out "Usage: bb-replace [OPTIONS] REPLACEMENT/REGEX [& ARGUMENTS]\nReplacements available: lein-version, json-version\nOptions:\n  -h, --help\n  -f, --file FILE             Overrides default file for a replacement\n  -F, --format-string FORMAT  Overrides default format string for a replacement\n",
+ :err ""}
