@@ -82,6 +82,7 @@
   [["-h" "--help"]
    ["-f" "--file FILE"]
    ["-v" "--verbose"]
+   ["-s" "--stub STUB"]
    ["-t" "--test TEST"]])
 
 (defn -main

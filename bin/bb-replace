@@ -11,6 +11,9 @@
             [cldwalker.babashka.util :as util]
             [cldwalker.babashka.util.associative :as a]))
 
+; (require '[bond.james :as bond])
+; (with-redefs [spit (bond/spy spit)]
+
 (defn- get-replacements
   "Reads replacements from ./bb-replace.edn and ~/.bb-replace.edn.
 A replacement consists of three keys:
@@ -65,3 +68,5 @@ A replacement consists of three keys:
                                     (rest arguments)))))
 
 (util/run-command -main *command-line-args* cli-options)
+; (prn (bond.james/calls spit))
+; )
