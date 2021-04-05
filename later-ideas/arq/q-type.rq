@@ -1,0 +1,6 @@
+prefix s: <https://schema.org/>
+
+SELECT ?x ?y
+WHERE { ?x a s:Movie .
+        ?x s:name ?y
+      }

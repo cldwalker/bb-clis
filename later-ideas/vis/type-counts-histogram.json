@@ -1,0 +1,19 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v4.json",
+  "data": {"url": "tag-counts-data.json"},
+  "mark": "bar",
+  "encoding": {
+    "x": {
+      "bin": {
+        "binned": true,
+        "step": 10
+      },
+      "field": "count",
+      "type": "ordinal"
+    },
+    "y": {
+      "aggregate": "count",
+      "type": "quantitative"
+    }
+  }
+}

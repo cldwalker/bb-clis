@@ -1,0 +1,23 @@
+@prefix vCard:   <http://www.w3.org/2001/vcard-rdf/3.0#> .
+@prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+
+<http://somewhere/MattJones/>  vCard:FN   "Matt Jones" .
+<http://somewhere/MattJones/>  vCard:N    _:b0 .
+_:b0  vCard:Family "Jones" .
+_:b0  vCard:Given  "Matthew" .
+
+
+<http://somewhere/RebeccaSmith/> vCard:FN    "Becky Smith" .
+<http://somewhere/RebeccaSmith/> vCard:N     _:b1 .
+_:b1 vCard:Family "Smith" .
+_:b1 vCard:Given  "Rebecca" .
+
+<http://somewhere/JohnSmith/>    vCard:FN    "John Smith" .
+<http://somewhere/JohnSmith/>    vCard:N     _:b2 .
+_:b2 vCard:Family "Smith" .
+_:b2 vCard:Given  "John"  .
+
+<http://somewhere/SarahJones/>   vCard:FN    "Sarah Jones" .
+<http://somewhere/SarahJones/>   vCard:N     _:b3 .
+_:b3 vCard:Family  "Jones" .
+_:b3 vCard:Given   "Sarah" .
