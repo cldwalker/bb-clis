@@ -4,6 +4,7 @@
 
 (ns bb-try
   (:require [cldwalker.babashka.util :as util]
+<<<<<<< Updated upstream
             [clojure.java.shell :as shell]))
 
 (def cli-options
@@ -67,3 +68,28 @@
     :else (-main* arguments options)))
 
 (util/run-command -main *command-line-args* cli-options :in-order true)
+=======
+            [clojure.java.shell :as sh]))
+
+(let [[dependency & bb-args] *command-line-args*
+      git-url? (str/starts-with? dependency "https://github.com/")
+      [artifact bb-args] (if git-url? [(first bb-args) (rest-args)]
+                           [nil bb-args])
+      deps-string (if git-url?
+                    (format "{:deps {%s {:git/url "%s" :sha "%s"}}}"
+                            artifact
+                            dependency
+                            ;; https://github.com/reifyhealth/devops-aptible/blob/ad56546ef2af2ba887fc07da11bdd4f7d1237766/bb-release-utils/src/reifyhealth/babashka/github.clj#L112
+                            "TODO: calculate latest sha")
+                    (format "{:deps {%s {:mvn/version \"RELEASE\"}}}"
+                            dependency))
+      new-classpath (str (System/getenv "BABASHKA_CLASSPATH")
+                         ":"
+                         ;; Use this sh because it fails fast on non-zero exit code
+                         (util/sh "clojure" "-Spath" "-Sdeps" deps-string))
+      bb-invocation (if (-> (sh/sh "which" "rlwrap") :exit zero?)
+                      ["rlwrap" "bb"]
+                      ["bb"])]
+  (util/exec (concat bb-invocation bb-args)
+             {"BABASHKA_CLASSPATH" new-classpath}))
+>>>>>>> Stashed changes
