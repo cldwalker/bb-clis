@@ -38,7 +38,9 @@
 (defn open-url
   "Osx specific way to open url in browser"
   [url]
-  (shell/sh "open" url))
+  ;; -n needed to open in big sur.
+  ;; See https://apple.stackexchange.com/questions/406556/macos-big-sur-terminal-command-open-behaviour-changed-and-i-dont-know-how-to
+  (shell/sh "open" "-n" url))
 
 
 (defn sh
