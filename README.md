@@ -71,6 +71,7 @@ The following CLIs are under bin/:
 * [bb-replace](#bb-replace)
 * [bb-vis](#bb-vis)
 * [bb-try](#bb-try)
+* [bb-ns-dep-tree](#bb-ns-dep-tree)
 
 ### bb-github-pr-for-commit
 
