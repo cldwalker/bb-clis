@@ -253,6 +253,51 @@ $ bb-try camel-snake-kebab "(require '[camel-snake-kebab.core :as csk]) (csk/->S
 
 Currently it only fetches the latest version of a library but I'm thinking of making a version optional.
 
+## bb-ns-dep-tree
+
+Print the ns dependency tree for a given ns or file. For example, if we want to
+print the dependencies of
+[datascript.datafy](https://github.com/tonsky/datascript/blob/master/src/datascript/datafy.cljc):
+
+```sh
+# On a local checkout of datascript
+$ bb-ns-dep-tree src/datascript/datafy.cljc
+datascript.datafy
+├── clojure.core.protocols
+├── datascript.pull-api
+│   ├── datascript.db ...
+│   └── datascript.pull-parser
+│       └── datascript.db ...
+├── datascript.db
+│   ├── clojure.walk
+│   ├── clojure.data
+│   ├── me.tonsky.persistent-sorted-set
+│   └── me.tonsky.persistent-sorted-set.arrays
+└── datascript.impl.entity
+    ├── clojure.core
+    └── datascript.db ...
+
+# We can also print the cljs dependencies of the same ns
+$ bb-ns-dep-tree -l cljs datascript.datafy
+datascript.datafy
+├── clojure.core.protocols
+├── datascript.pull-api
+│   ├── datascript.db ...
+│   └── datascript.pull-parser
+│       └── datascript.db ...
+├── datascript.db
+│   ├── goog.array
+│   ├── clojure.walk
+│   ├── clojure.data
+│   ├── me.tonsky.persistent-sorted-set
+│   ├── me.tonsky.persistent-sorted-set.arrays
+│   └── datascript.db ...
+└── datascript.impl.entity
+    ├── cljs.core
+    └── datascript.db ...
+```
+
+
 ## License
 See LICENSE.md
 

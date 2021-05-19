@@ -1,0 +1,90 @@
+#!/usr/bin/env bb
+;; Prints ascii tree of ns dependencies like tree command
+;; vim: set filetype=clojure:
+
+(ns bb-ns-dep-tree
+  (:require [cldwalker.babashka.util :as util]
+            [clojure.java.io :as io]
+            [babashka.pods :as pods]))
+
+(pods/load-pod "clj-kondo")
+(require '[pod.borkdude.clj-kondo :as clj-kondo])
+
+;; Ascii tree from https://github.com/babashka/babashka/blob/master/examples/tree.clj
+(def I-branch "│   ")
+(def T-branch "├── ")
+(def L-branch "└── ")
+(def SPACER   "    ")
+
+(def already-seen (atom #{}))
+
+(defn- build-tree
+  [node children-map {:keys [expand-duplicate-branches] :as opts}]
+  (let [can-expand? (or expand-duplicate-branches
+                        (not (contains? @already-seen node)))
+        children (children-map node)
+        parent? (seq children)]
+    (swap! already-seen conj node)
+    (cond-> {:name (str node (when (and parent? (not can-expand?)) " ..."))
+             :type (if parent? "parent" "child")}
+            (and parent? can-expand?) (assoc :children
+                                             (map #(build-tree % children-map opts)
+                                                  children)))))
+
+(defn render-tree
+  [{:keys [name children]}]
+  (cons name
+        (mapcat
+         (fn [child index]
+           (let [subtree (render-tree child)
+                 last? (= index (dec (count children)))
+                 prefix-first (if last? L-branch T-branch)
+                 prefix-rest  (if last? SPACER I-branch)]
+             (cons (str prefix-first (first subtree))
+                   (map #(str prefix-rest %) (next subtree)))))
+         children
+         (range))))
+
+(defn- clj-kondo-analysis
+  [paths]
+  (:analysis (clj-kondo/run! {:lint paths
+                              :config {:output {:analysis true}}})))
+
+(defn- build-children-map [analysis lang-to-match]
+  (reduce (fn [acc {:keys [from to lang]}]
+            (if (or (nil? lang) (= lang-to-match lang))
+              (update acc from (fnil conj []) to)
+              acc))
+          {}
+          (:namespace-usages analysis)))
+
+(defn print-ns-tree [[ns-or-file] {:keys [source-paths lang] :as options}]
+  (let [analysis (clj-kondo-analysis source-paths)
+        ns-sym (if (.exists (io/file ns-or-file))
+                 (some #(when (= ns-or-file (:filename %)) (:name %))
+                       (:namespace-definitions analysis))
+                 (symbol ns-or-file))
+        tree (build-tree ns-sym (build-children-map analysis lang) options)]
+    (doseq [l (render-tree tree)]
+      (println l))))
+
+(def cli-options
+  [["-h" "--help"]
+   ["-e" "--expand-duplicate-branches" "Expands all ns dependencies including duplicate branches"]
+   ["-l" "--lang LANG" "Language for .cljc analysis"
+    :parse-fn keyword
+    :default :clj]
+   ["-s" "--source-paths DIR" "Source paths to analyze"
+    :default ["src"]
+    ;; Allows us to specify multiple values for this option
+    :assoc-fn (fn [curr _key val] (update curr :source-paths conj val))
+    :validate [#(.isDirectory (io/file %))
+               "Must be a valid directory"]]])
+
+(defn -main [{:keys [summary arguments options]}]
+  (if (or (:help options) (zero? (count arguments)))
+    (util/print-summary " NS/FILE" summary)
+    (print-ns-tree arguments options)))
+
+(when (= *file* (System/getProperty "babashka.file"))
+  (util/run-command -main *command-line-args* cli-options))
