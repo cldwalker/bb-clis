@@ -1,0 +1,16 @@
+{:tasks
+ {:requires ([cheshire.core :as json]
+             [clojure.string :as str])
+  json=
+   ;; Useful when diff fails you do to random sort of json files produced differently
+  {:doc "Check equality of given json files"
+   :task (prn (apply = (map (fn [x] (-> x slurp json/parse-string)) *command-line-args*)))}
+  brew-search-info
+  {:doc "Runs a brew info on all brew search results"
+   :task (let [results (-> (shell {:out :string}
+                                  (str/join " " (into ["brew" "search"]
+                                                      *command-line-args*)))
+                           :out
+                           str/split-lines)
+               brew-packages (remove (fn [x] (re-find (re-pattern "(Casks|Formulae)$") x)) results)]
+           (shell (str "brew info " (str/join " " brew-packages))))}}}

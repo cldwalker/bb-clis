@@ -1,11 +1,11 @@
 ## Description
 
-An assortment of handy [Babashka](https://github.com/borkdude/babashka) CLIs
+An assortment of handy [Babashka](https://github.com/borkdude/babashka) CLIs and tasks
 
 ## Setup
 
 First, [install babashka](https://github.com/borkdude/babashka#installation).
-These scripts require babashka >= 0.1.1.
+These scripts require babashka >= 0.4.1.
 
 To setup using and modifying these scripts, read the [General section](#general). To just install one script, read the [Single Script section](#single-script). To setup babashka as I use it, read the [bb section](#bb).
 
@@ -32,10 +32,10 @@ $ export BABASHKA_CLASSPATH=$BABASHKA_CLASSPATH:$(clojure -Spath -Sdeps "$(cat $
 
 ### Single Script
 
-To use a single babashka script without the General setup, simply export one using --uberscript:
+To use a single babashka script without the General setup, simply export one with `bb uberscript`:
 ```sh
 # -f can be any of my babashka scripts that don't have options
-$ bb -f bin/bb-github-repo --uberscript my-bb-github-repo.clj
+$ bb uberscript my-bb-github-repo.clj -f bin/bb-github-repo
 
 # To run the exported script
 $ bb -f my-bb-github-repo.clj
@@ -48,15 +48,24 @@ $ clojure -A:carve --opts '{:paths ["my-bb-github-repo.clj"] :interactive? false
 
 The previous sections are about setting up your environment to run the scripts in this repository. This section is about running babashka on the commandline. This section assumes you've setup `$BABASHKA_CLASSPATH` as mentioned above.
 
-Babashka supports `$BABASHA_PRELOADS` which allows arbitrary clojure to be run at the start of each invocation. This is handy for loading one's preferred set of vars and namespaces. To avoid loading [preloads](preloads.clj) when running babashka scripts but load them for commandline babashka, use this alias: `alias bb="BABASHKA_PRELOADS='(load-file (str (System/getenv \"HOME\") \"/path/to/this-repo/preloads.clj\"))' bb"`
+Babashka supports `$BABASHA_PRELOADS` which allows arbitrary clojure to be run at the start of each invocation. This is handy for loading one's preferred set of vars and namespaces, especially when paired with an alias. For example, `alias bbp="BABASHKA_PRELOADS='(load-file (str (System/getenv \"HOME\") \"/path/to/this-repo/preloads.clj\"))' bb"`
 
 Preloaded fns like `map-keys` are then available on the commandline:
 
 ```sh
 # Prints out env variables map with env keys converted to clojure-cased keywords
-$ bb '(->> (System/getenv) (into {}) (map-keys #(-> % (str/replace "_" "-") str/lower-case keyword)))'
+$ bbp '(->> (System/getenv) (into {}) (map-keys #(-> % (str/replace "_" "-") str/lower-case keyword)))'
 {:gopath "/Users/me/.go", :path ...}
 ```
+## Tasks
+
+bb.edn contains global tasks i.e. tasks that are useful in any directory or project. These tasks are usually small and if they get bigger, they become a CLI. To run these tasks from any directory, I use this shell function:
+
+```sh
+function bbg() { cd /path/to/this-repo && bb $@; cd - > /dev/null}
+```
+
+For example, `bbg tasks`.
 
 ## CLIs
 
