@@ -1,0 +1,65 @@
+#!/usr/bin/env bb
+;; vim: set filetype=clojure:
+;; Run aws commands the same way the awscli does e.g.
+;; - bb-aws s3api list-buckets
+;; - bb-aws s3api get-bucket-acl --bucket X
+
+(ns bb-aws
+  (:require [babashka.pods :as pods]
+            [cldwalker.babashka.util.associative :as a]
+            [cldwalker.babashka.util :as util]
+            [clojure.string :as str]
+            [clojure.pprint :as pprint]))
+
+(pods/load-pod 'org.babashka/aws "0.0.6")
+(require '[pod.babashka.aws :as aws])
+
+(defn- aws-subcommand->aws-api-operation
+  [s]
+  (->> (str/split s #"-")
+       (map str/capitalize)
+       str/join))
+
+(def aws-command->aws-api-api
+  {:s3api :s3})
+
+(defn- parse-options-and-args [all-args]
+  (loop [options {}
+         args all-args]
+    (if (some-> (first args) (str/starts-with? "--"))
+      (recur (assoc options
+                    (str/replace-first (first args) #"^--" "") (second args))
+        (drop 2 args))
+      [options args])))
+
+(defn invoke-aws-operation [[cmd subcmd & args] {:keys [region]}]
+  (let [api (aws-command->aws-api-api (keyword cmd) (keyword cmd))
+        op (keyword (aws-subcommand->aws-api-operation subcmd))
+        client (aws/client {:api api :region region})
+        [options _] (parse-options-and-args args)
+        request (a/map-keys (comp keyword str/capitalize) options)]
+    (try (pprint/pprint (aws/invoke client {:op op
+                                            :request request}))
+      ;; Noisy failure if the wrong number of args given
+      ;; See https://github.com/babashka/pod-babashka-aws/blob/d7c4306bdd74ecde16ee3766825b71facb325588/src/pod/babashka/aws.clj#L120-L123 for noise.
+      ;; TODO: Actually catch the noisy failure
+      (catch Throwable _
+        (println "\nError: Unexpected failure occurred. See error message above.")))))
+
+(def cli-options
+  [["-h" "--help"]
+   ["-r" "--region REGION" :default "us-east-1"]])
+
+(defn -main [{:keys [summary arguments options]}]
+  (if (or (:help options) (zero? (count arguments)))
+    (util/print-summary " COMMAND SUBCOMMAND [SUBCOMMAND-OPTIONS]" summary)
+    (invoke-aws-operation arguments options)))
+
+(when (= *file* (System/getProperty "babashka.file"))
+  (util/run-command -main *command-line-args* cli-options))
+
+(comment
+ (def s3-client (aws/client {:api :s3 :region "us-east-1"}))
+ (aws/doc s3-client :ListBuckets)
+ (aws/invoke s3-client {:op :ListBuckets})
+ )
