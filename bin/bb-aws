@@ -1,8 +1,12 @@
 #!/usr/bin/env bb
 ;; vim: set filetype=clojure:
+;; Usage
+;; =====
 ;; Run aws commands the same way the awscli does e.g.
 ;; - bb-aws s3api list-buckets
 ;; - bb-aws s3api get-bucket-acl --bucket X
+;; Drop into a repl with command's result stored in #'result
+;; - bb-aws s3api list-buckets --repl
 
 (ns bb-aws
   {:clj-kondo/config
@@ -51,7 +55,7 @@
 (def cli-options
   [["-h" "--help"]
    ["-R" "--repl" "Drop into repl with operation result set to #'result"]
-   ["-r" "--region REGION" :default "us-east-1"]])
+   ["-r" "--region REGION" :default "us-east-2"]])
 
 (defn -main [{:keys [summary arguments options]}]
   (if (or (:help options) (zero? (count arguments)))
