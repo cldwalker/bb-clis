@@ -5,8 +5,10 @@
 ;; Run aws commands the same way the awscli does e.g.
 ;; - bb-aws s3api list-buckets
 ;; - bb-aws s3api get-bucket-acl --bucket X
+;; Note: Does not support commands with non-option arguments e.g.
+;;   bb-aws lambda invoke --function-name FN OUT_FILE
 ;; Drop into a repl with command's result stored in #'result
-;; - bb-aws s3api list-buckets --repl
+;; - bb-aws --repl s3api list-buckets
 
 (ns bb-aws
   {:clj-kondo/config
@@ -21,7 +23,7 @@
 (pods/load-pod 'org.babashka/aws "0.0.6")
 (require '[pod.babashka.aws :as aws])
 
-(defn- aws-subcommand->aws-api-operation
+(defn- clojure-case->camel-case
   [s]
   (->> (str/split s #"-")
        (map str/capitalize)
@@ -41,10 +43,10 @@
 
 (defn invoke-aws-operation [[cmd subcmd & args] {:keys [region]}]
   (let [api (aws-command->aws-api-api (keyword cmd) (keyword cmd))
-        op (keyword (aws-subcommand->aws-api-operation subcmd))
+        op (keyword (clojure-case->camel-case subcmd))
         client (aws/client {:api api :region region})
         [options _] (parse-options-and-args args)
-        request (a/map-keys (comp keyword str/capitalize) options)]
+        request (a/map-keys (comp keyword clojure-case->camel-case) options)]
     (try (aws/invoke client {:op op :request request})
       ;; Noisy failure if the wrong number of args given
       ;; See https://github.com/babashka/pod-babashka-aws/blob/d7c4306bdd74ecde16ee3766825b71facb325588/src/pod/babashka/aws.clj#L120-L123 for noise.
@@ -55,7 +57,9 @@
 (def cli-options
   [["-h" "--help"]
    ["-R" "--repl" "Drop into repl with operation result set to #'result"]
-   ["-r" "--region REGION" :default "us-east-2"]])
+   ["-r" "--region REGION"
+    :default-desc "$AWS_REGION or us-east-2"
+    :default-fn (fn [_] (or (System/getenv "AWS_REGION") "us-east-2"))]])
 
 (defn -main [{:keys [summary arguments options]}]
   (if (or (:help options) (zero? (count arguments)))
@@ -67,7 +71,7 @@
         (main/repl)))))
 
 (when (= *file* (System/getProperty "babashka.file"))
-  (util/run-command -main *command-line-args* cli-options))
+  (util/run-command -main *command-line-args* cli-options :in-order true))
 
 (comment
  (def s3-client (aws/client {:api :s3 :region "us-east-1"}))
