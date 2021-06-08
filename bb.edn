@@ -33,4 +33,18 @@
                            :out
                            str/split-lines)
                brew-packages (remove (fn [x] (re-find (re-pattern "(Casks|Formulae)$") x)) results)]
-           (shell (str "brew info " (str/join " " brew-packages))))}}}
+           (shell (str "brew info " (str/join " " brew-packages))))}
+
+  update-gitlib
+  {:doc "Update git library sha in deps.edn"
+   :extra-deps {borkdude/rewrite-edn {:mvn/version "0.0.2"}}
+   :requires ([borkdude.rewrite-edn :as r])
+   :usage "GITLIB SHA"
+   :task (let [[gitlib sha] *command-line-args*
+               ;; $OLDPWD is a hack required since this task is run as a global
+               ;; task via bbg
+               nodes (-> (str (System/getenv "OLDPWD") "/deps.edn")
+                         slurp
+                         r/parse-string)]
+           (spit (str (System/getenv "OLDPWD") "/deps.edn")
+                 (str (r/assoc-in nodes [:deps (symbol gitlib) :sha] sha))))}}}
