@@ -3,6 +3,17 @@
              [cldwalker.babashka.util :as util]
              [clojure.edn :as edn]
              [clojure.string :as str])
+
+  ;; Checks # of required arguments
+  :enter (let [required-args (->> (str (:usage (current-task)))
+                                  ((fn [s] (str/split s (re-pattern "\\s+"))))
+                                  (take-while (fn [s] (re-find (re-pattern "^[A-Z]") s))))]
+           (when (not= (count *command-line-args*) (count required-args))
+             (println "Wrong number of arguments given.")
+             (println (format "Usage: bb %s %s"
+                              (:name (current-task))
+                              (:usage (current-task))))
+             (System/exit 1)))
   help
   {:doc "Print a task's help"
    :usage "TASK"
