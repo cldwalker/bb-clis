@@ -7,7 +7,10 @@
   {:doc "Print a task's help"
    :usage "TASK"
    ;; Would rather not dip into bb's internals to determine tasks
-   :task (let [tasks (-> (slurp "bb.edn") edn/read-string :tasks)
+   :task (let [tasks (-> (or (System/getenv "BABASHKA_EDN") "bb.edn")
+                         slurp
+                         edn/read-string
+                         :tasks)
                task (first *command-line-args*)]
            (if-let [task-map (get tasks (symbol task))]
              (println (format "%s\n\nUsage: bb %s%s"
@@ -41,10 +44,6 @@
    :requires ([borkdude.rewrite-edn :as r])
    :usage "GITLIB SHA"
    :task (let [[gitlib sha] *command-line-args*
-               ;; $OLDPWD is a hack required since this task is run as a global
-               ;; task via bbg
-               nodes (-> (str (System/getenv "OLDPWD") "/deps.edn")
-                         slurp
-                         r/parse-string)]
-           (spit (str (System/getenv "OLDPWD") "/deps.edn")
+               nodes (-> "deps.edn" slurp r/parse-string)]
+           (spit "deps.edn"
                  (str (r/assoc-in nodes [:deps (symbol gitlib) :sha] sha))))}}}

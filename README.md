@@ -62,7 +62,7 @@ $ bbp '(->> (System/getenv) (into {}) (map-keys #(-> % (str/replace "_" "-") str
 bb.edn contains global tasks i.e. tasks that are useful in any directory or project. These tasks are usually small and if they get bigger, they become a CLI. To run these tasks from any directory, I use this shell function:
 
 ```sh
-function bbg() { cd /path/to/this-repo && bb $@; cd - > /dev/null}
+function bbg() { BABASHKA_EDN=/path/to/this-repo/bb.edn bb $@ }
 ```
 
 For example, `bbg tasks`.
