@@ -60,9 +60,8 @@ Takes following options:
   [["-d" "--directories DIR" "Directories to update"
     :default-fn (fn [_x] [(System/getenv "PWD")])
     :default-desc "Current directory"
-    ;; :update-fn didn't receive option values. Maybe a babashka bug?
-    ;; Allows us to specify multiple values for this option
-    :assoc-fn (fn [curr _key val] (update curr :directories conj val))
+    :multi true
+    :update-fn conj
     :validate [#(.isDirectory (io/file % ".git"))
                "Must be a valid git directory"]]
    ["-c" "--commit-and-push" "Git commit and push to remote"]

@@ -8,12 +8,13 @@
   :enter (let [required-args (->> (str (:usage (current-task)))
                                   ((fn [s] (str/split s (re-pattern "\\s+"))))
                                   (take-while (fn [s] (re-find (re-pattern "^[A-Z]") s))))]
-           (when (not= (count *command-line-args*) (count required-args))
+           (when (< (count *command-line-args*) (count required-args))
              (println "Wrong number of arguments given.")
              (println (format "Usage: bb %s %s"
                               (:name (current-task))
                               (:usage (current-task))))
              (System/exit 1)))
+
   help
   {:doc "Print a task's help"
    :usage "TASK"
@@ -33,6 +34,28 @@
              (do
                (println "Error: No such task exists")
                (System/exit 1))))}
+
+  every-dir-shell
+  {:doc "Run shell command on every dir"
+   :requires ([clojure.tools.cli :as cli]
+              [babashka.fs :as fs])
+   :usage "CMD [&ARGS]"
+   :task (let [{:keys [options arguments]}
+               (cli/parse-opts *command-line-args*
+                               [["-d" "--directory DIR" "Directories"
+                                 :id :directories
+                                 :default-fn (fn [_x] [(System/getenv "PWD")])
+                                 :validate [fs/directory?
+                                            "Must be a directory"]
+                                 :multi true
+                                 :update-fn conj]]
+                               :in-order true)
+               args (str/join " " arguments)]
+           (doseq [dir (:directories options)]
+             (println "=== Directory -" dir "===")
+             (shell {:dir dir} args)
+             (println "")))}
+
   json=
   ;; Useful when diff fails you do to random sort of json files produced differently
   {:doc "Check equality of given json files"
