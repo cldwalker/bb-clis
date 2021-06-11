@@ -5,18 +5,36 @@
              [clojure.string :as str])
   :init
   (do
+    (defn parse-and-set-options []
+      ;; Unsupported task keys like :options don't return values with valid
+      ;; fns. Eval translates symbols to fns. Could reach into bb internals
+      ;; or ask for this to be supported upstream but this is least effort
+      ;; and coupling.
+      (if-let [task-opts (some-> (:options (current-task)) eval)]
+        (let [parsed-args
+              (apply (requiring-resolve 'clojure.tools.cli/parse-opts) *command-line-args*
+                task-opts
+                (:cli-options (current-task)))]
+          (def ^:dynamic *parsed-args* parsed-args))
+        (def ^:dynamic *parsed-args* :undefined)))
+
     (defn check-for-required-arguments []
       (let [required-args (->> (str (:usage (current-task)))
                                ((fn [s] (str/split s (re-pattern "\\s+"))))
-                               (take-while (fn [s] (re-find (re-pattern "^[A-Z]") s))))]
-        (when (< (count *command-line-args*) (count required-args))
+                               (take-while (fn [s] (re-find (re-pattern "^[A-Z]") s))))
+            args (if (= :undefined *parsed-args*)
+                   *command-line-args* (:arguments *parsed-args*))]
+        (when (< (count args) (count required-args))
           (println "Wrong number of arguments given.")
           (println (format "Usage: bb %s %s"
                            (:name (current-task))
                            (:usage (current-task))))
-          (System/exit 1)))))
+          (System/exit 1))))
+    )
 
-  :enter (check-for-required-arguments)
+  :enter (do
+           (parse-and-set-options)
+           (check-for-required-arguments))
 
   help
   {:doc "Print a task's help"
@@ -43,16 +61,14 @@
    :requires ([clojure.tools.cli :as cli]
               [babashka.fs :as fs])
    :usage "CMD [&ARGS]"
-   :task (let [{:keys [options arguments]}
-               (cli/parse-opts *command-line-args*
-                               [["-d" "--directory DIR" "Directories"
-                                 :id :directories
-                                 :default-fn (fn [_x] [(System/getenv "PWD")])
-                                 :validate [fs/directory?
-                                            "Must be a directory"]
-                                 :multi true
-                                 :update-fn conj]]
-                               :in-order true)
+   :options [["-d" "--directory DIR" "Directories"
+              :id :directories
+              :default-fn (fn [_x] [(System/getenv "PWD")])
+              :validate [fs/directory? "Must be a directory"]
+              :multi true
+              :update-fn conj]]
+   :cli-options [:in-order true]
+   :task (let [{:keys [options arguments]} *parsed-args*
                args (str/join " " arguments)]
            (doseq [dir (:directories options)]
              (println "=== Directory -" dir "===")
