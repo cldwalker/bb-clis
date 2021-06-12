@@ -1,0 +1,79 @@
+#!/usr/bin/env bb
+; Converts a url into a set of markdown properties for use
+; as a multi-line loseq block
+; vim: set filetype=clojure:
+
+(ns bb-logseq-create
+  (:require [cldwalker.babashka.util :as util]
+            [clojure.string :as str]
+            [babashka.tasks :refer [shell]])
+  (:import (java.net URL)))
+
+;; TODO: Move to a config file
+(def url-config
+  [["github.com\\/[^\\/]+\\/([^\\/]+)" "repo"]])
+
+(defn- extract-type [url url-config]
+  (some (fn [[regex-str type_]]
+          (when (re-find (re-pattern regex-str) url)
+            type_))
+        url-config))
+
+(defn- extract-name [url url-config]
+  (some (fn [[regex-str _]]
+          (second (re-find (re-pattern regex-str) url)))
+        url-config))
+
+(defn- url->properties [url]
+  (let [type_ (extract-type url url-config)
+        name_ (extract-name url url-config)]
+    (cond-> {:url url}
+            type_ (assoc :type type_)
+            name_ (assoc :name name_))))
+
+(defn- blockify [{:keys [type name url]}]
+  (cond-> []
+          type (conj (str "type:: " type))
+          name (conj (str "name:: " name))
+          url (conj (str "url:: " url))
+          true ((fn [coll] (str/join "\n" coll)))))
+
+(defn- ->url-object [url]
+  (try (URL. url)
+    (catch Exception _ nil)))
+
+(defn- notify-anybar
+  "See https://github.com/tonsky/AnyBar"
+  [color]
+  (shell {:in color} "nc -4u -w0 localhost 1738"))
+
+(defn- create-block [arguments {:keys [clear-anybar]}]
+  (let [url (if (seq arguments)
+              (str/join " " arguments)
+              (:out (shell {:out :string} "pbpaste")))
+        _ (when-not (->url-object url)
+            (println "Error: The following is not a url -" (pr-str url))
+            (notify-anybar "red")
+            (System/exit 1))
+        properties (url->properties url)
+        block-text (str (blockify properties)
+                        "\ndesc:: ")]
+    (shell {:in block-text} "pbcopy")
+    (notify-anybar "green")
+    (println block-text)
+    (when clear-anybar
+      (Thread/sleep 2000)
+      (notify-anybar "hollow")
+      nil)))
+
+(defn -main [{:keys [options arguments summary]}]
+  (if (:help options)
+    (util/print-summary " [& LOGSEQ_TEXT]" summary)
+    (create-block arguments options)))
+
+(def cli-options
+  [["-h" "--help"]
+   ["-c" "--clear-anybar"]])
+
+(when (= *file* (System/getProperty "babashka.file"))
+  (util/run-command -main *command-line-args* cli-options))
