@@ -99,4 +99,23 @@
    :task (let [[gitlib sha] *command-line-args*
                nodes (-> "deps.edn" slurp r/parse-string)]
            (spit "deps.edn"
-                 (str (r/assoc-in nodes [:deps (symbol gitlib) :sha] sha))))}}}
+                 (str (r/assoc-in nodes [:deps (symbol gitlib) :sha] sha))))}
+
+  rdf-data
+  {:doc "Fetches rdf contents of a url using rdf-dereference"
+   :usage "URL"
+   :requires ([clojure.pprint :as pprint])
+   :options [["-a" "--all" "Prints all data, not just schema.org predicates with graph and subject filtered out"]]
+   :task (let [options (:options *parsed-args*)
+               rdf-data (:out (shell {:out :string} (str "rdf-dereference " (first *command-line-args*))))
+               filter-fn (if (:all options)
+                           (constantly true)
+                           (fn [{:keys [predicate]}]
+                             (or (str/includes? predicate "schema.org")
+                                 ;; Next two are useful on github
+                                 (str/includes? predicate "ogp.me")
+                                 (= "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" predicate))))
+               map-fn (if (:all options) identity (fn [m] (dissoc m :subject :graph)))
+               result (map map-fn
+                           (filter filter-fn (json/parse-string rdf-data true)))]
+           (pprint/pprint result))}}}
