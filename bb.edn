@@ -1,40 +1,32 @@
 {:tasks
  {:requires ([cheshire.core :as json]
              [cldwalker.babashka.util :as util]
+             [cldwalker.babashka.task :as task]
              [clojure.edn :as edn]
              [clojure.string :as str])
   :init
   (do
-    (defn parse-and-set-options []
-      ;; Unsupported task keys like :options don't return values with valid
-      ;; fns. Eval translates symbols to fns. Could reach into bb internals
-      ;; or ask for this to be supported upstream but this is least effort
-      ;; and coupling.
-      (if-let [task-opts (some-> (:options (current-task)) eval)]
-        (let [parsed-args
-              (apply (requiring-resolve 'clojure.tools.cli/parse-opts) *command-line-args*
-                task-opts
-                (:cli-options (current-task)))]
-          (def ^:dynamic *parsed-args* parsed-args))
-        (def ^:dynamic *parsed-args* :undefined)))
-
-    (defn check-for-required-arguments []
+    (defn check-for-required-arguments [parsed-args]
       (let [required-args (->> (str (:usage (current-task)))
                                ((fn [s] (str/split s (re-pattern "\\s+"))))
                                (take-while (fn [s] (re-find (re-pattern "^[A-Z]") s))))
-            args (if (= :undefined *parsed-args*)
-                   *command-line-args* (:arguments *parsed-args*))]
+            args (if (= :cldwalker.babashka.task/no-options parsed-args)
+                   *command-line-args* (:arguments parsed-args))]
         (when (< (count args) (count required-args))
           (println "Wrong number of arguments given.")
-          (println (format "Usage: bb %s %s"
+          (println (format "Usage: bb %s %s%s"
                            (:name (current-task))
-                           (:usage (current-task))))
+                           (:usage (current-task))
+                           (if-let [summary (:summary parsed-args)]
+                             (str "\nOptions:\n" summary)
+                             "")))
           (System/exit 1))))
     )
 
   :enter (do
-           (parse-and-set-options)
-           (check-for-required-arguments))
+           (def ^:dynamic *parsed-args*
+             (task/parse-options))
+           (check-for-required-arguments *parsed-args*))
 
   help
   {:doc "Print a task's help"
@@ -58,8 +50,7 @@
 
   every-dir-shell
   {:doc "Run shell command on every dir"
-   :requires ([clojure.tools.cli :as cli]
-              [babashka.fs :as fs])
+   :requires ([babashka.fs :as fs])
    :usage "CMD [&ARGS]"
    :options [["-d" "--directory DIR" "Directories"
               :id :directories
