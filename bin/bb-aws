@@ -59,13 +59,31 @@
       ;; Noisy failure if the wrong number of args given
       ;; See https://github.com/babashka/pod-babashka-aws/blob/d7c4306bdd74ecde16ee3766825b71facb325588/src/pod/babashka/aws.clj#L120-L123 for noise.
       ;; TODO: Actually catch the noisy failure
-      (catch Throwable _
-        (println "\nError: Unexpected failure occurred. See error message above.")))))
+      (catch Throwable e
+        (println "\nError: Unexpected failure occurred. See error message above.")
+        (when debug (println "Exception:" e))))))
+
+(defn- auto-result [result subcmd]
+  (cond
+    (and (map? result) (= 1 (count result)))
+    (-> result vals first)
+    (let [kw (some-> (str/split subcmd #"-")
+                     last
+                     str/capitalize
+                     keyword)]
+      (contains? result kw))
+    (result (some-> (str/split subcmd #"-")
+                    last
+                    str/capitalize
+                    keyword))
+    :else
+    result))
 
 (def cli-options
   [["-h" "--help"]
    ["-d" "--debug"]
    ["-R" "--repl" "Drop into repl with operation result set to #'result"]
+   ["-a" "--auto-result" "Drills into result one level if main entity to list is detected"]
    ["-r" "--region REGION"
     :default-desc "$AWS_REGION or us-east-2"
     :default-fn (fn [_] (or (System/getenv "AWS_REGION") "us-east-2"))]])
@@ -73,10 +91,13 @@
 (defn -main [{:keys [summary arguments options]}]
   (if (or (:help options) (zero? (count arguments)))
     (util/print-summary " COMMAND SUBCOMMAND [SUBCOMMAND-OPTIONS]" summary)
-    (let [result (invoke-aws-operation arguments options)]
-      (pprint/pprint result)
+    (let [result (invoke-aws-operation arguments options)
+          result_ (if (:auto-result options)
+                    (auto-result result (second arguments))
+                    result)]
+      (pprint/pprint result_)
       (when (:repl options)
-        (def result result)
+        (def result result_)
         (main/repl)))))
 
 (when (= *file* (System/getProperty "babashka.file"))
