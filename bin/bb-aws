@@ -41,12 +41,20 @@
         (drop 2 args))
       [options args])))
 
-(defn invoke-aws-operation [[cmd subcmd & args] {:keys [region]}]
+(defn invoke-aws-operation [[cmd subcmd & args] {:keys [region debug]}]
   (let [api (aws-command->aws-api-api (keyword cmd) (keyword cmd))
         op (keyword (clojure-case->camel-case subcmd))
         client (aws/client {:api api :region region})
         [options _] (parse-options-and-args args)
-        request (a/map-keys (comp keyword clojure-case->camel-case) options)]
+        request (a/map-keys #(-> %
+                                 clojure-case->camel-case
+                                 (str/replace-first #"[A-Z]" str/lower-case)
+                                 keyword)
+                            options)]
+    (when debug
+      (println "API:" api)
+      (println "OP:" op)
+      (println "REQUEST:" request))
     (try (aws/invoke client {:op op :request request})
       ;; Noisy failure if the wrong number of args given
       ;; See https://github.com/babashka/pod-babashka-aws/blob/d7c4306bdd74ecde16ee3766825b71facb325588/src/pod/babashka/aws.clj#L120-L123 for noise.
@@ -56,6 +64,7 @@
 
 (def cli-options
   [["-h" "--help"]
+   ["-d" "--debug"]
    ["-R" "--repl" "Drop into repl with operation result set to #'result"]
    ["-r" "--region REGION"
     :default-desc "$AWS_REGION or us-east-2"
