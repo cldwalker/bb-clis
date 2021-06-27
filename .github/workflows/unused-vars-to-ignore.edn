@@ -3,4 +3,6 @@
  :cldwalker.babashka.repl/add-portal ; repl fn
  :bb-aws/result ; inline def
  ;; wip fn that may be used soon
- :cldwalker.babashka.util/stdin-active?]
+ :cldwalker.babashka.util/stdin-active?
+ ;; bb.edn fns
+ :cldwalker.babashka.task/parse-options]

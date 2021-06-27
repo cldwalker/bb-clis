@@ -65,8 +65,10 @@
 
 (defn- auto-result [result subcmd]
   (cond
+    ;; e.g. aws ecr describe-repositores
     (and (map? result) (= 1 (count result)))
     (-> result vals first)
+    ;; e.g. aws s3 list-buckets
     (let [kw (some-> (str/split subcmd #"-")
                      last
                      str/capitalize
