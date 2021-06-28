@@ -1,7 +1,9 @@
 (ns cldwalker.babashka.task
   "Provides helpers for babashka tasks"
-  (:require [babashka.tasks :refer [current-task]]))
+  (:require [babashka.tasks :refer [current-task run]]
+            [clojure.edn :as edn]))
 
+;; Utilities
 (defn parse-options
   "Provides :options for a task to define options for cli/parse-opts. Use
   :cli-options for additional arguments to cli/parse-opts. If no :options,
@@ -18,3 +20,14 @@
             (:cli-options (current-task)))]
       parsed-args)
     ::no-options))
+
+;; Reusable tasks
+(def repl-task
+  {:doc "Pull up repl with #'result bound to result of given task and args"
+   :usage "TASK [& ARGS]"
+   :task
+   (let [task (symbol (first *command-line-args*))]
+     (binding [*command-line-args* (rest *command-line-args*)]
+       ;; Assumes task stdout is edn
+       (def result (edn/read-string (with-out-str (run task)))))
+     ((requiring-resolve 'clojure.main/repl)))})

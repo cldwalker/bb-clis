@@ -5,4 +5,6 @@
  ;; wip fn that may be used soon
  :cldwalker.babashka.util/stdin-active?
  ;; bb.edn fns
- :cldwalker.babashka.task/parse-options]
+ :cldwalker.babashka.task/parse-options
+ :cldwalker.babashka.task/repl-task
+ :cldwalker.babashka.task/result]
