@@ -50,7 +50,7 @@
 
   repl
   ;; Couldn't just reference task/repl-task here as `bb tasks` failed
-  {:doc "Pull up repl with #'result bound to result of given task and args"
+  {:doc "Pull up socket repl with #'result bound to result of given task and args"
    :usage "TASK [& ARGS]"
    :task (:task task/repl-task)}
 
