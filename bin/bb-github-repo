@@ -5,6 +5,7 @@
 (ns bb-github-repo
   (:require [cldwalker.babashka.util :as util]
             [clojure.string :as str]
+            [clojure.java.io :as io]
             [clojure.java.shell :as shell]))
 
 (defn- find-current-branch []
@@ -17,12 +18,25 @@
     branch
     (util/error "Unable to detect current tree")))
 
+(defn- get-relative-git-root-path
+  "Given a path, return its path relative to git root"
+  [path]
+  (let [top-level-dir (-> (shell/sh "git" "rev-parse" "--show-toplevel")
+                          :out
+                          str/trimr
+                          (str "/"))
+        full-path (.getAbsolutePath (io/file path))
+        git-relative-path (str/replace-first full-path top-level-dir "")]
+    git-relative-path))
+
 (defn- open-github-url [{:keys [repository commit tree file]}]
   (let [url-base (str "https://github.com/" repository)
         url (cond
               commit (str url-base "/commit/" commit)
               tree   (str url-base "/tree/" (find-current-branch))
-              file (str url-base "/blob/" (find-current-branch) "/" file)
+              file   (str url-base "/blob/" (find-current-branch)
+                          "/" (get-relative-git-root-path file))
+
               :else url-base)]
     (doto url util/open-url)))
 
