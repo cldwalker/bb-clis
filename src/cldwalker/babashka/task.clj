@@ -23,16 +23,22 @@
 
 ;; Reusable tasks
 (def repl-task
-  {:doc "Pull up socket repl with #'result bound to result of given task and args"
+  {:doc "Pull up socket repl with #'task/result bound to result of given task and args"
    :usage "TASK [& ARGS]"
-   :task
-   (let [task (symbol (first *command-line-args*))]
-     (binding [*command-line-args* (rest *command-line-args*)]
-       ;; Assumes task stdout is edn
-       (def result (edn/read-string (with-out-str (run task)))))
-     ;; Used to use clojure.main/repl but this allows for in-editor repl
-     ((requiring-resolve 'clojure.core.server/start-server)
-      {:port 5555
-       :name "bb-task"
-       :accept 'clojure.core.server/repl})
-     (clojure.core.server/repl))})
+   :task-fn
+   (fn []
+     (let [task (symbol (first *command-line-args*))]
+      (binding [*command-line-args* (rest *command-line-args*)]
+        ;; Assumes task stdout is edn
+        (def result (edn/read-string (with-out-str (run task)))))
+      ;; Used to use clojure.main/repl but this allows for in-editor repl
+      ((requiring-resolve 'clojure.core.server/start-server)
+       {:port 5555
+        :name "bb-task"
+        :accept 'clojure.core.server/repl})
+      (clojure.core.server/repl)))})
+
+;; Evaluate any task result in editor
+(comment
+ (-> result)
+ )

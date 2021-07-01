@@ -50,9 +50,9 @@
 
   repl
   ;; Couldn't just reference task/repl-task here as `bb tasks` failed
-  {:doc "Pull up socket repl with #'result bound to result of given task and args"
+  {:doc "Pull up socket repl with #'task/result bound to result of given task and args"
    :usage "TASK [& ARGS]"
-   :task (:task task/repl-task)}
+   :task ((:task-fn task/repl-task))}
 
   every-dir-shell
   {:doc "Run shell command on every dir"
