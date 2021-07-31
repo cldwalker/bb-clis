@@ -1,7 +1,7 @@
 #!/usr/bin/env bb
-; Converts a url into a set of markdown properties for use
-; as a multi-line loseq block
 ; vim: set filetype=clojure:
+; Converts a url into a set of markdown properties for use
+; as a multi-line logseq block
 
 (ns bb-logseq-create
   (:require [cldwalker.babashka.util :as util]
