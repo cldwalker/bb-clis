@@ -3,7 +3,7 @@
 ; Converts a url into a set of markdown properties for use
 ; as a multi-line logseq block
 
-(ns bb-logseq-create
+(ns bb-logseq-convert
   (:require [cldwalker.babashka.util :as util]
             [clojure.string :as str]
             [babashka.tasks :refer [shell]])
@@ -42,29 +42,18 @@
   (try (URL. url)
     (catch Exception _ nil)))
 
-(defn- notify-anybar
-  "See https://github.com/tonsky/AnyBar"
-  [color]
-  (shell {:in color} "nc -4u -w0 localhost 1738"))
-
-(defn- create-block [arguments {:keys [clear-anybar]}]
+(defn- create-block [arguments _]
   (let [url (if (seq arguments)
               (str/join " " arguments)
               (:out (shell {:out :string} "pbpaste")))
         _ (when-not (->url-object url)
             (println "Error: The following is not a url -" (pr-str url))
-            (notify-anybar "red")
             (System/exit 1))
         properties (url->properties url)
         block-text (str (blockify properties)
                         "\ndesc:: ")]
     (shell {:in block-text} "pbcopy")
-    (notify-anybar "green")
-    (println block-text)
-    (when clear-anybar
-      (Thread/sleep 2000)
-      (notify-anybar "hollow")
-      nil)))
+    (println block-text)))
 
 (defn -main [{:keys [options arguments summary]}]
   (if (:help options)
@@ -72,8 +61,7 @@
     (create-block arguments options)))
 
 (def cli-options
-  [["-h" "--help"]
-   ["-c" "--clear-anybar"]])
+  [["-h" "--help"]])
 
 (when (= *file* (System/getProperty "babashka.file"))
   (util/run-command -main *command-line-args* cli-options))
