@@ -30,13 +30,14 @@
      (let [task (symbol (first *command-line-args*))]
       (binding [*command-line-args* (rest *command-line-args*)]
         ;; Assumes task stdout is edn
+        #_:clj-kondo/ignore
         (def result (edn/read-string (with-out-str (run task)))))
       ;; Used to use clojure.main/repl but this allows for in-editor repl
       ((requiring-resolve 'clojure.core.server/start-server)
        {:port 5555
         :name "bb-task"
         :accept 'clojure.core.server/repl})
-      (clojure.core.server/repl)))})
+      ((requiring-resolve 'clojure.core.server/repl))))})
 
 ;; Evaluate any task result in editor
 (comment
