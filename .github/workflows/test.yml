@@ -5,28 +5,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Cache local Maven repository for Clojure
-        uses: actions/cache@v2
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
-          restore-keys: |
-            ${{ runner.os }}-clojure-
       - name: Install babashka
         run: |
            curl -s https://raw.githubusercontent.com/borkdude/babashka/master/install -o install-bb
            chmod +x install-bb
            sudo ./install-bb
            rm install-bb
-      - name: Install clojure tools-deps
-        uses: DeLaGuardo/setup-clojure@3.2
-        with:
-          tools-deps: 1.10.1.693
-      - name: Install deps.edn
-        # https://docs.github.com/en/actions/reference/workflow-commands-for-github-actions#setting-an-environment-variable
-        run: echo deps_edn_paths=$(clojure -Spath -Sdeps '') >> $GITHUB_ENV
       - name: Run bb tests
-        run: PATH=$PWD/bin:$PATH BABASHKA_CLASSPATH=$PWD/src:${{ env.deps_edn_paths }} bb -cp src:test:test/resources -m test-runner
+        run: PATH=$PWD/bin:$PATH BABASHKA_CLASSPATH=$PWD/src bb -cp src:test:test/resources -m test-runner
   lint:
     runs-on: ubuntu-latest
     steps:
