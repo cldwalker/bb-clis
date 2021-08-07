@@ -5,7 +5,7 @@ An assortment of handy [Babashka](https://github.com/borkdude/babashka) CLIs and
 ## Setup
 
 First, [install babashka](https://github.com/borkdude/babashka#installation).
-These scripts require babashka >= 0.4.1.
+These scripts require babashka >= 0.5.0.
 
 To setup using and modifying these scripts, read the [General section](#general). To just install one script, read the [Single Script section](#single-script). To setup babashka as I use it, read the [bb section](#bb).
 
@@ -20,15 +20,6 @@ $ export PATH=$PATH:$HOME/path/to/bb-clis/bin
 # To be able to use the scripts outside of this repository
 $ export BABASHKA_CLASSPATH=$BABASHKA_CLASSPATH:$HOME/path/to/bb-clis/src
 ```
-
-#### Script Dependencies
-
-If a script depends on an external library, add them to $BABASHKA_CLASSPATH:
-
-```sh
-$ export BABASHKA_CLASSPATH=$BABASHKA_CLASSPATH:$(clojure -Spath -Sdeps "$(cat $HOME/path/to/bb-clis/deps.edn)")
-```
-
 
 ### Single Script
 
@@ -88,7 +79,6 @@ Prints github url of PR associated with a commit. It assumes a current directory
 
 #### Setup
 
-* Install [clj-http-lite](https://github.com/babashka/clj-http-lite) using [above instructions](#script-dependencies)
 * Optional: To have this executable with private repositories, set `$GITHUB_USER` to your user and [create and set a $GITHUB_OAUTH_TOKEN](https://developer.github.com/apps/building-oauth-apps/authorizing-oauth-apps/#non-web-application-flow)
 
 #### Usage
@@ -119,10 +109,6 @@ Updates lein dependency of specified directories and optionally commits and push
 `bb-update-lein-dependency -c -d ../proj1 -d ../proj2 my-dep $(git rev-parse HEAD)`.
 
 ### bb-table
-
-#### Optional Setup
-
-By default, this script prints with `clojure.pprint/print-table`. To print with a table that has more features and a more useful default, pull in the [table clojar](https://github.com/cldwalker/table) using the [above instructions](#script-dependencies).
 
 #### Usage
 Prints an ascii table given an EDN collection on stdin or as a file:

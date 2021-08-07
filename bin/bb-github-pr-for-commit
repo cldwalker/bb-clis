@@ -2,17 +2,17 @@
 ; vim: set filetype=clojure:
 
 (ns bb-github-pr-for-commit
-  (:require [clj-http.lite.client :as client]
+  (:require [babashka.curl :as curl]
             [cheshire.core :as json]
             [cldwalker.babashka.util :as util]))
 
 (defn- fetch-response* [commit {:keys [repository token user]}]
   (try
-    (client/get (format "https://api.github.com/repos/%s/commits/%s/pulls"
-                        repository commit)
-                ;; Check https://developer.github.com/v3/repos/commits/#list-pull-requests-associated-with-commit to see if this is still in preview
-                (cond-> {:headers {"Accept" "application/vnd.github.groot-preview+json"}}
-                        (and user token) (assoc :basic-auth [user token])))
+    (curl/get (format "https://api.github.com/repos/%s/commits/%s/pulls"
+                      repository commit)
+              ;; Check https://developer.github.com/v3/repos/commits/#list-pull-requests-associated-with-commit to see if this is still in preview
+              (cond-> {:headers {"Accept" "application/vnd.github.groot-preview+json"}}
+                      (and user token) (assoc :basic-auth [user token])))
     (catch clojure.lang.ExceptionInfo e
       (util/error "Failed to fetch github information" (pr-str {:error (ex-message e)})))))
 

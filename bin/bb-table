@@ -4,9 +4,9 @@
 ;; Edn must be a map or a collection of collections
 
 (ns bb-table
-  (:require [clojure.pprint :as pprint]
-            [clojure.edn :as edn]
+  (:require [clojure.edn :as edn]
             [clojure.string :as str]
+            [babashka.deps :as deps]
             [cldwalker.babashka.util :as util]))
 
 (defn- get-columns
@@ -34,10 +34,8 @@
 
 (defn- print-table
   [columns rows style]
-  (if-let [table-var (try (require 'table.core) (ns-resolve (find-ns 'table.core) 'table)
-                       (catch Exception))]
-    ((deref table-var) rows :fields columns :style style)
-    (pprint/print-table columns rows)))
+  (deps/add-deps '{:deps {table/table {:mvn/version "0.5.0"}}})
+  ((requiring-resolve 'table.core/table) rows :fields columns :style style))
 
 (defn- print-rows* [rows {:keys [columns-filter style number-rows]}]
   (if (and (coll? rows) (-> rows first map?))
