@@ -107,7 +107,8 @@ a script that doesn't require that invocation."
               (repeatedly #(edn/read {:eof ::EOF} *in*))))
 
 (defn stdin-active?
-  "This can be used to detect if stdin is active. Limitations to this
-are noted in https://github.com/borkdude/babashka/issues/324#issuecomment-621631592"
+  "Detect if stdin is active. Waits for a split second"
   []
+  ;; Sleep needed per https://github.com/babashka/babashka/issues/324#issuecomment-639810098
+  (Thread/sleep 100)
   (pos? (.available System/in)))
