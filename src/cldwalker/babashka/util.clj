@@ -64,21 +64,6 @@ Takes following options:
                          (str out "\n" err)))
           out)))))
 
-(defn exec
-  "Hands over current process to new command. Similar to exec in shell script.
-Thanks to https://github.com/borkdude/babashka/issues/299"
-  ([cmd-and-args] (exec cmd-and-args nil))
-  ([cmd-and-args env-vars]
-   (let [pb (doto (ProcessBuilder. cmd-and-args)
-                  (.inheritIO))
-         _ (when env-vars
-             (doto (.environment pb)
-                   (.putAll env-vars)))
-         proc (.start pb)]
-     (-> (Runtime/getRuntime)
-         (.addShutdownHook (Thread. #(.destroy proc))))
-     (System/exit (.waitFor proc)))))
-
 ;; Github
 ;; ======
 (defn find-current-user-repo

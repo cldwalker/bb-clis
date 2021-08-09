@@ -7,7 +7,7 @@
 
 (ns bl
   (:require [clojure.java.io :as io]
-            [cldwalker.babashka.util :as util]
+            [babashka.tasks :refer [shell]]
             [clojure.string :as str]))
 
 (defn- match-alias
@@ -35,27 +35,31 @@ approaches are tried in order:
           matches_
           (filterv #(str/starts-with? % (str "bb-" query)) candidates))))))
 
-(let [bb-commands (->> (str/split (System/getenv "PATH") #":")
-                       distinct
-                       (mapcat (fn [path] (seq (.list (io/file path)))))
-                       (filter #(str/starts-with? % "bb-")))
-      cmd-alias (first *command-line-args*)
-      cmds (match-alias cmd-alias bb-commands)
-      help-string (str "Available commands: " (str/join ", " bb-commands))]
-  (cond
-    (nil? cmd-alias)
-    (println help-string)
+(defn -main [args]
+  (let [bb-commands (->> (str/split (System/getenv "PATH") #":")
+                         distinct
+                         (mapcat (fn [path] (seq (.list (io/file path)))))
+                         (filter #(str/starts-with? % "bb-")))
+        cmd-alias (first args)
+        cmds (match-alias cmd-alias bb-commands)
+        help-string (str "Available commands: " (str/join ", " bb-commands))]
+    (cond
+      (nil? cmd-alias)
+      (println help-string)
 
-    (zero? (count cmds))
-    (do
-      (println (str "Error: No commands matched for " (pr-str cmd-alias)
-                    "\n" help-string))
-      (System/exit 1))
+      (zero? (count cmds))
+      (do
+        (println (str "Error: No commands matched for " (pr-str cmd-alias)
+                      "\n" help-string))
+        (System/exit 1))
 
-    (> (count cmds) 1)
-    (do
-      (println (str "Error: More than one command matched for " (pr-str cmd-alias)
-                    "\n" help-string))
-      (System/exit 1))
+      (> (count cmds) 1)
+      (do
+        (println (str "Error: More than one command matched for " (pr-str cmd-alias)
+                      "\n" help-string))
+        (System/exit 1))
 
-    :else (util/exec (into cmds (rest *command-line-args*)))))
+      :else (do (apply shell (into cmds (rest args)))
+              nil))))
+
+(-main *command-line-args*)

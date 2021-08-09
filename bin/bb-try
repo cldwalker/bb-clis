@@ -4,6 +4,7 @@
 
 (ns bb-try
   (:require [cldwalker.babashka.util :as util]
+            [babashka.tasks :refer [shell]]
             [clojure.java.shell :as shell]))
 
 (def cli-options
@@ -26,7 +27,8 @@
                            (str "'" % "'")
                            %)
                         args))
-    (util/exec args env)))
+    (do (apply shell {:extra-env env} args)
+      nil)))
 
 (defn- bb-main
   [arguments {:keys [command print-command] :as options}]
@@ -66,4 +68,5 @@
     (:help options) (util/print-summary " DEPENDENCY [& ARGS]" summary)
     :else (-main* arguments options)))
 
-(util/run-command -main *command-line-args* cli-options :in-order true)
+(when (= *file* (System/getProperty "babashka.file"))
+  (util/run-command -main *command-line-args* cli-options :in-order true))
