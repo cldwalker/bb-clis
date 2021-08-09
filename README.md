@@ -157,7 +157,8 @@ $ bb-replace -f project.clj -F '$1 %s' "(:pseudo-names)\s+\w+" false
 Generates [vega-lite](https://vega.github.io/vega-lite/) visualizations given vega-lite data as a file or on stdin. Data file can be json or edn.
 
 ### Setup
-Install vega-lite cmds with `yarn global add vega-lite`.
+Install vega-lite cmds with `yarn global add vega-lite --peer && yarn global add
+canvas`. This was last confirmed to work with vega-lite 5.1.0 and canvas 2.8.0.
 
 ### Usage
 

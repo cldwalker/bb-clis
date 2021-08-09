@@ -36,8 +36,7 @@
         deps-string (create-deps-string dependency options)
         new-classpath (str (System/getenv "BABASHKA_CLASSPATH")
                            ":"
-                           ;; Use this sh because it fails fast on non-zero exit code
-                           (util/sh "clojure" "-Spath" "-Sdeps" deps-string))
+                           (:out (shell {:out :string} "clojure" "-Spath" "-Sdeps" deps-string)))
         bb-invocation (if (-> (shell/sh "which" "rlwrap") :exit zero?)
                         ["rlwrap" command]
                         [command])]
