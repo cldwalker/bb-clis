@@ -1,4 +1,5 @@
-{:tasks
+{:paths ["src"]
+ :tasks
  {:requires ([cheshire.core :as json]
              [cldwalker.babashka.util :as util]
              [cldwalker.babashka.task :as task]

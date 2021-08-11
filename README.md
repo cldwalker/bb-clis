@@ -7,9 +7,22 @@ An assortment of handy [Babashka](https://github.com/borkdude/babashka) CLIs and
 First, [install babashka](https://github.com/borkdude/babashka#installation).
 These scripts require babashka >= 0.5.0.
 
-To setup using and modifying these scripts, read the [General section](#general). To just install one script, read the [Single Script section](#single-script). To setup babashka as I use it, read the [bb section](#bb).
+To run scripts from within bb-clis, read the [Local setup](#local).
+To run scripts from any directory, read the [Global setup](#global). To install individual scripts, read the [Single Script setup](#single-script). To setup babashka as I use it, read the [bb section](#bb).
 
-### General
+### Local
+
+```sh
+$ git clone https://github.com/cldwalker/bb-clis
+$ cd bb-clis
+```
+
+Run any script by referencing its local path e.g. `bin/bb-ns-dep-tree src/cldwalker/babashka/util.clj`. Most usage sections below assume you're running from any directory but you can simply change substitute the local path e.g. `bb-ns-dep-tree` -> `bin/bb-ns-dep-tree`.
+
+### Global
+
+This section is for those who understand how [bb's classpath](https://book.babashka.org/#_classpath) works and are ok with the tradeoff of setting a global $BABASHKA_CLASSPATH in exchange for being able to run these executables from any directory.
+
 Setup your $PATH and $BABASHKA_CLASSPATH:
 ```sh
 $ git clone https://github.com/cldwalker/bb-clis
@@ -29,15 +42,17 @@ To use a single babashka script without the General setup, simply export one wit
 $ bb uberscript my-bb-github-repo.clj -f bin/bb-github-repo
 
 # To run the exported script
-$ bb -f my-bb-github-repo.clj
+$ bb my-bb-github-repo.clj
 
 # Optionally, use https://github.com/borkdude/carve to delete unused code
 $ clojure -A:carve --opts '{:paths ["my-bb-github-repo.clj"] :interactive? false}'
 ```
 
+Note: uberscript doesn't work well with dynamic requires e.g. pods. Use [bb uberjar](https://book.babashka.org/#uberjar) for those cases.
+
 ### bb
 
-The previous sections are about setting up your environment to run the scripts in this repository. This section is about running babashka on the commandline. This section assumes you've setup `$BABASHKA_CLASSPATH` as mentioned above.
+I use the [global setup](#global) as I run these scripts from any directory.
 
 Babashka supports `$BABASHA_PRELOADS` which allows arbitrary clojure to be run at the start of each invocation. This is handy for loading one's preferred set of vars and namespaces, especially when paired with an alias. For example, `alias bbp="BABASHKA_PRELOADS='(load-file (str (System/getenv \"HOME\") \"/path/to/this-repo/preloads.clj\"))' bb"`
 
