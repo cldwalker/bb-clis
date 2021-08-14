@@ -4,7 +4,7 @@
 ;; Spec file can be json or edn.
 ;; See create-visualization for credits to oz
 
-(ns vis
+(ns bb-vis
   (:require [cldwalker.bb-clis.cli :as cli]
             [cldwalker.bb-clis.cli.misc :as misc]
             [clojure.string :as str]
