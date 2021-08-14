@@ -6,7 +6,7 @@
   (:require [clojure.set :as set]
             [clojure.string :as str]
             [clojure.edn :as edn]
-            [cldwalker.bb-clis.util :as util]
+            [cldwalker.bb-clis.cli :as cli]
             [babashka.pods :as pods]))
 
 (pods/load-pod "clj-kondo")
@@ -36,11 +36,11 @@
 
 (defn -main [{:keys [summary arguments options]}]
   (if (or (:help options) (zero? (count arguments)))
-    (util/print-summary " SOURCE-PATHS" summary)
+    (cli/print-summary " SOURCE-PATHS" summary)
     (check-unused-vars arguments options)))
 
 (def cli-options
   [["-h" "--help"]
    ["-i" "--ignore-file FILE"]])
 
-(util/run-command -main *command-line-args* cli-options)
+(cli/run-command -main *command-line-args* cli-options)

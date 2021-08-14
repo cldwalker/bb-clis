@@ -3,7 +3,7 @@
 ;; Try a dependency with bb like lein-try
 
 (ns bb-try
-  (:require [cldwalker.bb-clis.util :as util]
+  (:require [cldwalker.bb-clis.cli :as cli]
             [babashka.tasks :refer [shell]]
             [clojure.java.shell :as shell]))
 
@@ -64,8 +64,8 @@
 (defn -main
   [{:keys [summary arguments options]}]
   (cond
-    (:help options) (util/print-summary " DEPENDENCY [& ARGS]" summary)
+    (:help options) (cli/print-summary " DEPENDENCY [& ARGS]" summary)
     :else (-main* arguments options)))
 
 (when (= *file* (System/getProperty "babashka.file"))
-  (util/run-command -main *command-line-args* cli-options :in-order true))
+  (cli/run-command -main *command-line-args* cli-options :in-order true))

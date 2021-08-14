@@ -8,7 +8,7 @@
   (:require [clojure.string :as str]
             [clojure.java.io :as io]
             [clojure.edn :as edn]
-            [cldwalker.bb-clis.util :as util]
+            [cldwalker.bb-clis.cli :as cli]
             [cldwalker.bb-clis.util.associative :as a]))
 
 (defn- get-replacements
@@ -36,7 +36,7 @@ A replacement consists of three keys:
         new-body (str/replace-first body regex
                                     (apply format format-string arguments))]
     (if (= body new-body)
-      (util/error (str "Replacement did not change " file))
+      (cli/error (str "Replacement did not change " file))
       (spit file new-body))))
 
 (defn- arg->replacement [arg options]
@@ -47,7 +47,7 @@ A replacement consists of three keys:
        ;; Not sure if this is a sensible default
        :format-string "$1 %s"
        :file file}
-      (util/error "File option required if providing a regex as a replacement"))))
+      (cli/error "File option required if providing a regex as a replacement"))))
 
 (def cli-options
   [["-h" "--help"]
@@ -56,7 +56,7 @@ A replacement consists of three keys:
 
 (defn -main [{:keys [options arguments summary]}]
   (if (or (:help options) (zero? (count arguments)))
-    (util/print-summary (str " REPLACEMENT/REGEX [& ARGUMENTS]\nReplacements available: "
+    (cli/print-summary (str " REPLACEMENT/REGEX [& ARGUMENTS]\nReplacements available: "
                              (str/join ", " (->> (get-replacements) keys (map name))))
                         summary)
     (let [replacement (arg->replacement (first arguments) options)]
@@ -64,4 +64,4 @@ A replacement consists of three keys:
                                           (select-keys options [:file :format-string]))
                                     (rest arguments)))))
 
-(util/run-command -main *command-line-args* cli-options)
+(cli/run-command -main *command-line-args* cli-options)

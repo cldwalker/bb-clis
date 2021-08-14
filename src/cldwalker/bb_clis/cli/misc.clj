@@ -1,37 +1,9 @@
-(ns cldwalker.bb-clis.util
-  "Util fns for babashka scripts"
-  (:require [clojure.java.shell :as shell]
-            [clojure.string :as str]
-            [clojure.java.io :as io]
+(ns cldwalker.bb-clis.cli.misc
+  "Misc fns that are useful to bb/clojure clis"
+  (:require [cldwalker.bb-clis.cli :as cli]
             [clojure.edn :as edn]
-            [clojure.tools.cli :as cli]))
-
-;; CLI
-;; ===
-(defn error
-  "Print error message(s) and exit"
-  [& msgs]
-  (apply println "Error:" msgs)
-  (System/exit 1))
-
-(defn print-summary
-  "Print help summary given args and opts strings"
-  [args-string options-summary]
-  (println (format "Usage: %s [OPTIONS]%s\nOptions:\n%s"
-                   (.getName (io/file *file*))
-                   args-string
-                   options-summary)))
-
-(defn run-command
-  "Processes a command's functionality given a cli options definition, arguments
-  and primary command fn. This handles option parsing, handles any errors with
-  parsing and then passes parsed input to command fn"
-  [command-fn args cli-opts & parse-opts-options]
-  (let [{:keys [errors] :as parsed-input}
-        (apply cli/parse-opts args cli-opts parse-opts-options)]
-    (if (seq errors)
-      (error (str/join "\n" (into ["Options failed to parse:"] errors)))
-      (command-fn parsed-input))))
+            [clojure.string :as str]
+            [clojure.java.shell :as shell]))
 
 ;; Misc
 ;; ====
@@ -59,9 +31,9 @@ Takes following options:
             (apply shell/sh
               (concat args [:dir (:dir options)]))]
         (if ((:is-error-fn options) res)
-          (error (format "Command '%s' failed with:\n%s"
-                         (str/join " " args)
-                         (str out "\n" err)))
+          (cli/error (format "Command '%s' failed with:\n%s"
+                             (str/join " " args)
+                             (str out "\n" err)))
           out)))))
 
 ;; Github
@@ -78,8 +50,8 @@ Takes following options:
         ;; Can handle gh:atom/atom, https://github.com/atom/atom.git or git@github.com:atom/atom.git
         (if-let [user-repo (second (re-find #"(?:gh|github.com)(?::|/)([^/]+/[^/.\s]+)" out))]
           user-repo
-          (error "Failed to determine current directory's repository" (pr-str {:out out})))
-        (error "Failed to determine current directory's repository" (pr-str {:error err :out out}))))))
+          (cli/error "Failed to determine current directory's repository" (pr-str {:out out})))
+        (cli/error "Failed to determine current directory's repository" (pr-str {:error err :out out}))))))
 
 ;; I/O
 ;; ===

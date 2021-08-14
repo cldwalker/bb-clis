@@ -4,7 +4,7 @@
 ; as a multi-line logseq block
 
 (ns bb-logseq-convert
-  (:require [cldwalker.bb-clis.util :as util]
+  (:require [cldwalker.bb-clis.cli :as cli]
             [clojure.string :as str]
             [babashka.tasks :refer [shell]])
   (:import (java.net URL)))
@@ -57,11 +57,11 @@
 
 (defn -main [{:keys [options arguments summary]}]
   (if (:help options)
-    (util/print-summary " [& LOGSEQ_TEXT]" summary)
+    (cli/print-summary " [& LOGSEQ_TEXT]" summary)
     (create-block arguments options)))
 
 (def cli-options
   [["-h" "--help"]])
 
 (when (= *file* (System/getProperty "babashka.file"))
-  (util/run-command -main *command-line-args* cli-options))
+  (cli/run-command -main *command-line-args* cli-options))

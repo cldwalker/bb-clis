@@ -3,7 +3,7 @@
 ; vim: set filetype=clojure:
 
 (ns bb-project-clj
-  (:require [cldwalker.bb-clis.util :as util]
+  (:require [cldwalker.bb-clis.cli :as cli]
             [clojure.string :as str]
             [clojure.pprint :as pprint]))
 
@@ -37,7 +37,7 @@
 
 (defn- -main [{:keys [options summary]}]
   (cond
-    (:help options) (util/print-summary "" summary)
+    (:help options) (cli/print-summary "" summary)
     :else (let [project-clj (project-clj-map (:file options) (:drop-forms options))]
             (pprint/pprint project-clj))))
 
@@ -49,4 +49,4 @@
     :parse-fn #(Integer/parseInt %)]
    ["-h" "--help"]])
 
-(util/run-command -main *command-line-args* cli-options)
+(cli/run-command -main *command-line-args* cli-options)

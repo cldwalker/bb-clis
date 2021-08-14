@@ -5,7 +5,8 @@
 ;; See create-visualization for credits to oz
 
 (ns vis
-  (:require [cldwalker.bb-clis.util :as util]
+  (:require [cldwalker.bb-clis.cli :as cli]
+            [cldwalker.bb-clis.cli.misc :as misc]
             [clojure.string :as str]
             [clojure.edn :as edn]
             [cheshire.core :as json])
@@ -24,7 +25,7 @@ by detecting if a data url starts with 'data/' and then fully expanding the url.
   (let [input-body (try
                      (json/parse-string (slurp input-file))
                      (catch Exception e
-                       (util/error "Unexpected failure while parsing json file:\n" (str e))))
+                       (cli/error "Unexpected failure while parsing json file:\n" (str e))))
         url (get-in input-body ["data" "url"])]
     (if (and url (str/starts-with? url "data/"))
       (doto (tmp-filename format)
@@ -59,19 +60,19 @@ https://github.com/metasoarous/oz/blob/a7881779d11a9b3ed1893a023aed6aed28f65592/
                           (spit (json/generate-string (edn/read-string (slurp input-file_)))))
                     (json-spec-file input-file_ format))]
 
-    (util/sh (str "vl2" format) spec-file output-file
+    (misc/sh (str "vl2" format) spec-file output-file
              ;; Have to override this b/c commands like vl2png don't exit
              ;; properly when they fail
              {:is-error-fn #(or (not= 0 (:exit %))
                                 (str/includes? (:err %) "Error"))})
     (when open
-      (util/sh "open" output-file))
+      (misc/sh "open" output-file))
     {:input-file spec-file :output-file output-file}))
 
 (defn -main [{:keys [summary arguments options]}]
   (cond
     (or (:help options) (> (count arguments) 1))
-    (util/print-summary " FILE\nReads json from stdin if no file given." summary)
+    (cli/print-summary " FILE\nReads json from stdin if no file given." summary)
 
     :else (create-visualization arguments options)))
 
@@ -84,4 +85,4 @@ https://github.com/metasoarous/oz/blob/a7881779d11a9b3ed1893a023aed6aed28f65592/
    ["-f" "--output-file OUTPUT_FILE"
     :default-desc "Defaults to FILE.FORMAT"]])
 
-(util/run-command -main *command-line-args* cli-options)
+(cli/run-command -main *command-line-args* cli-options)

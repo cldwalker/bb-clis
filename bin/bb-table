@@ -7,7 +7,8 @@
   (:require [clojure.edn :as edn]
             [clojure.string :as str]
             [babashka.deps :as deps]
-            [cldwalker.bb-clis.util :as util]))
+            [cldwalker.bb-clis.cli :as cli]
+            [cldwalker.bb-clis.cli.misc :as misc]))
 
 (defn- get-columns
   "Extract columns from rows. Defaults to searching across all rows"
@@ -47,7 +48,7 @@
                       (selected-columns columns_ columns-filter)
                       columns_)]
       (print-table columns__ rows style))
-    (util/error "Input is not an EDN collection of maps")))
+    (cli/error "Input is not an EDN collection of maps")))
 
 (defn- get-sort-key [rows query]
   (let [columns (get-columns rows)]
@@ -111,10 +112,10 @@
 
 (defn -main [{:keys [summary _arguments options]}]
   (cond
-    (:help options) (util/print-summary "\nReads from stdin if no arguments given" summary)
+    (:help options) (cli/print-summary "\nReads from stdin if no arguments given" summary)
     (:file options) (print-rows (-> (:file options) slurp edn/read-string)
                                 options)
-    :else           (print-rows (first (util/read-stdin-edn))
+    :else           (print-rows (first (misc/read-stdin-edn))
                                 options)))
 
 (def table-styles
@@ -140,4 +141,4 @@
     :parse-fn #(keyword (unalias-choice table-styles %))
     :validate [table-styles]]])
 
-(util/run-command -main *command-line-args* cli-options)
+(cli/run-command -main *command-line-args* cli-options)

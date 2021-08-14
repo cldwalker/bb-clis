@@ -1,6 +1,7 @@
 ## Description
 
-An assortment of handy [Babashka](https://github.com/borkdude/babashka) CLIs and tasks. bin scripts strive to be compatible with Clojure.
+An assortment of handy [Babashka](https://github.com/borkdude/babashka) CLIs:
+scripts and tasks. scripts strive to be compatible with Clojure.
 
 ## Setup
 
@@ -65,13 +66,13 @@ $ bbp '(->> (System/getenv) (into {}) (map-keys #(-> % (str/replace "_" "-") str
 ```
 ## Tasks
 
-bb.edn contains global tasks i.e. tasks that are useful in any directory or project. These tasks are usually small and if they get bigger, they become a CLI. To run these tasks from any directory, I use this shell function:
+bb.edn contains global tasks i.e. tasks that are useful in any directory or project. These tasks are usually small and if they get bigger, they become a script. To run these tasks from any directory, I use this shell function:
 
 ```sh
 function bbg() { BABASHKA_EDN=/path/to/this-repo/bb.edn bb $@ }
 ```
 
-For example, `bbg tasks`.
+Example invocation: `bbg tasks`.
 
 ## CLIs
 
@@ -312,8 +313,8 @@ datascript.datafy
 ## Development
 
 Code is organized as follows:
-* `src/cldwalker/bb-clis/babashka/` - Namespaces that only run within babashka
-* `src/cldwalker/bb-clis/util/` - Namespaces that are useful to any clojure or bb clis
+* `src/cldwalker/bb-clis/babashka/` - Namespaces that only run within babashka clis and tasks
+* `src/cldwalker/bb-clis/util/` - Namespaces that are useful to any clojure or bb program, not just clis.
 
 ## License
 See LICENSE.md

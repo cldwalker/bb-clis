@@ -1,7 +1,7 @@
 {:paths ["src"]
  :tasks
  {:requires ([cheshire.core :as json]
-             [cldwalker.bb-clis.util :as util]
+             [cldwalker.bb-clis.cli :as cli]
              [cldwalker.bb-clis.babashka.task :as task]
              [clojure.edn :as edn]
              [clojure.string :as str])

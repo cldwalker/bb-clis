@@ -3,7 +3,7 @@
 ; vim: set filetype=clojure:
 
 (ns bb-update-lein-dependency
-  (:require [cldwalker.bb-clis.util :as util]
+  (:require [cldwalker.bb-clis.cli :as cli]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.java.shell :as shell]))
@@ -22,7 +22,7 @@ Takes following options:
                                      (concat args [:dir (:dir options)]))]
         (if (zero? exit)
           out
-          (util/error (format "Command '%s' failed with:\n%s"
+          (cli/error (format "Command '%s' failed with:\n%s"
                               (str/join " " args)
                               (str out "\n" err))))))))
 
@@ -36,7 +36,7 @@ Takes following options:
                                       (re-pattern (format "(%s\\s+\")(\\w+)(\")" dependency))
                                       (format "$1%s$3" version))]
       (if (= body new-body)
-        (util/error (str "Unable to find and update dependency in " file))
+        (cli/error (str "Unable to find and update dependency in " file))
         (spit file new-body)))))
 
 (defn- update-dir
@@ -70,8 +70,8 @@ Takes following options:
 
 (defn -main [{:keys [options arguments summary]}]
   (if (or (:help options) (< (count arguments) 2))
-    (util/print-summary " DEPENDENCY VERSION" summary)
+    (cli/print-summary " DEPENDENCY VERSION" summary)
     (doseq [dir (:directories options)]
       (update-dir arguments dir options))))
 
-(util/run-command -main *command-line-args* cli-options)
+(cli/run-command -main *command-line-args* cli-options)

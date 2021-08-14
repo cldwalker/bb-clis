@@ -3,7 +3,7 @@
 ; Moves copied text to page with name extracted from block
 
 (ns bb-logseq-move-to-page
-  (:require [cldwalker.bb-clis.util :as util]
+  (:require [cldwalker.bb-clis.cli :as cli]
             [clojure.string :as str]
             [babashka.tasks :refer [shell]]))
 
@@ -33,7 +33,7 @@
 
 (defn -main [{:keys [options summary]}]
   (if (:help options)
-    (util/print-summary "" summary)
+    (cli/print-summary "" summary)
     (move-to-page (:out (shell {:out :string} "pbpaste")) options)))
 
 (def options
@@ -41,4 +41,4 @@
     :default-fn (fn [_] (str (System/getenv "HOME") "/code/priv/logseq-notes"))]])
 
 (when (= *file* (System/getProperty "babashka.file"))
-  (util/run-command -main *command-line-args* options))
+  (cli/run-command -main *command-line-args* options))

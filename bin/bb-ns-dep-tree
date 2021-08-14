@@ -3,7 +3,7 @@
 ;; vim: set filetype=clojure:
 
 (ns bb-ns-dep-tree
-  (:require [cldwalker.bb-clis.util :as util]
+  (:require [cldwalker.bb-clis.cli :as cli]
             [clojure.java.io :as io]
             [babashka.pods :as pods]))
 
@@ -83,8 +83,8 @@
 
 (defn -main [{:keys [summary arguments options]}]
   (if (or (:help options) (zero? (count arguments)))
-    (util/print-summary " NS/FILE" summary)
+    (cli/print-summary " NS/FILE" summary)
     (print-ns-tree arguments options)))
 
 (when (= *file* (System/getProperty "babashka.file"))
-  (util/run-command -main *command-line-args* cli-options))
+  (cli/run-command -main *command-line-args* cli-options))

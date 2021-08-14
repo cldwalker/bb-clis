@@ -6,7 +6,7 @@
             [clojure.java.shell :as shell]
             [clojure.pprint :as pprint]
             [clojure.java.io :as io]
-            [cldwalker.bb-clis.util :as util]))
+            [cldwalker.bb-clis.cli :as cli]))
 
 (def default-test-format
     "(deftest %s
@@ -88,10 +88,10 @@
   [{:keys [summary arguments options]}]
   (cond
     (or (:help options) (zero? (count arguments)))
-    (util/print-summary " add|record &COMMAND-AND-ARGS" summary)
+    (cli/print-summary " add|record &COMMAND-AND-ARGS" summary)
 
     (= "add" (first arguments))    (record-and-add-test (rest arguments) options)
     (= "record" (first arguments)) (do (record-test (rest arguments) options) nil)
-    :else (util/error "Unknown subcommand given")))
+    :else (cli/error "Unknown subcommand given")))
 
-(util/run-command -main *command-line-args* cli-options :in-order true :strict true)
+(cli/run-command -main *command-line-args* cli-options :in-order true :strict true)

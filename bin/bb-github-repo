@@ -3,7 +3,8 @@
 ; vim: set filetype=clojure:
 
 (ns bb-github-repo
-  (:require [cldwalker.bb-clis.util :as util]
+  (:require [cldwalker.bb-clis.cli :as cli]
+            [cldwalker.bb-clis.cli.misc :as misc]
             [clojure.string :as str]
             [clojure.java.io :as io]
             [clojure.java.shell :as shell]))
@@ -16,7 +17,7 @@
                        first
                        (re-find #"\S+$"))]
     branch
-    (util/error "Unable to detect current tree")))
+    (cli/error "Unable to detect current tree")))
 
 (defn- get-relative-git-root-path
   "Given a path, return its path relative to git root"
@@ -38,23 +39,23 @@
                           "/" (get-relative-git-root-path file))
 
               :else url-base)]
-    (doto url util/open-url)))
+    (doto url misc/open-url)))
 
 (defn- open-circleci-url [{:keys [repository]}]
   (let [url (format "https://circleci.com/gh/%s/tree/%s"
                     repository
                     (find-current-branch))]
-    (doto url util/open-url)))
+    (doto url misc/open-url)))
 
 (defn -main [{:keys [options _arguments summary]}]
   (cond
-    (:help options) (util/print-summary "" summary)
+    (:help options) (cli/print-summary "" summary)
     (:circleci options) (open-circleci-url options)
     :else (open-github-url options)))
 
 (def cli-options
   [["-r" "--repository REPO"
-    :default-fn util/find-current-user-repo
+    :default-fn misc/find-current-user-repo
     :default-desc "Current directory's repository"
     :validate [#(re-find #"\S+/\S+" %) "Must contain a '/'"]]
    ["-c" "--commit COMMIT" "Opens specified commit"]
@@ -63,4 +64,4 @@
    ["-f" "--file FILE" "Opens file in current branch on github"]
    ["-h" "--help"]])
 
-(util/run-command -main *command-line-args* cli-options)
+(cli/run-command -main *command-line-args* cli-options)

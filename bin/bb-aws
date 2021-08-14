@@ -15,7 +15,7 @@
   '{:linters {:inline-def {:level :off}}}}
   (:require [babashka.pods :as pods]
             [cldwalker.bb-clis.util.associative :as a]
-            [cldwalker.bb-clis.util :as util]
+            [cldwalker.bb-clis.cli :as cli]
             [clojure.string :as str]
             [clojure.main :as main]
             [clojure.pprint :as pprint]))
@@ -92,7 +92,7 @@
 
 (defn -main [{:keys [summary arguments options]}]
   (if (or (:help options) (zero? (count arguments)))
-    (util/print-summary " COMMAND SUBCOMMAND [SUBCOMMAND-OPTIONS]" summary)
+    (cli/print-summary " COMMAND SUBCOMMAND [SUBCOMMAND-OPTIONS]" summary)
     (let [result (invoke-aws-operation arguments options)
           result_ (if (:auto-result options)
                     (auto-result result (second arguments))
@@ -103,7 +103,7 @@
         (main/repl)))))
 
 (when (= *file* (System/getProperty "babashka.file"))
-  (util/run-command -main *command-line-args* cli-options :in-order true))
+  (cli/run-command -main *command-line-args* cli-options :in-order true))
 
 (comment
  (def s3-client (aws/client {:api :s3 :region "us-east-1"}))

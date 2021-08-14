@@ -3,7 +3,7 @@
 
 (ns bb-missed-docs
   "A slightly modified version of https://github.com/borkdude/clj-kondo/blob/master/analysis/src/clj_kondo/tools/missing_docstrings.clj"
-  (:require [cldwalker.bb-clis.util :as util]
+  (:require [cldwalker.bb-clis.cli :as cli]
             [babashka.pods :as pods]))
 
 (pods/load-pod "clj-kondo")
@@ -24,11 +24,11 @@
 
 (defn -main [{:keys [arguments summary options]}]
   (if (:help options)
-    (util/print-summary " SOURCE-PATHS" summary)
+    (cli/print-summary " SOURCE-PATHS" summary)
     (missed-docstrings arguments options)))
 
 (def cli-options
   [["-h" "--help"]
    ["-i" "--ignore-regex REGEX"]])
 
-(util/run-command -main *command-line-args* cli-options)
+(cli/run-command -main *command-line-args* cli-options)
