@@ -8,8 +8,8 @@
   (:require [clojure.string :as str]
             [clojure.java.io :as io]
             [clojure.edn :as edn]
-            [cldwalker.babashka.util :as util]
-            [cldwalker.babashka.util.associative :as a]))
+            [cldwalker.bb-clis.util :as util]
+            [cldwalker.bb-clis.util.associative :as a]))
 
 (defn- get-replacements
   "Reads replacements from ./bb-replace.edn and ~/.bb-replace.edn.

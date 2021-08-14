@@ -4,7 +4,7 @@
 (ns bb-github-pr-for-commit
   (:require [babashka.curl :as curl]
             [cheshire.core :as json]
-            [cldwalker.babashka.util :as util]))
+            [cldwalker.bb-clis.util :as util]))
 
 (defn- fetch-response* [commit {:keys [repository token user]}]
   (try

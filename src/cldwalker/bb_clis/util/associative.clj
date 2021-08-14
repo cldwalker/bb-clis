@@ -1,4 +1,4 @@
-(ns cldwalker.babashka.util.associative)
+(ns cldwalker.bb-clis.util.associative)
 
 (defn map-keys
   "Maps function `f` over the keys of map `m` to produce a new map."

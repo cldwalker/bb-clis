@@ -4,7 +4,7 @@
 ; as a multi-line logseq block
 
 (ns bb-logseq-convert
-  (:require [cldwalker.babashka.util :as util]
+  (:require [cldwalker.bb-clis.util :as util]
             [clojure.string :as str]
             [babashka.tasks :refer [shell]])
   (:import (java.net URL)))

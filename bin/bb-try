@@ -3,7 +3,7 @@
 ;; Try a dependency with bb like lein-try
 
 (ns bb-try
-  (:require [cldwalker.babashka.util :as util]
+  (:require [cldwalker.bb-clis.util :as util]
             [babashka.tasks :refer [shell]]
             [clojure.java.shell :as shell]))
 

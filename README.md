@@ -1,6 +1,6 @@
 ## Description
 
-An assortment of handy [Babashka](https://github.com/borkdude/babashka) CLIs and tasks
+An assortment of handy [Babashka](https://github.com/borkdude/babashka) CLIs and tasks. bin scripts strive to be compatible with Clojure.
 
 ## Setup
 
@@ -17,7 +17,7 @@ $ git clone https://github.com/cldwalker/bb-clis
 $ cd bb-clis
 ```
 
-Run any script by referencing its local path e.g. `bin/bb-ns-dep-tree src/cldwalker/babashka/util.clj`. Most usage sections below assume you're running from any directory but you can simply change substitute the local path e.g. `bb-ns-dep-tree` -> `bin/bb-ns-dep-tree`.
+Run any script by referencing its local path e.g. `bin/bb-ns-dep-tree src/cldwalker/bb-clis/util.clj`. Most usage sections below assume you're running from any directory but you can simply change substitute the local path e.g. `bb-ns-dep-tree` -> `bin/bb-ns-dep-tree`.
 
 ### Global
 
@@ -309,6 +309,11 @@ datascript.datafy
     └── datascript.db ...
 ```
 
+## Development
+
+Code is organized as follows:
+* `src/cldwalker/bb-clis/babashka/` - Namespaces that only run within babashka
+* `src/cldwalker/bb-clis/util/` - Namespaces that are useful to any clojure or bb clis
 
 ## License
 See LICENSE.md

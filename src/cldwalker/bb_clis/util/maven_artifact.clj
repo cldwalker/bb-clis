@@ -1,4 +1,4 @@
-(ns cldwalker.babashka.util.maven-artifact
+(ns cldwalker.bb-clis.util.maven-artifact
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.java.shell :as shell]))

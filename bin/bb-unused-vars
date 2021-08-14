@@ -6,7 +6,7 @@
   (:require [clojure.set :as set]
             [clojure.string :as str]
             [clojure.edn :as edn]
-            [cldwalker.babashka.util :as util]
+            [cldwalker.bb-clis.util :as util]
             [babashka.pods :as pods]))
 
 (pods/load-pod "clj-kondo")

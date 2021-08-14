@@ -3,7 +3,7 @@
 
 (ns bb-missed-docs
   "A slightly modified version of https://github.com/borkdude/clj-kondo/blob/master/analysis/src/clj_kondo/tools/missing_docstrings.clj"
-  (:require [cldwalker.babashka.util :as util]
+  (:require [cldwalker.bb-clis.util :as util]
             [babashka.pods :as pods]))
 
 (pods/load-pod "clj-kondo")

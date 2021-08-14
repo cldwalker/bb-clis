@@ -6,7 +6,7 @@
             [clojure.java.shell :as shell]
             [clojure.pprint :as pprint]
             [clojure.java.io :as io]
-            [cldwalker.babashka.util :as util]))
+            [cldwalker.bb-clis.util :as util]))
 
 (def default-test-format
     "(deftest %s

@@ -5,7 +5,7 @@
 ;; See create-visualization for credits to oz
 
 (ns vis
-  (:require [cldwalker.babashka.util :as util]
+  (:require [cldwalker.bb-clis.util :as util]
             [clojure.string :as str]
             [clojure.edn :as edn]
             [cheshire.core :as json])

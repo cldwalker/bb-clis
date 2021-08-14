@@ -3,7 +3,7 @@
 ;; vim: set filetype=clojure:
 
 (ns bb-ns-dep-tree
-  (:require [cldwalker.babashka.util :as util]
+  (:require [cldwalker.bb-clis.util :as util]
             [clojure.java.io :as io]
             [babashka.pods :as pods]))
 

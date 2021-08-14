@@ -1,4 +1,4 @@
-(ns cldwalker.babashka.task
+(ns cldwalker.bb-clis.babashka.task
   "Provides helpers for babashka tasks"
   (:require [babashka.tasks :refer [current-task run]]
             [clojure.edn :as edn]))

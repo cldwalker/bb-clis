@@ -1,4 +1,4 @@
-(ns cldwalker.babashka.repl
+(ns cldwalker.bb-clis.babashka.repl
   "Fns that are useful in a bb repl"
   (:require [babashka.deps :as deps]))
 

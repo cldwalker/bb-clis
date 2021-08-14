@@ -3,7 +3,7 @@
 ; vim: set filetype=clojure:
 
 (ns bb-project-clj
-  (:require [cldwalker.babashka.util :as util]
+  (:require [cldwalker.bb-clis.util :as util]
             [clojure.string :as str]
             [clojure.pprint :as pprint]))
 

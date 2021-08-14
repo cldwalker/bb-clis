@@ -1,10 +1,10 @@
-[:cldwalker.babashka.util.associative/map-keys ; repl fn
- :cldwalker.babashka.util.maven-artifact/artifact-files ; repl fn
- :cldwalker.babashka.repl/add-portal ; repl fn
+[:cldwalker.bb-clis.util.associative/map-keys ; repl fn
+ :cldwalker.bb-clis.util.maven-artifact/artifact-files ; repl fn
+ :cldwalker.bb-clis.babashka.repl/add-portal ; repl fn
  :bb-aws/result ; inline def
  ;; wip fn that may be used soon
- :cldwalker.babashka.util/stdin-active?
+ :cldwalker.bb-clis.util/stdin-active?
  ;; bb.edn fns
- :cldwalker.babashka.task/parse-options
- :cldwalker.babashka.task/repl-task
- :cldwalker.babashka.task/result]
+ :cldwalker.bb-clis.babashka.task/parse-options
+ :cldwalker.bb-clis.babashka.task/repl-task
+ :cldwalker.bb-clis.babashka.task/result]

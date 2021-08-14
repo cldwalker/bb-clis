@@ -3,7 +3,7 @@
 ; Moves copied text to page with name extracted from block
 
 (ns bb-logseq-move-to-page
-  (:require [cldwalker.babashka.util :as util]
+  (:require [cldwalker.bb-clis.util :as util]
             [clojure.string :as str]
             [babashka.tasks :refer [shell]]))
 

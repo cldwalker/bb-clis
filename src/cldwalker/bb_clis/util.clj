@@ -1,4 +1,4 @@
-(ns cldwalker.babashka.util
+(ns cldwalker.bb-clis.util
   "Util fns for babashka scripts"
   (:require [clojure.java.shell :as shell]
             [clojure.string :as str]

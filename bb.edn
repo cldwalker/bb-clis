@@ -1,8 +1,8 @@
 {:paths ["src"]
  :tasks
  {:requires ([cheshire.core :as json]
-             [cldwalker.babashka.util :as util]
-             [cldwalker.babashka.task :as task]
+             [cldwalker.bb-clis.util :as util]
+             [cldwalker.bb-clis.babashka.task :as task]
              [clojure.edn :as edn]
              [clojure.string :as str])
   :init
@@ -11,7 +11,7 @@
       (let [required-args (->> (str (:usage (current-task)))
                                ((fn [s] (str/split s (re-pattern "\\s+"))))
                                (take-while (fn [s] (re-find (re-pattern "^[A-Z]") s))))
-            args (if (= :cldwalker.babashka.task/no-options parsed-args)
+            args (if (= :cldwalker.bb-clis.babashka.task/no-options parsed-args)
                    *command-line-args* (:arguments parsed-args))]
         (when (< (count args) (count required-args))
           (println "Wrong number of arguments given.")

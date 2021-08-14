@@ -7,7 +7,7 @@
   (:require [clojure.edn :as edn]
             [clojure.string :as str]
             [babashka.deps :as deps]
-            [cldwalker.babashka.util :as util]))
+            [cldwalker.bb-clis.util :as util]))
 
 (defn- get-columns
   "Extract columns from rows. Defaults to searching across all rows"
