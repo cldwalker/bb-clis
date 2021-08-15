@@ -4,31 +4,20 @@
 
 (ns bb-logseq-move-to-page
   (:require [cldwalker.bb-clis.cli :as cli]
-            [clojure.string :as str]
+            [cldwalker.bb-clis.cli.logseq :as logseq]
             [babashka.tasks :refer [shell]]))
 
-(defn- parse-block [block]
-  (->> block
-       str/split-lines
-       (map #(str/split % #"::\s*"))
-       (remove #(< (count %) 2))
-       (into {})))
-
-(defn attrs-to-block [attrs]
-  (->> attrs
-       (map (fn [[k v]] (str k ":: " v)))
-       (str/join "\n")))
-
 (defn- move-to-page [block options]
-  (let [block-attrs (parse-block block)
-        page-name (block-attrs "name")]
+  (let [properties (logseq/block->properties block)
+        page-name (properties "name")]
     (when-not page-name
       (println "Error: Name attribute required to move page")
       (System/exit 1))
     (let [file (str (:directory options) "/pages/" page-name ".md")
-          block (attrs-to-block (into {} (remove #(= "name" (key %)) block-attrs)))]
+          block (logseq/properties->block
+                 (into {} (remove #(= "name" (key %)) properties)))]
       (spit file block)
-      (shell {:in (block-attrs "name")} "pbcopy")
+      (shell {:in (properties "name")} "pbcopy")
       (println "Page" page-name "written successfully."))))
 
 (defn -main [{:keys [options summary]}]

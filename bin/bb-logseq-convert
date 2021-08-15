@@ -5,6 +5,7 @@
 
 (ns bb-logseq-convert
   (:require [cldwalker.bb-clis.cli :as cli]
+            [cldwalker.bb-clis.cli.logseq :as logseq]
             [clojure.string :as str]
             [babashka.tasks :refer [shell]])
   (:import (java.net URL)))
@@ -31,13 +32,6 @@
             type_ (assoc :type type_)
             name_ (assoc :name name_))))
 
-(defn- blockify [{:keys [type name url]}]
-  (cond-> []
-          type (conj (str "type:: " type))
-          name (conj (str "name:: " name))
-          url (conj (str "url:: " url))
-          true ((fn [coll] (str/join "\n" coll)))))
-
 (defn- ->url-object [url]
   (try (URL. url)
     (catch Exception _ nil)))
@@ -47,11 +41,12 @@
               (str/join " " arguments)
               (:out (shell {:out :string} "pbpaste")))
         _ (when-not (->url-object url)
-            (println "Error: The following is not a url -" (pr-str url))
-            (System/exit 1))
+            (cli/error "The following is not a url -" (pr-str url)))
         properties (url->properties url)
-        block-text (str (blockify properties)
-                        "\ndesc:: ")]
+        properties-vec (conj (mapv (juxt name properties)
+                                   [:type :name :url])
+                             ["desc" ""])
+        block-text (logseq/properties->block properties-vec)]
     (shell {:in block-text} "pbcopy")
     (println block-text)))
 
