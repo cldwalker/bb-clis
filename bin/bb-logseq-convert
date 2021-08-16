@@ -7,30 +7,47 @@
   (:require [cldwalker.bb-clis.cli :as cli]
             [cldwalker.bb-clis.cli.logseq :as logseq]
             [clojure.string :as str]
+            [cheshire.core :as json]
             [babashka.tasks :refer [shell]])
   (:import (java.net URL)))
 
-;; TODO: Move to a config file
-(def url-config
-  [["github.com\\/[^\\/]+\\/([^\\/]+)" "repo"]])
+;; TODO: Move to a file
+(def host-properties-config
+  {"github.com"
+   #{"http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+     "http://ogp.me/ns#description"
+     "http://schema.org/name"}})
 
-(defn- extract-type [url url-config]
-  (some (fn [[regex-str type_]]
-          (when (re-find (re-pattern regex-str) url)
-            type_))
-        url-config))
+;; TODO: Move to a file
+(def url->name-config
+  {"http://www.w3.org/1999/02/22-rdf-syntax-ns#type" "type"
+   "http://ogp.me/ns#description" "desc"
+   "http://schema.org/name" "name"})
 
-(defn- extract-name [url url-config]
-  (some (fn [[regex-str _]]
-          (second (re-find (re-pattern regex-str) url)))
-        url-config))
+(defn translate-triple
+  [{:keys [predicate object]}]
+  (let [property-name (or (get url->name-config predicate)
+                          (throw (ex-info "Can't translate url to logseq property" {:url predicate})))
+        value (case predicate
+                "http://schema.org/name"
+                (->> object (re-matches #"\"\s*(\S+)\s*\"") second)
+                "http://ogp.me/ns#description"
+                (->> object (re-matches #"\"\s*(.*)\s*\"@\w+") second)
+                object)]
+    [property-name value]))
 
-(defn- url->properties [url]
-  (let [type_ (extract-type url url-config)
-        name_ (extract-name url url-config)]
-    (cond-> {:url url}
-            type_ (assoc :type type_)
-            name_ (assoc :name name_))))
+(defn- url->properties [url-obj]
+  (let [triples (-> (shell {:out :string} "rdf-dereference" (str url-obj))
+                    :out
+                    (json/parse-string true))
+        host (.getHost url-obj)
+        properties-to-keep (get host-properties-config host
+                                #{"http://www.w3.org/1999/02/22-rdf-syntax-ns#type"})
+        properties (->> triples
+                        (filter #(contains? properties-to-keep (:predicate %)))
+                        (map translate-triple)
+                        (into {}))]
+    properties))
 
 (defn- ->url-object [url]
   (try (URL. url)
@@ -40,12 +57,12 @@
   (let [url (if (seq arguments)
               (str/join " " arguments)
               (:out (shell {:out :string} "pbpaste")))
-        _ (when-not (->url-object url)
-            (cli/error "The following is not a url -" (pr-str url)))
-        properties (url->properties url)
-        properties-vec (conj (mapv (juxt name properties)
-                                   [:type :name :url])
-                             ["desc" ""])
+        url-obj (or (->url-object url)
+                    (cli/error "The following is not a url -" (pr-str url)))
+        properties (merge {"desc" "" "url" (str url-obj)}
+                          (url->properties url-obj))
+        properties-vec (mapv (juxt identity properties)
+                             ["url" "type" "name" "desc"])
         block-text (logseq/properties->block properties-vec)]
     (shell {:in block-text} "pbcopy")
     (println block-text)))
