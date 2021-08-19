@@ -1,0 +1,25 @@
+;; Configures what properties a given host keeps to be converted to a block.
+;; This is my config and should be moved to a personal global config
+{:host-properties
+ {"github.com"
+  #{"http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+    "http://ogp.me/ns#description"
+    "http://schema.org/name"}
+
+  "youtube.com"
+  ;; consider duration and related u.author.{name,url}
+  #{"http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+    "http://ogp.me/ns#description"
+    "http://schema.org/name"}
+
+  "imdb.com"
+  ;; consider genre, rating, date published and actors
+  ;; related anonymous _.name would be preferred
+  #{"http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+    "http://opengraphprotocol.org/schema/title"
+    "http://opengraphprotocol.org/schema/description"}
+
+  "en.wikipedia.org"
+  ;; type isn't accurate here as there are usually multiple nodes with types
+  #{"http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+    "http://schema.org/headline"}}}

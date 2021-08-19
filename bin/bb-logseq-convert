@@ -7,42 +7,58 @@
   (:require [cldwalker.bb-clis.cli :as cli]
             [cldwalker.bb-clis.cli.logseq :as logseq]
             [clojure.string :as str]
+            [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [cheshire.core :as json]
+            [babashka.process :as process]
             [babashka.tasks :refer [shell]])
   (:import (java.net URL)))
 
-;; TODO: Move to a file
-(def host-properties-config
-  {"github.com"
-   #{"http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
-     "http://ogp.me/ns#description"
-     "http://schema.org/name"}})
-
-;; TODO: Move to a file
+;; TODO: Move to config
 (def url->name-config
   {"http://www.w3.org/1999/02/22-rdf-syntax-ns#type" "type"
    "http://ogp.me/ns#description" "desc"
-   "http://schema.org/name" "name"})
+   "http://opengraphprotocol.org/schema/description" "desc"
+   "http://schema.org/headline" "desc"
+   "http://schema.org/name" "name"
+   "http://opengraphprotocol.org/schema/title" "name"})
 
 (defn translate-triple
   [{:keys [predicate object]}]
   (let [property-name (or (get url->name-config predicate)
                           (throw (ex-info "Can't translate url to logseq property" {:url predicate})))
-        value (case predicate
-                "http://schema.org/name"
-                (->> object (re-matches #"\"\s*(\S+)\s*\"") second)
-                "http://ogp.me/ns#description"
-                (->> object (re-matches #"\"\s*(.*)\s*\"@\w+") second)
+        ;; TODO: Move to config
+        value (cond (#{"http://schema.org/name"
+                       "http://schema.org/headline"}
+                      predicate)
+                (->> object (re-matches #"\"\s*(.*)\s*\"") second)
+                (#{"http://ogp.me/ns#description"
+                   "http://opengraphprotocol.org/schema/title"
+                   "http://opengraphprotocol.org/schema/description"}
+                  predicate)
+                (->> object (re-matches #"\"\s*(.*)\s*\"@\S+") second)
+                :else
                 object)]
     [property-name value]))
 
-(defn- url->properties [url-obj]
-  (let [triples (-> (shell {:out :string} "rdf-dereference" (str url-obj))
-                    :out
+(defn- process-by-timeout-or-exit
+  "Need a timeout as rdf-dereference has been wierdly timing out for imdb and
+  wikipedia"
+  [cmd timeout]
+  (let [ret (deref (:out (process/process cmd {:out :string})) timeout ::timeout)]
+    (if (= ret ::timeout)
+      (cli/error (str "Timed out while running cmd: " cmd))
+      ret)))
+
+(defn- url->properties [url-obj config {:keys [debug]}]
+  (let [triples (-> ["rdf-dereference" (str url-obj)]
+                    (process-by-timeout-or-exit 3000)
                     (json/parse-string true))
-        host (.getHost url-obj)
-        properties-to-keep (get host-properties-config host
-                                #{"http://www.w3.org/1999/02/22-rdf-syntax-ns#type"})
+        host (str/replace-first (.getHost url-obj) #"^www\." "")
+        _ (when debug (println "[DEBUG] Host: " host))
+        properties-to-keep (get-in config [:host-properties host]
+                                   #{"http://www.w3.org/1999/02/22-rdf-syntax-ns#type"})
+        _ (when debug (println "[DEBUG] Properties: " properties-to-keep))
         properties (->> triples
                         (filter #(contains? properties-to-keep (:predicate %)))
                         (map translate-triple)
@@ -53,17 +69,25 @@
   (try (URL. url)
     (catch Exception _ nil)))
 
-(defn- create-block [arguments _]
-  (let [url (if (seq arguments)
+(defn- get-config []
+  (let [local-config (io/file (.getParent (io/file *file* ))
+                              ".."
+                              ".bb-logseq-convert.edn")]
+    (when (.exists local-config)
+      (edn/read-string (slurp (str local-config))))))
+
+(defn- create-block [arguments options]
+  (let [config (get-config)
+        url (if (seq arguments)
               (str/join " " arguments)
               (:out (shell {:out :string} "pbpaste")))
         url-obj (or (->url-object url)
                     (cli/error "The following is not a url -" (pr-str url)))
         properties (merge {"desc" "" "url" (str url-obj)}
-                          (url->properties url-obj))
-        properties-vec (mapv (juxt identity properties)
-                             ["url" "type" "name" "desc"])
-        block-text (logseq/properties->block properties-vec)]
+                          (url->properties url-obj config options))
+        properties-coll (keep #(when-let [val (properties %)] [% val])
+                              ["url" "type" "name" "desc"])
+        block-text (logseq/properties->block properties-coll)]
     (shell {:in block-text} "pbcopy")
     (println block-text)))
 
@@ -73,7 +97,8 @@
     (create-block arguments options)))
 
 (def cli-options
-  [["-h" "--help"]])
+  [["-h" "--help"]
+   ["-d" "--debug"]])
 
 (when (= *file* (System/getProperty "babashka.file"))
   (cli/run-command -main *command-line-args* cli-options))
