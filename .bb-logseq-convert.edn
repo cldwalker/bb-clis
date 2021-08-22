@@ -20,6 +20,6 @@
     "http://opengraphprotocol.org/schema/description"}
 
   "en.wikipedia.org"
-  ;; type isn't accurate here as there are usually multiple nodes with types
+  ;; type isn't consistently accurate here as there are usually multiple nodes with types
   #{"http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
     "http://schema.org/headline"}}}

@@ -15,31 +15,37 @@
   (:import (java.net URL)))
 
 ;; TODO: Move to config
-(def url->name-config
-  {"http://www.w3.org/1999/02/22-rdf-syntax-ns#type" "type"
-   "http://ogp.me/ns#description" "desc"
+
+(def text-properties
+  {"http://ogp.me/ns#description" "desc"
    "http://opengraphprotocol.org/schema/description" "desc"
    "http://schema.org/headline" "desc"
    "http://schema.org/name" "name"
    "http://opengraphprotocol.org/schema/title" "name"})
 
+(def text-property-urls (set (keys text-properties)))
+
+(def url->name-config
+  (merge
+   text-properties
+   {"http://www.w3.org/1999/02/22-rdf-syntax-ns#type" "type"
+    "http://schema.org/SoftwareSourceCode" "repo"}))
+
+(defn- ->url-object [url]
+  (try (URL. url)
+    (catch Exception _ nil)))
+
 (defn translate-triple
   [{:keys [predicate object]}]
   (let [property-name (or (get url->name-config predicate)
                           (throw (ex-info "Can't translate url to logseq property" {:url predicate})))
-        ;; TODO: Move to config
-        value (cond (#{"http://schema.org/name"
-                       "http://schema.org/headline"}
-                      predicate)
-                (->> object (re-matches #"\"\s*(.*)\s*\"") second)
-                (#{"http://ogp.me/ns#description"
-                   "http://opengraphprotocol.org/schema/title"
-                   "http://opengraphprotocol.org/schema/description"}
-                  predicate)
-                (->> object (re-matches #"\"\s*(.*)\s*\"@\S+") second)
-                :else
-                object)]
-    [property-name value]))
+        value (if (contains? text-property-urls predicate)
+                (->> object (re-find #"^\"\s*(.*)\s*\"") second)
+                object)
+        value_ (if-let [page-value (and (->url-object value) (url->name-config value))]
+                 (format "[[%s]]" page-value)
+                 value)]
+    [property-name value_]))
 
 (defn- process-by-timeout-or-exit
   "Need a timeout as rdf-dereference has been wierdly timing out for imdb and
@@ -64,10 +70,6 @@
                         (map translate-triple)
                         (into {}))]
     properties))
-
-(defn- ->url-object [url]
-  (try (URL. url)
-    (catch Exception _ nil)))
 
 (defn- get-config []
   (let [local-config (io/file (.getParent (io/file *file* ))
