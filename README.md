@@ -310,6 +310,21 @@ datascript.datafy
     └── datascript.db ...
 ```
 
+## bb-logseq
+
+These are a group of scripts for use with [logseq](https://logseq.com/). My config
+of these scripts are in [this directory](https://github.com/cldwalker/dotfiles/tree/master/.bb-logseq).
+
+### bb-logseq-convert
+
+Given a url, returns auto populated properties as a logseq block. The properties
+are derived from the url's rdf data and what is converted to the logseq block is
+highly configurable.
+
+### bb-logseq-move-to-page
+
+Given a logseq text block with a name property, moves that block to a logseq page.
+
 ## Development
 
 Code is organized as follows:
