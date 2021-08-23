@@ -101,18 +101,30 @@
   rdf-data
   {:doc "Fetches rdf contents of a url using rdf-dereference"
    :usage "URL"
-   :requires ([clojure.pprint :as pprint])
+   :requires ([clojure.pprint :as pprint]
+              [babashka.process :as process])
    :options [["-a" "--all" "Prints all data, not just schema.org predicates with graph and subject filtered out"]]
-   :task (let [options (:options *parsed-args*)
-               rdf-data (:out (shell {:out :string} (str "rdf-dereference " (first *command-line-args*))))
-               filter-fn (if (:all options)
-                           (constantly true)
-                           (fn [{:keys [predicate]}]
-                             (or (str/includes? predicate "schema.org")
-                                 ;; Next two are useful on github
-                                 (str/includes? predicate "ogp.me")
-                                 (= "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" predicate))))
-               map-fn (if (:all options) identity (fn [m] (dissoc m :subject :graph)))
-               result (map map-fn
-                           (filter filter-fn (json/parse-string rdf-data true)))]
-           (pprint/pprint result))}}}
+   :task (do
+           (defn- process-by-timeout
+             "Runs cmd which returns output as string. If timeout ms is reached, returns
+  what has been written to stdout"
+             [cmd timeout]
+             (let [out-str (java.io.StringWriter.)
+                   ret (deref (:out (process/process cmd {:out out-str})) timeout :timeout)]
+               (if (= ret :timeout)
+                 (str out-str)
+                 (str ret))))
+
+           (let [options (:options *parsed-args*)
+                 rdf-data (process-by-timeout ["rdf-dereference" (first *command-line-args*)] 2500)
+                 filter-fn (if (:all options)
+                             (constantly true)
+                             (fn [{:keys [predicate]}]
+                               (or (str/includes? predicate "schema.org")
+                                   ;; Next two are useful on github
+                                   (str/includes? predicate "ogp.me")
+                                   (= "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" predicate))))
+                 map-fn (if (:all options) identity (fn [m] (dissoc m :subject :graph)))
+                 result (map map-fn
+                             (filter filter-fn (json/parse-string rdf-data true)))]
+             (pprint/pprint result)))}}}

@@ -14,7 +14,8 @@
             [cheshire.core :as json]
             [babashka.process :as process]
             [babashka.tasks :refer [shell]])
-  (:import (java.net URL)))
+  (:import (java.net URL)
+           (java.io StringWriter)))
 
 ;; Config
 ;; ======
@@ -51,14 +52,15 @@ process that generates this map from your logseq data"
   (try (URL. url)
     (catch Exception _ nil)))
 
-(defn- process-by-timeout-or-exit
-  "Runs cmd for timeout ms but exits CLI early if timeout is reached. Returns
-  cmd output as string"
+(defn- process-by-timeout
+  "Runs cmd which returns output as string. If timeout ms is reached, returns
+  what has been written to stdout"
   [cmd timeout]
-  (let [ret (deref (:out (process/process cmd {:out :string})) timeout ::timeout)]
+  (let [out-str (StringWriter.)
+        ret (deref (:out (process/process cmd {:out out-str})) timeout ::timeout)]
     (if (= ret ::timeout)
-      (cli/error (str "Timed out while running cmd: " cmd))
-      ret)))
+      (str out-str)
+      (str ret))))
 
 ;; Main CLI
 ;; ========
@@ -92,9 +94,9 @@ process that generates this map from your logseq data"
 (defn- url->properties [url-obj config {:keys [debug]}]
   (let [dynamic-config (build-dynamic-config config)
         triples (-> ["rdf-dereference" (str url-obj)]
-                    ;; Need a timeout as rdf-dereference has been wierdly timing
+                    ;; Need a timeout as rdf-dereference has been wierdly hanging
                     ;; out for imdb and wikipedia
-                    (process-by-timeout-or-exit 3000)
+                    (process-by-timeout 2500)
                     (json/parse-string true))
         host (str/replace-first (.getHost url-obj) #"^www\." "")
         _ (when debug (println "[DEBUG] Host: " host))
