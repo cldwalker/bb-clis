@@ -69,8 +69,11 @@ process that generates this map from your logseq data"
         value (if (contains? text-property-urls predicate)
                 (->> object (re-find #"^\"\s*(.*)\s*\"") second)
                 object)
-        value_ (if-let [page-value (and (->url-object value) (url-to-name value))]
-                 (format "[[%s]]" page-value)
+        value_ (if (->url-object value)
+                 (or (url-to-name value)
+                     ;; For cases like http://schema.org/Person with https://gist.github.com/borkdude
+                     (url-to-name (str/replace-first value "http://" "https://"))
+                     value)
                  value)]
     [property-name value_]))
 
