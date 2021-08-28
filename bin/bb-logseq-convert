@@ -22,7 +22,7 @@
 (def default-config
   ;; Configures what properties a given host keeps to be converted to a block.
   {:host-properties {}
-   ;; Maps property urls that have text values to their names in logseq
+   ;; Maps property urls that have text values to their keyword names in logseq
    ;; This also translates property values to normal strings by stripping them
    ;; of quotes and other suffix info e.g. "foo"@en -> foo
    :text-properties {}})
@@ -118,10 +118,10 @@ process that generates this map from your logseq data"
               (:out (shell {:out :string} "pbpaste")))
         url-obj (or (->url-object url)
                     (cli/error "The following is not a url -" (pr-str url)))
-        properties (merge {"desc" "" "url" (str url-obj)}
+        properties (merge {:desc "" :url (str url-obj)}
                           (url->properties url-obj config options))
         properties-coll (keep #(when-let [val (properties %)] [% val])
-                              ["url" "type" "name" "desc"])
+                              [:url :type :name :desc])
         block-text (logseq/properties->block properties-coll)]
     (shell {:in block-text} "pbcopy")
     (println block-text)))
