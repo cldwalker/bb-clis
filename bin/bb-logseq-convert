@@ -120,13 +120,8 @@ process that generates this map from your logseq data"
       ;; rdf data is converted
       {"http://www.w3.org/1999/02/22-rdf-syntax-ns#type" "type"})}))
 
-(defn- get-rdf-properties [url-obj config {:keys [debug]}]
+(defn- get-rdf-properties* [triples url-obj config {:keys [debug]}]
   (let [dynamic-config (build-dynamic-config config)
-        triples (-> ["rdf-dereference" (str url-obj)]
-                    ;; Need a timeout as rdf-dereference has been wierdly hanging
-                    ;; out for imdb and wikipedia
-                    (process-by-timeout 2500)
-                    (json/parse-string true))
         host (str/replace-first (.getHost url-obj) #"^www\." "")
         _ (when debug (println "[DEBUG] Host: " host))
         properties-to-keep (get-in config [:host-properties host]
@@ -137,6 +132,19 @@ process that generates this map from your logseq data"
                         (map #(translate-triple % dynamic-config))
                         (into {}))]
     properties))
+
+(defn get-rdf-properties [url-obj config options]
+  (let [triples (try (-> ["rdf-dereference" (str url-obj)]
+                         ;; Need a timeout as rdf-dereference has been wierdly hanging
+                         ;; out for imdb and wikipedia
+                         (process-by-timeout 2500)
+                         (json/parse-string true)
+                         doall)
+                  ;; nytimes intermittently fails on partially streamed data
+                  (catch Exception e
+                    (println "Rdf properties unexpectedly failed with: " (str e))))]
+    (when triples
+      (get-rdf-properties* triples url-obj config options))))
 
 (defn- url->properties [url-obj config options]
   (merge (get-rdf-properties url-obj config options)
