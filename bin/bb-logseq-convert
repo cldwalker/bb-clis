@@ -9,6 +9,7 @@
   (:require [cldwalker.bb-clis.cli :as cli]
             [cldwalker.bb-clis.cli.logseq :as logseq]
             [clojure.string :as str]
+            [clojure.set :as set]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [cheshire.core :as json]
@@ -20,12 +21,16 @@
 ;; Config
 ;; ======
 (def default-config
-  ;; Configures what properties a given host keeps to be converted to a block.
+  ;; Configures what properties a given host keeps from rdf data to be converted
+  ;; to a block.
   {:host-properties {}
-   ;; Maps property urls that have text values to their keyword names in logseq
+   ;; Maps property urls that have text values to their names in logseq.
    ;; This also translates property values to normal strings by stripping them
    ;; of quotes and other suffix info e.g. "foo"@en -> foo
-   :text-properties {}})
+   :text-properties {}
+   ;; Vec of url regexs to extract property info from. Extracts on first
+   ;; matching regex
+   :url-properties []})
 
 ;; May need to move this to shared ns
 (defn- read-config []
@@ -64,12 +69,26 @@ process that generates this map from your logseq data"
 
 ;; Main CLI
 ;; ========
+(defn- get-url-properties [url-obj {:keys [url-properties]} {:keys [debug]}]
+  (let [url (str url-obj)
+        props
+        (some (fn [[regex-str {:keys [properties capture-names]}]]
+                (when-let [matches (re-find (re-pattern regex-str) url)]
+                  (when debug (println "[DEBUG] Matched regex:" regex-str))
+                  (merge properties
+                         (when (coll? matches)
+                           (zipmap capture-names (rest matches))))))
+              url-properties)]
+    (when debug (println "[DEBUG] Url properties:" (pr-str props)))
+    props))
+
 (defn- translate-triple
   [{:keys [predicate object]} {:keys [text-property-urls url-to-name]}]
-  (let [property-name (or (url-to-name predicate)
+  (let [property-name (or (keyword (url-to-name predicate))
                           (throw (ex-info "Can't translate url to logseq property" {:url predicate})))
         value (if (contains? text-property-urls predicate)
-                (->> object (re-find #"^\"\s*(.*)\s*\"") second)
+                (or (->> object (re-find #"^\"\s*(.*)\s*\"") second)
+                    object)
                 object)
         value_ (if (->url-object value)
                  (or (url-to-name value)
@@ -81,17 +100,27 @@ process that generates this map from your logseq data"
 
 (defn- build-dynamic-config
   [{:keys [text-properties entities]}]
-  {:text-property-urls
-   (set (keys text-properties))
-   :url-to-name
-   (merge
-    text-properties
-    entities
-    ;; Not configurable for now as type is pretty critical to how all this
-    ;; rdf data is converted
-    {"http://www.w3.org/1999/02/22-rdf-syntax-ns#type" "type"})})
+  ;; Just add config for all https assuming all are described as http
+  (let [new-text-properties
+        (merge text-properties
+               (into {}
+                     (map (fn [[k v]]
+                            ;; e.g. https://schema.description for SO
+                            [(str/replace-first k "http://" "https://")
+                             v])
+                          text-properties)))]
+    {:text-property-urls
+     (set (keys new-text-properties))
+     :url-to-name
+     (merge
+      entities
+      ;; override entities for abbreviated names like description -> desc
+      new-text-properties
+      ;; Not configurable for now as type is pretty critical to how all this
+      ;; rdf data is converted
+      {"http://www.w3.org/1999/02/22-rdf-syntax-ns#type" "type"})}))
 
-(defn- url->properties [url-obj config {:keys [debug]}]
+(defn- get-rdf-properties [url-obj config {:keys [debug]}]
   (let [dynamic-config (build-dynamic-config config)
         triples (-> ["rdf-dereference" (str url-obj)]
                     ;; Need a timeout as rdf-dereference has been wierdly hanging
@@ -102,12 +131,16 @@ process that generates this map from your logseq data"
         _ (when debug (println "[DEBUG] Host: " host))
         properties-to-keep (get-in config [:host-properties host]
                                    #{"http://www.w3.org/1999/02/22-rdf-syntax-ns#type"})
-        _ (when debug (println "[DEBUG] Properties: " properties-to-keep))
+        _ (when debug (println "[DEBUG] Rdf Properties: " (pr-str properties-to-keep)))
         properties (->> triples
                         (filter #(contains? properties-to-keep (:predicate %)))
                         (map #(translate-triple % dynamic-config))
                         (into {}))]
     properties))
+
+(defn- url->properties [url-obj config options]
+  (merge (get-rdf-properties url-obj config options)
+         (get-url-properties url-obj config options)))
 
 (defn- create-block [arguments options]
   (let [entities (read-entities-config)
@@ -120,8 +153,13 @@ process that generates this map from your logseq data"
                     (cli/error "The following is not a url -" (pr-str url)))
         properties (merge {:desc "" :url (str url-obj)}
                           (url->properties url-obj config options))
-        properties-coll (keep #(when-let [val (properties %)] [% val])
-                              [:url :type :name :desc])
+        ;; Keep first properties in order
+        ordered-properties [:url :type :name :desc]
+        properties-coll (concat (keep #(when-let [val (properties %)] [% val])
+                                      ordered-properties)
+                                (map (juxt identity properties)
+                                     (set/difference (set (keys properties))
+                                                     (set ordered-properties))))
         block-text (logseq/properties->block properties-coll)]
     (shell {:in block-text} "pbcopy")
     (println block-text)))
