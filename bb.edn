@@ -127,4 +127,23 @@
                  map-fn (if (:all options) identity (fn [m] (dissoc m :subject :graph)))
                  result (map map-fn
                              (filter filter-fn (json/parse-string rdf-data true)))]
-             (pprint/pprint result)))}}}
+             (pprint/pprint result)))}
+
+  var-meta
+  {:doc "Prints var metadata for source-paths. Defaults to src/ for source-paths"
+   :usage "[& SOURCE-PATHS]"
+   :requires ([babashka.pods :as pods])
+   :task (let [paths (or (seq *command-line-args*) ["src"])]
+           (pods/load-pod "clj-kondo") ;; Need at least "2021.10.19"
+           (require '[pod.borkdude.clj-kondo :as clj-kondo])
+
+           (let [{{:keys [var-definitions]} :analysis}
+                 ((requiring-resolve 'clj-kondo/run!)
+                  {:lint paths
+                   :config {:output {:analysis {:var-definitions {:meta true}}}}})
+                 matches (keep (fn [m]
+                                 (when (:meta m)
+                                   {:var (str (:ns m) "/" (:name m))
+                                    :meta (:meta m)}))
+                               var-definitions)]
+             (prn matches)))}}}
