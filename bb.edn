@@ -129,6 +129,24 @@
                              (filter filter-fn (json/parse-string rdf-data true)))]
              (pprint/pprint result)))}
 
+  clone
+  {:doc "Clone a git url"
+   :usage "URL"
+   :extra-deps {org.clojure/tools.gitlibs {:mvn/version "2.4.172"}}
+   :requires ([clojure.tools.gitlibs :as gl])
+   :options [["-b" "--branch BRANCH" :default "master"]
+             ["-n" "--name NAME"]]
+   :task (let [{:keys [options arguments]} *parsed-args*
+               url (first arguments)
+               gitlib-name (or (some-> (:name options) symbol)
+                               ;; Try parsing a sensible name from a github.com/repo/name like url
+                               (let [[_ namespace name] (re-find (re-pattern "([^/]+)/([^/]+)$") url)]
+                                 (if (nil? namespace)
+                                   (throw (ex-info "name not detected from a url. Please specify --name" {})))
+                                 (symbol (str "gh." namespace) name)))
+               dir (gl/procure url gitlib-name (:branch options))]
+           (println dir))}
+
   var-meta
   {:doc "Prints var metadata for source-paths. Defaults to src/ for source-paths"
    :usage "[& SOURCE-PATHS]"
