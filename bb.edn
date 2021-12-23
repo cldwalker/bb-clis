@@ -147,6 +147,33 @@
                dir (gl/procure url gitlib-name (:branch options))]
            (println dir))}
 
+  var-sizes
+  {:doc "Print vars with largest LOCs"
+   :requires ([babashka.pods :as pods])
+   :task (let [paths (or (seq *command-line-args*) ["src"])
+               _ (pods/load-pod "clj-kondo")
+               _ (require '[pod.borkdude.clj-kondo :as clj-kondo])
+               {{:keys [var-definitions var-usages]} :analysis}
+               ((requiring-resolve 'clj-kondo/run!)
+                {:lint paths
+                 :config {:output {:analysis true}}})
+               comment-blocks (->> var-usages
+                                   (filter (fn [m] (= (:name m) 'comment)))
+                                   (map (fn [m] (select-keys m [:row :end-row :filename]))))
+               in-comment-block? (fn [filename line]
+                                   (some (fn [m]
+                                           (and (= filename (:filename m)) (<= (:row m) line (:end-row m))))
+                                         comment-blocks))
+               vars (->> var-definitions
+                         (keep (fn [m]
+                                 (when-not (in-comment-block? (:filename m) (:row m))
+                                   {:name (:name m)
+                                    :loc-size (inc (- (:end-row m) (:row m)))
+                                    :filename (:filename m)})))
+                         (sort-by :loc-size (fn [x y] (compare y x)))
+                         (take 10))]
+           (prn vars))}
+
   var-meta
   {:doc "Prints var metadata for source-paths. Defaults to src/ for source-paths"
    :usage "[& SOURCE-PATHS]"
