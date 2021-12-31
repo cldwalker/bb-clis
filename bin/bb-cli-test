@@ -1,6 +1,9 @@
 #!/usr/bin/env bb
 ;; vim: set filetype=clojure:
 
+(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "c5da64153fb29e2f3fa807df4228b6e434f00fcd"}}})
+; (deps/add-deps {:deps {'io.github.cldwalker/bb-clis {:local/root (str (fs/parent (fs/parent *file*)))}}})
+
 (ns bb-cli-test
   (:require [clojure.string :as str]
             [clojure.java.shell :as shell]
@@ -94,4 +97,5 @@
     (= "record" (first arguments)) (do (record-test (rest arguments) options) nil)
     :else (cli/error "Unknown subcommand given")))
 
-(cli/run-command -main *command-line-args* cli-options :in-order true :strict true)
+(when (= *file* (System/getProperty "babashka.file"))
+  (cli/run-command -main *command-line-args* cli-options :in-order true :strict true))

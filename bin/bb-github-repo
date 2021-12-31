@@ -2,6 +2,9 @@
 ; Opens urls related to current or specified github repository
 ; vim: set filetype=clojure:
 
+(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "c5da64153fb29e2f3fa807df4228b6e434f00fcd"}}})
+; (deps/add-deps {:deps {'io.github.cldwalker/bb-clis {:local/root (str (fs/parent (fs/parent *file*)))}}})
+
 (ns bb-github-repo
   (:require [cldwalker.bb-clis.cli :as cli]
             [cldwalker.bb-clis.cli.misc :as misc]

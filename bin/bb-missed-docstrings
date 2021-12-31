@@ -1,7 +1,10 @@
 #!/usr/bin/env bb
 ;; vim: set filetype=clojure:
 
-(ns bb-missed-docs
+(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "c5da64153fb29e2f3fa807df4228b6e434f00fcd"}}})
+; (deps/add-deps {:deps {'io.github.cldwalker/bb-clis {:local/root (str (fs/parent (fs/parent *file*)))}}})
+
+(ns bb-missed-docstrings
   "A slightly modified version of https://github.com/borkdude/clj-kondo/blob/master/analysis/src/clj_kondo/tools/missing_docstrings.clj"
   (:require [cldwalker.bb-clis.cli :as cli]
             [babashka.pods :as pods]))

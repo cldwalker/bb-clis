@@ -2,6 +2,9 @@
 ;; vim: set filetype=clojure:
 ;; Print usages of a var for given source paths
 
+(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "c5da64153fb29e2f3fa807df4228b6e434f00fcd"}}})
+; (deps/add-deps {:deps {'io.github.cldwalker/bb-clis {:local/root (str (fs/parent (fs/parent *file*)))}}})
+
 (ns bb-var-usages
   "Modified version of https://github.com/borkdude/clj-kondo/blob/master/analysis/src/clj_kondo/tools/find_var.clj"
   (:require [babashka.pods :as pods]
