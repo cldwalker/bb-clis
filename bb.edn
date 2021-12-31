@@ -33,7 +33,7 @@
   {:doc "Print a task's help"
    :usage "TASK"
    ;; Would rather not dip into bb's internals to determine tasks
-   :task (let [tasks (-> (or (System/getenv "BABASHKA_EDN") "bb.edn")
+   :task (let [tasks (-> (or (System/getenv "BB_EDN") "bb.edn")
                          slurp
                          edn/read-string
                          :tasks)
