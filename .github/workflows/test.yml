@@ -35,6 +35,6 @@ jobs:
            sudo ./install-bb
            rm install-bb
       - name: Check for unused vars
-        run: BABASHKA_CLASSPATH=src bin/bb-unused-vars -i .github/workflows/unused-vars-to-ignore.edn  bin/* src
+        run: bin/bb-unused-vars -i .github/workflows/unused-vars-to-ignore.edn  bin/* src
       - name: Check for missed docstrings
-        run: BABASHKA_CLASSPATH=src bin/bb-missed-docstrings -i 'cli-options|-main' bin/* src
+        run: bin/bb-missed-docstrings -i 'cli-options|-main' bin/* src
