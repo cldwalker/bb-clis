@@ -6,7 +6,10 @@
             [clojure.java.shell :as shell]))
 
 (deftest help-option
-  (let [cmd-results (shell/sh "bb-replace" "-h"
+  (let [;; call once to clone deps. This workaround is temporary if this ns
+        ;; is no longer the first to be tested
+        _ (shell/sh "bb-replace" "-h")
+        cmd-results (shell/sh "bb-replace" "-h"
                               :dir "test/resources/bin/bb_replace_test")
         expected-results (-> (io/resource "bin/bb_replace_test/help-option.edn")
                              slurp
