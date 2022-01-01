@@ -9,7 +9,7 @@
 ;;   bb-aws lambda invoke --function-name FN OUT_FILE
 ;; Drop into a repl with command's result stored in #'result
 ;; - bb-aws --repl s3api list-buckets
-
+#_:clj-kondo/ignore
 (deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "c5da64153fb29e2f3fa807df4228b6e434f00fcd"}}})
 ; (deps/add-deps {:deps {'io.github.cldwalker/bb-clis {:local/root (str (fs/parent (fs/parent *file*)))}}})
 
@@ -17,7 +17,6 @@
   {:clj-kondo/config
   '{:linters {:inline-def {:level :off}}}}
   (:require [babashka.pods :as pods]
-            [cldwalker.bb-clis.util.associative :as a]
             [cldwalker.bb-clis.cli :as cli]
             [clojure.string :as str]
             [clojure.main :as main]
@@ -49,11 +48,11 @@
         op (keyword (clojure-case->camel-case subcmd))
         client (aws/client {:api api :region region})
         [options _] (parse-options-and-args args)
-        request (a/map-keys #(-> %
-                                 clojure-case->camel-case
-                                 (str/replace-first #"[A-Z]" str/lower-case)
-                                 keyword)
-                            options)]
+        request (update-keys options
+                             #(-> %
+                                  clojure-case->camel-case
+                                  (str/replace-first #"[A-Z]" str/lower-case)
+                                  keyword))]
     (when debug
       (println "API:" api)
       (println "OP:" op)

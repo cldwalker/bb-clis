@@ -11,8 +11,7 @@
   (:require [clojure.string :as str]
             [clojure.java.io :as io]
             [clojure.edn :as edn]
-            [cldwalker.bb-clis.cli :as cli]
-            [cldwalker.bb-clis.util.associative :as a]))
+            [cldwalker.bb-clis.cli :as cli]))
 
 (defn- get-replacements
   "Reads replacements from ./bb-replace.edn and ~/.bb-replace.edn.
@@ -30,7 +29,7 @@ A replacement consists of three keys:
            (.exists (io/file ".bb-replace.edn"))
            (into [(edn/read-string (slurp ".bb-replace.edn"))])
 
-           true (mapv (fn [m] (a/map-vals #(update % :regex re-pattern) m)))
+           true (mapv (fn [m] (update-vals m #(update % :regex re-pattern))))
            true (apply merge)))
 
 (defn- update-file-with-replacement

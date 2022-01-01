@@ -84,7 +84,7 @@ $ cp .bb-replace.edn ~/.bb-replace.edn
 $ bb-replace lein-version 1.2.1
 
 # Navigate to a nodejs project and update project's version
-$ bb-replace node-version 2.1.1
+$ bb-replace json-version 2.1.1
 
 # A one-off regex can be used. This updates a map entry to false
 $ bb-replace -f project.clj -F '$1 %s' "(:pseudo-names)\s+\w+" false

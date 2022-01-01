@@ -1,5 +1,4 @@
-[:cldwalker.bb-clis.util.associative/map-keys ; repl fn
- :cldwalker.bb-clis.util.maven-artifact/artifact-files ; repl fn
+[:cldwalker.bb-clis.util.maven-artifact/artifact-files ; repl fn
  :cldwalker.bb-clis.babashka.repl/add-portal ; repl fn
  :bb-aws/result ; inline def
  ;; wip fn that may be used soon
