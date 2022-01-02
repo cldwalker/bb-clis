@@ -1,198 +1,80 @@
 {:paths ["src"]
  :min-bb-version "0.7.2"
  :tasks
- {:requires ([cheshire.core :as json]
-             [cldwalker.bb-clis.babashka.task :as task]
-             [clojure.edn :as edn]
-             [clojure.string :as str])
-  :init
-  (do
-    (defn check-for-required-arguments [parsed-args]
-      (let [required-args (->> (str (:usage (current-task)))
-                               ((fn [s] (str/split s (re-pattern "\\s+"))))
-                               (take-while (fn [s] (re-find (re-pattern "^[A-Z]") s))))
-            args (if (= :cldwalker.bb-clis.babashka.task/no-options parsed-args)
-                   *command-line-args* (:arguments parsed-args))]
-        (when (< (count args) (count required-args))
-          (println "Wrong number of arguments given.")
-          (println (format "Usage: bb %s %s%s"
-                           (:name (current-task))
-                           (:usage (current-task))
-                           (if-let [summary (:summary parsed-args)]
-                             (str "\nOptions:\n" summary)
-                             "")))
-          (System/exit 1))))
-    )
+ {:requires ([cldwalker.bb-clis.tasks.util :as tasks-util])
 
-  :enter (do
+  :enter (let [task-map (current-task)]
            (def ^:dynamic *parsed-args*
-             (task/parse-options))
-           (check-for-required-arguments *parsed-args*))
+             (tasks-util/parse-options task-map))
+           (tasks-util/check-for-required-arguments *parsed-args* task-map))
 
   help
   {:doc "Print a task's help"
    :usage "TASK"
-   ;; Would rather not dip into bb's internals to determine tasks
-   :task (let [tasks (-> (or (System/getenv "BB_EDN") "bb.edn")
-                         slurp
-                         edn/read-string
-                         :tasks)
-               task (first *command-line-args*)]
-           (if-let [task-map (get tasks (symbol task))]
-             (println (format "%s\n\nUsage: bb %s%s"
-                              (:doc task-map)
-                              task
-                              (if-let [usage (:usage task-map)]
-                                (str " " usage)
-                                "")))
-             (do
-               (println "Error: No such task exists")
-               (System/exit 1))))}
+   :requires ([cldwalker.bb-clis.tasks :as tasks])
+   :task (tasks/help *command-line-args*)}
 
   repl
-  ;; Couldn't just reference task/repl-task here as `bb tasks` failed
-  {:doc "Pull up socket repl with #'task/result bound to result of given task and args"
+  ;; Couldn't just reference whole task as a map as `bb tasks` failed
+  {:doc "Pull up socket repl with #'tasks/result bound to result of given task and args"
    :usage "TASK [& ARGS]"
-   :task ((:task-fn task/repl-task))}
+   :requires ([cldwalker.bb-clis.tasks :as tasks])
+   :task (tasks/repl *command-line-args*)}
 
   every-dir-shell
   {:doc "Run shell command on every dir"
-   :requires ([babashka.fs :as fs])
+   :requires ([cldwalker.bb-clis.tasks :as tasks])
    :usage "CMD [&ARGS]"
-   :options [["-d" "--directory DIR" "Directories"
-              :id :directories
-              :default-fn (fn [_x] [(System/getenv "PWD")])
-              :validate [fs/directory? "Must be a directory"]
-              :multi true
-              :update-fn conj]]
+   :options tasks/every-dir-shell-cli-options
    :cli-options [:in-order true]
-   :task (let [{:keys [options arguments]} *parsed-args*
-               args (str/join " " arguments)]
-           (doseq [dir (:directories options)]
-             (println "=== Directory -" dir "===")
-             (shell {:dir dir} args)
-             (println "")))}
+   :task (tasks/every-dir-shell *parsed-args*)}
 
   json=
-  ;; Useful when diff fails you do to random sort of json files produced differently
   {:doc "Check equality of given json files"
    :usage "[& FILES]"
-   :task (prn (apply = (map (fn [x] (-> x slurp json/parse-string)) *command-line-args*)))}
+   :requires ([cldwalker.bb-clis.tasks :as tasks])
+   :task (prn (tasks/json= *command-line-args*))}
+
   brew-search-info
   {:doc "Runs a brew info on all brew search results"
    :usage "SEARCH"
-   :task (let [results (-> (shell {:out :string}
-                                  (str/join " " (into ["brew" "search"]
-                                                      *command-line-args*)))
-                           :out
-                           str/split-lines)
-               brew-packages (remove (fn [x] (re-find (re-pattern "(Casks|Formulae)$") x)) results)]
-           (shell (str "brew info " (str/join " " brew-packages))))}
+   :requires ([cldwalker.bb-clis.tasks :as tasks])
+   :task (tasks/brew-search-info *command-line-args*)}
 
   update-gitlib
   {:doc "Update git library sha in deps.edn"
-   :extra-deps {borkdude/rewrite-edn {:mvn/version "0.0.2"}}
-   :requires ([borkdude.rewrite-edn :as r])
+   :extra-deps {borkdude/rewrite-edn {:mvn/version "0.1.0"}}
+   :requires ([cldwalker.bb-clis.tasks.rewrite-edn :as rewrite-edn])
    :usage "GITLIB SHA"
-   :task (let [[gitlib sha] *command-line-args*
-               nodes (-> "deps.edn" slurp r/parse-string)]
-           (spit "deps.edn"
-                 (str (r/assoc-in nodes [:deps (symbol gitlib) :sha] sha))))}
+   :task (rewrite-edn/update-gitlib *command-line-args*)}
 
   rdf-data
   {:doc "Fetches rdf contents of a url using rdf-dereference"
    :usage "URL"
-   :requires ([clojure.pprint :as pprint]
-              [babashka.process :as process])
-   :options [["-a" "--all" "Prints all data, not just schema.org predicates with graph and subject filtered out"]]
-   :task (do
-           (defn- process-by-timeout
-             "Runs cmd which returns output as string. If timeout ms is reached, returns
-  what has been written to stdout"
-             [cmd timeout]
-             (let [out-str (java.io.StringWriter.)
-                   ret (deref (:out (process/process cmd {:out out-str})) timeout :timeout)]
-               (if (= ret :timeout)
-                 (str out-str)
-                 (str ret))))
-
-           (let [options (:options *parsed-args*)
-                 rdf-data (process-by-timeout ["rdf-dereference" (first *command-line-args*)] 2500)
-                 filter-fn (if (:all options)
-                             (constantly true)
-                             (fn [{:keys [predicate]}]
-                               (or (str/includes? predicate "schema.org")
-                                   ;; Next two are useful on github
-                                   (str/includes? predicate "ogp.me")
-                                   (= "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" predicate))))
-                 map-fn (if (:all options) identity (fn [m] (dissoc m :subject :graph)))
-                 result (map map-fn
-                             (filter filter-fn (json/parse-string rdf-data true)))]
-             (pprint/pprint result)))}
+   :requires ([cldwalker.bb-clis.tasks.rdf-data :as rdf-data]
+              [clojure.pprint :as pprint])
+   :options rdf-data/rdf-data-cli-options
+   :task (pprint/pprint (rdf-data/rdf-data *command-line-args* (:options *parsed-args*)))}
 
   clone
   {:doc "Clone a git url"
    :usage "URL"
    :extra-deps {org.clojure/tools.gitlibs {:mvn/version "2.4.172"}}
-   :requires ([clojure.tools.gitlibs :as gl])
-   :options [["-b" "--branch BRANCH" :default "master"]
-             ["-n" "--name NAME"]]
-   :task (let [{:keys [options arguments]} *parsed-args*
-               url (first arguments)
-               gitlib-name (or (some-> (:name options) symbol)
-                               ;; Try parsing a sensible name from a github.com/repo/name like url
-                               (let [[_ namespace name] (re-find (re-pattern "([^/]+)/([^/]+)$") url)]
-                                 (if (nil? namespace)
-                                   (throw (ex-info "name not detected from a url. Please specify --name" {})))
-                                 (symbol (str "gh." namespace) name)))
-               dir (gl/procure url gitlib-name (:branch options))]
-           (println dir))}
+   :requires ([cldwalker.bb-clis.tasks.git :as git])
+   :options git/clone-cli-options
+   :task (git/clone *parsed-args*)}
 
   var-sizes
   {:doc "Print vars with largest LOCs"
-   :requires ([babashka.pods :as pods])
-   :task (let [paths (or (seq *command-line-args*) ["src"])
-               _ (pods/load-pod "clj-kondo")
-               _ (require '[pod.borkdude.clj-kondo :as clj-kondo])
-               {{:keys [var-definitions var-usages]} :analysis}
-               ((requiring-resolve 'clj-kondo/run!)
-                {:lint paths
-                 :config {:output {:analysis true}}})
-               comment-blocks (->> var-usages
-                                   (filter (fn [m] (= (:name m) 'comment)))
-                                   (map (fn [m] (select-keys m [:row :end-row :filename]))))
-               in-comment-block? (fn [filename line]
-                                   (some (fn [m]
-                                           (and (= filename (:filename m)) (<= (:row m) line (:end-row m))))
-                                         comment-blocks))
-               vars (->> var-definitions
-                         (keep (fn [m]
-                                 (when-not (in-comment-block? (:filename m) (:row m))
-                                   {:name (:name m)
-                                    :loc-size (inc (- (:end-row m) (:row m)))
-                                    :filename (:filename m)})))
-                         (sort-by :loc-size (fn [x y] (compare y x)))
-                         (take 10))]
-           (prn vars))}
+   :usage "[& SOURCE-PATHS]"
+   :requires ([cldwalker.bb-clis.tasks.clj-kondo :as clj-kondo])
+   :task (prn (clj-kondo/var-sizes *command-line-args*))}
 
   var-meta
   {:doc "Prints var metadata for source-paths. Defaults to src/ for source-paths"
    :usage "[& SOURCE-PATHS]"
-   :requires ([babashka.pods :as pods])
-   :task (let [paths (or (seq *command-line-args*) ["src"])]
-           (pods/load-pod "clj-kondo") ;; Need at least "2021.10.19"
-           (require '[pod.borkdude.clj-kondo :as clj-kondo])
-
-           (let [{{:keys [var-definitions]} :analysis}
-                 ((requiring-resolve 'clj-kondo/run!)
-                  {:lint paths
-                   :config {:output {:analysis {:var-definitions {:meta true}}}}})
-                 matches (keep (fn [m]
-                                 (when (:meta m)
-                                   {:var (str (:ns m) "/" (:name m))
-                                    :meta (:meta m)}))
-                               var-definitions)]
-             (prn matches)))}
+   :requires ([cldwalker.bb-clis.tasks.clj-kondo :as clj-kondo])
+   :task (prn (clj-kondo/var-meta *command-line-args*))}
 
   ;; From @borkdude
   http-server
@@ -202,13 +84,16 @@
    :doc "Run a basic http server"
    :task babashka.http-server/-main}
 
-  test {:extra-paths ["test"
-                      ;; This is specific to bb-clis but this task can still be
-                      ;; used for any bb repo
-                      "test/resources"]
-         :extra-deps {io.github.cognitect-labs/test-runner
-                      {:git/tag "v0.5.0" :git/sha "b3fd0d2"}
-                      org.clojure/tools.namespace {:git/url "https://github.com/babashka/tools.namespace"
-                                                   :git/sha "3625153ee66dfcec2ba600851b5b2cbdab8fae6c"}}
-         :requires ([cognitect.test-runner :as tr])
-         :task (apply tr/-main "-d" "test" *command-line-args*)}}}
+  ;; From https://github.com/babashka/tools.namespace#babashka-maintained-fork
+  test
+  {:extra-paths ["test"
+                 ;; This is specific to bb-clis but this task can still be
+                 ;; used for any bb repo
+                 "test/resources"]
+   :extra-deps {io.github.cognitect-labs/test-runner
+                {:git/tag "v0.5.0" :git/sha "b3fd0d2"}
+                org.clojure/tools.namespace {:git/url "https://github.com/babashka/tools.namespace"
+                                             :git/sha "3625153ee66dfcec2ba600851b5b2cbdab8fae6c"}}
+   :requires ([cognitect.test-runner :as tr])
+   :doc "Run tests with cognitect test runner"
+   :task (apply tr/-main "-d" "test" *command-line-args*)}}}

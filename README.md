@@ -47,8 +47,9 @@ See [scripts.md](doc/scripts.md) which provides useful examples of several scrip
 ## Development
 
 Code is organized as follows:
-* `src/cldwalker/bb-clis/babashka/` - Namespaces that only run within babashka clis and tasks
-* `src/cldwalker/bb-clis/util/` - Namespaces that are useful to any clojure or bb program, not just clis.
+* `src/cldwalker/bb-clis/tasks/` - Namespaces that are mainly run within babashka tasks
+* `src/cldwalker/bb-clis/cli` - Namespaces that useful to scripts and possibly tasks.
+* `src/cldwalker/bb-clis/util/` - Namespaces that are useful to any clojure or bb program, not just CLIs.
 
 ## Misc bb tips
 
