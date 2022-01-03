@@ -96,4 +96,10 @@
                                              :git/sha "3625153ee66dfcec2ba600851b5b2cbdab8fae6c"}}
    :requires ([cognitect.test-runner :as tr])
    :doc "Run tests with cognitect test runner"
-   :task (apply tr/-main "-d" "test" *command-line-args*)}}}
+   :task (apply tr/-main "-d" "test" *command-line-args*)}
+
+  var-sexp
+  {:requires ([cldwalker.bb-clis.tasks.rewrite-clj :as rewrite-clj])
+   :doc "For given file, returns var sexp which is usually its value"
+   :usage "VAR FILE"
+   :task (prn (rewrite-clj/var-sexp *command-line-args*))}}}
