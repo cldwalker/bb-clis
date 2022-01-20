@@ -75,6 +75,21 @@
   [& args]
   (run! #(apply shell (concat args [%])) (edn/read *in*)))
 
+(defn wc-l
+  "Filter files by max loc"
+  [max-loc & args]
+  (let [max-loc_ (Integer/parseInt max-loc)]
+    (->> (apply shell {:out :string} "wc -l" args)
+         :out
+         str/split-lines
+         butlast
+         (map #(let [[_ loc file] (str/split % #"\s+" 4)]
+                 {:loc (Integer/parseInt loc) :file file}))
+         (sort-by :loc)
+         (filter #(<= (:loc %) max-loc_))
+         (map :file)
+         prn)))
+
 (comment
  (-> result)
  )
