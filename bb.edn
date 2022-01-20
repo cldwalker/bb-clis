@@ -103,10 +103,18 @@
                                              :git/sha "3625153ee66dfcec2ba600851b5b2cbdab8fae6c"}}
    :requires ([clojure.tools.namespace.find :as find]
               [babashka.fs :as fs])
+   :doc "Prints namespaces in dir"
+   :usage "DIR"
    :task (prn (apply find/find-namespaces-in-dir (map fs/file *command-line-args*)))}
 
   var-sexp
   {:requires ([cldwalker.bb-clis.tasks.rewrite-clj :as rewrite-clj])
    :doc "For given file, returns var sexp which is usually its value"
    :usage "VAR FILE"
-   :task (prn (rewrite-clj/var-sexp *command-line-args*))}}}
+   :task (prn (rewrite-clj/var-sexp *command-line-args*))}
+
+  do-sh
+  cldwalker.bb-clis.tasks/do-sh
+
+  logseq-empty-files
+  cldwalker.bb-clis.tasks.logseq/empty-files}}

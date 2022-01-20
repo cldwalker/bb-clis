@@ -70,6 +70,11 @@
       :accept 'clojure.core.server/repl})
     ((requiring-resolve 'clojure.core.server/repl))))
 
+(defn do-sh
+  "Runs shell command for each element on stdin seq"
+  [& args]
+  (run! #(apply shell (concat args [%])) (edn/read *in*)))
+
 (comment
  (-> result)
  )
