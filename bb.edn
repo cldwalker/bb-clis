@@ -120,4 +120,7 @@
   cldwalker.bb-clis.tasks.logseq/empty-files
 
   wc-l
-  cldwalker.bb-clis.tasks/wc-l}}
+  cldwalker.bb-clis.tasks/wc-l
+
+  grep-result-frequencies
+  cldwalker.bb-clis.tasks/grep-result-frequencies}}

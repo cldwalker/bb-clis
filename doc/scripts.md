@@ -5,7 +5,6 @@ The following scripts are under bin/:
 
 * [bb-github-pr-for-commit](#bb-github-pr-for-commit)
 * [bb-github-repo](#bb-github-repo)
-* [bb-grep-result-frequencies](#bb-grep-result-frequencies)
 * [bb-table](#bb-table)
 * [bb-project-clj](#bb-project-clj)
 * [bb-replace](#bb-replace)
@@ -40,10 +39,6 @@ $ ./bb-github-pr-for-commit SHA
 For the current github repo, open different repo urls e.g. commit or branch. Inspired by [this ruby version](https://github.com/cldwalker/irbfiles/blob/1fb97d84bcdf491325176d08e386468b12ece738/boson/commands/public/url/github.rb#L20-L50).
 
 To open a commit, `bb-github-repo -c SHA`.
-
-### bb-grep-result-frequencies
-
-For use with grep command to group results by frequency e.g. `git grep protocol | bb-group-grep-results`.
 
 ### bb-table
 

@@ -1,7 +1,6 @@
 (ns cldwalker.bb-clis.tasks.rewrite-clj
   (:require [rewrite-clj.zip :as z]))
 
-
 (defn- find-symbol-first-right-sexpr
   [zloc sym]
   ;; Returns first symbol found

@@ -90,6 +90,18 @@
          (map :file)
          prn)))
 
+(defn grep-result-frequencies
+  "Takes piped in grep output and prints out frequency by file counts"
+  []
+  (let [results (->> *in*
+                     slurp
+                     str/split-lines
+                     (map #(second (re-find #"(\S+):" %)))
+                     frequencies
+                     (sort-by second >))]
+    (doseq [r results]
+      (apply println r))))
+
 (comment
  (-> result)
  )
