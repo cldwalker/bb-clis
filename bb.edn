@@ -116,8 +116,14 @@
   do-sh
   cldwalker.bb-clis.tasks/do-sh
 
-  logseq-empty-files
+  logseq:empty-files
   cldwalker.bb-clis.tasks.logseq/empty-files
+
+  logseq:pages
+  cldwalker.bb-clis.tasks.logseq/pages
+
+  logseq:urls
+  cldwalker.bb-clis.tasks.logseq/urls
 
   wc-l
   cldwalker.bb-clis.tasks/wc-l
