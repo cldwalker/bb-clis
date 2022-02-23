@@ -35,6 +35,12 @@
    :requires ([cldwalker.bb-clis.tasks :as tasks])
    :task (prn (tasks/json= *command-line-args*))}
 
+  edn=
+  {:doc "Check equality of given edn files"
+   :usage "[& FILES]"
+   :requires ([cldwalker.bb-clis.tasks :as tasks])
+   :task cldwalker.bb-clis.tasks/edn=}
+
   brew-search-info
   {:doc "Runs a brew info on all brew search results"
    :usage "SEARCH"

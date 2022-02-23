@@ -20,6 +20,11 @@
   [args]
   (apply = (map (fn [x] (-> x slurp json/parse-string)) args)))
 
+(defn edn=
+  "Useful when diff fails you due to random sort of edn files produced differently"
+  [& args]
+  (apply = (map (fn [x] (-> x slurp edn/read-string)) args)))
+
 (def every-dir-shell-cli-options
   [["-d" "--directory DIR" "Directories"
     :id :directories
