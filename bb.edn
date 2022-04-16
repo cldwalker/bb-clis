@@ -139,4 +139,7 @@
 
   specter:example
   {:extra-deps {com.rpl/specter {:mvn/version "1.1.4"}}
-   :task cldwalker.bb-clis.tasks.specter/example}}}
+   :task cldwalker.bb-clis.tasks.specter/example}
+
+  nbb:write-deps
+  cldwalker.bb-clis.tasks.nbb/write-deps}}
