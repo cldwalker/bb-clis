@@ -82,6 +82,12 @@
    :requires ([cldwalker.bb-clis.tasks.clj-kondo :as clj-kondo])
    :task (prn (clj-kondo/var-meta *command-line-args*))}
 
+  ns-meta
+  {:doc "Prints ns metadata for source-paths. Defaults to src/ for source-paths"
+   :usage "[& SOURCE-PATHS]"
+   :requires ([cldwalker.bb-clis.tasks.clj-kondo :as clj-kondo])
+   :task (prn (clj-kondo/ns-meta *command-line-args*))}
+
   ;; From @borkdude
   http-server
   {:extra-deps {babashka/http-server

@@ -42,3 +42,17 @@
                            :meta (:meta m)}))
                       var-definitions)]
     matches))
+
+(defn ns-meta
+  [args]
+  (let [paths (or (seq args) ["src"])
+        {{:keys [namespace-definitions]} :analysis}
+        (clj-kondo/run!
+         {:lint paths
+          :config {:output {:analysis {:namespace-definitions {:meta true}}}}})
+        matches (keep (fn [m]
+                        (when (:meta m)
+                          {:ns   (:name m)
+                           :meta (:meta m)}))
+                      namespace-definitions)]
+    matches))
