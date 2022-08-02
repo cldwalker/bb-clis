@@ -148,4 +148,7 @@
    :task cldwalker.bb-clis.tasks.specter/example}
 
   nbb:write-deps
-  cldwalker.bb-clis.tasks.nbb/write-deps}}
+  cldwalker.bb-clis.tasks.nbb/write-deps
+
+  gh:checkout-pr-branch
+  cldwalker.bb-clis.tasks.github/checkout-pr-branch}}
