@@ -4,7 +4,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+      # TODO: Consider switching to DeLaGuardo install
       - name: Install babashka
         run: |
            curl -s https://raw.githubusercontent.com/borkdude/babashka/master/install -o install-bb
@@ -16,25 +17,36 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: DeLaGuardo/setup-clj-kondo@master
+      - uses: actions/checkout@v3
+      - name: Set up Java
+        uses: actions/setup-java@v3
         with:
-          version: '2021.12.19'
-      - run: clj-kondo --lint src test bin/*
+          distribution: 'zulu'
+          java-version: 17
+
+      - name: Install clojure
+        uses: DeLaGuardo/setup-clojure@master
+        with:
+          cli: 1.11.1.1165
+
+      - run: clojure -M:clj-kondo --lint src bin/* test
   custom-lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: DeLaGuardo/setup-clj-kondo@master
-        with:
-          version: '2021.03.31'
+      - uses: actions/checkout@v3
       - name: Install babashka
         run: |
            curl -s https://raw.githubusercontent.com/borkdude/babashka/master/install -o install-bb
            chmod +x install-bb
            sudo ./install-bb
            rm install-bb
-      - name: Check for unused vars
-        run: bin/bb-unused-vars -i .github/workflows/unused-vars-to-ignore.edn  bin/* src
-      - name: Check for missed docstrings
-        run: bin/bb-missed-docstrings -i 'cli-options|-main' bin/* src
+      # TODO: Re-enable or replace with carve that has better support for bb.edn usage or ignoring a regex of ns
+      # - name: Check for unused vars
+      #   run: bin/bb-unused-vars -i .github/workflows/unused-vars-to-ignore.edn  bin/* src
+      - run: bb --config dev-bb.edn lint:large-vars
+      - run: bb --config dev-bb.edn lint:ns-docstrings
+      - run: bb --config dev-bb.edn lint:minimize-public-vars
+
+      # TODO: Re-enable or replace when there is more docstrings
+      # - name: Check for missed docstrings
+      #   run: bin/bb-missed-docstrings -i 'cli-options|-main' bin/* src

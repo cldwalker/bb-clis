@@ -67,7 +67,7 @@
     (binding [*command-line-args* (rest args)]
       ;; Assumes task stdout is edn
       #_:clj-kondo/ignore
-      (def result (edn/read-string (with-out-str (run task)))))
+      (def ^:private result (edn/read-string (with-out-str (run task)))))
     ;; Used to use clojure.main/repl but this allows for in-editor repl
     ((requiring-resolve 'clojure.core.server/start-server)
      {:port 5555

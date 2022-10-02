@@ -1,5 +1,7 @@
 {:linters
- {:consistent-alias
+ ;; TODO: Re-enable when bin mismatches are fixed or removed
+ {:namespace-name-mismatch {:level :off}
+  :consistent-alias
   {:aliases
    {clojure.java.shell shell
     clojure.string str
