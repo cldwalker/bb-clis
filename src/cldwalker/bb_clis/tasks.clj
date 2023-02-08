@@ -3,6 +3,7 @@
             [babashka.fs :as fs]
             [cheshire.core :as json]
             [clojure.edn :as edn]
+            [clojure.data :as data]
             [clojure.string :as str]))
 
 (defn brew-search-info
@@ -24,6 +25,11 @@
   "Useful when diff fails you due to random sort of edn files produced differently"
   [& args]
   (apply = (map (fn [x] (-> x slurp edn/read-string)) args)))
+
+(defn data-diff
+  "Runs data/diff on two edn files"
+  [file1 file2]
+  (prn (apply data/diff (map (fn [x] (-> x slurp edn/read-string)) [file1 file2]))))
 
 (def every-dir-shell-cli-options
   [["-d" "--directory DIR" "Directories"

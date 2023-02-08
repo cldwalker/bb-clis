@@ -41,6 +41,9 @@
    :requires ([cldwalker.bb-clis.tasks :as tasks])
    :task cldwalker.bb-clis.tasks/edn=}
 
+  data-diff
+  cldwalker.bb-clis.tasks/data-diff
+
   brew-search-info
   {:doc "Runs a brew info on all brew search results"
    :usage "SEARCH"
