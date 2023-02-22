@@ -1,8 +1,12 @@
 (ns cldwalker.bb-clis.tasks.logseq
   "Logseq related tasks"
   (:require [clojure.edn :as edn]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [babashka.process :refer [process shell]]
+            [bb-dialog.core :as bb-dialog]))
 
+;; Ast tasks
+;; =========
 (defn empty-files
   "Reads in stdin input from logseq-ast and prints files which have no content"
   ;; Empty is no nodes or one node with blank heading
@@ -63,3 +67,28 @@
                             ast-in)
                       (ast->urls ast-in))]
     (prn result-urls)))
+
+;; Data migration
+;; =============
+(defn search-graphs
+  [dir & search-terms]
+  (-> (process "find" dir)
+      (process {:out :string} "grep -i -E" (str/join "|" search-terms))
+      deref
+      :out
+      str/split-lines))
+
+(defn copy-files
+  "Copy files from one graph to another"
+  [dir & search-terms]
+  (let [files (apply search-graphs dir search-terms)]
+    (if (= files [""])
+      (println "Error: No files found")
+      (if-let [chosen-files
+               (seq (bb-dialog/checklist "Copy files"
+                                         "Choose files to copy between graphs"
+                                         (map #(vector % "" false) files) {:out-fn str}))]
+        (do
+          (println (concat ["cp"] chosen-files ["pages"]))
+          (apply shell (concat ["cp"] chosen-files ["pages"])))
+        (println "Error: No files copied since none chosen")))))
