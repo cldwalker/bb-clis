@@ -3,7 +3,9 @@
   (:require [clojure.edn :as edn]
             [clojure.string :as str]
             [babashka.process :refer [process shell]]
-            [bb-dialog.core :as bb-dialog]))
+            [babashka.fs :as fs]
+            [bb-dialog.core :as bb-dialog]
+            [clojure.pprint :as pprint]))
 
 ;; Ast tasks
 ;; =========
@@ -92,3 +94,42 @@
           (println (concat ["cp"] chosen-files ["pages"]))
           (apply shell (concat ["cp"] chosen-files ["pages"])))
         (println "Error: No files copied since none chosen")))))
+
+(defn- get-graph-files
+  "If one dir given, assume all children are graph dirs else assume each dir is
+  a graph"
+  [dirs]
+  (if (= 1 (count dirs))
+    (fs/glob (first dirs) "*/pages/*")
+    (mapcat #(fs/glob % "pages/*") dirs)))
+
+(defn validate-common-pages
+  "Find common pages across graphs and validate that they are equal"
+  [& dirs]
+  (let [not-equal (->> (get-graph-files dirs)
+                       (map str)
+                       (group-by fs/file-name)
+                       (filter #(> (count (val %)) 1))
+                       (filter #(apply not= (map slurp (val %)))))]
+    (if (empty? not-equal)
+      (println "Success! All common pages are equal")
+      (do
+        (println "Doh! The following common pages are not equal:")
+        (pprint/pprint not-equal)))))
+
+(defn list-common-pages
+  "List common pages"
+  [& dirs]
+  (->> (get-graph-files dirs)
+       (map str)
+       (group-by fs/file-name)
+       (filter #(> (count (val %)) 1))
+       (sort-by #(count (second %)) >)
+       (map (fn [[k files]]
+              (into {:file k}
+                    (map #(let [graph (or (keyword (second (re-find #"([^/]+)/pages/" %)))
+                                          (throw (ex-info "Can't extract graph name"
+                                                          {:file %})))]
+                            [graph "x"])
+                         files))))
+       pprint/print-table))

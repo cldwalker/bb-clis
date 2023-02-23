@@ -2,7 +2,7 @@
  :min-bb-version "0.7.2"
  :deps
   {com.github.cldwalker/bb-dialog
-   {:git/sha "e10f2d8461b3de4c521c1fcf71552f38c47f33da"}} 
+   {:git/sha "e10f2d8461b3de4c521c1fcf71552f38c47f33da"}}
 
  :tasks
  {:requires ([cldwalker.bb-clis.tasks.util :as tasks-util])
@@ -146,6 +146,12 @@
 
   logseq:copy-files
   cldwalker.bb-clis.tasks.logseq/copy-files
+
+  logseq:validate-common-pages
+  cldwalker.bb-clis.tasks.logseq/validate-common-pages
+
+  logseq:list-common-pages
+  cldwalker.bb-clis.tasks.logseq/list-common-pages
 
   wc-l
   cldwalker.bb-clis.tasks/wc-l
