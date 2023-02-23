@@ -72,7 +72,7 @@
 
 ;; Data migration
 ;; =============
-(defn search-graphs
+(defn- search-graphs
   [dir & search-terms]
   (-> (process "find" dir)
       (process {:out :string} "grep -i -E" (str/join "|" search-terms))
