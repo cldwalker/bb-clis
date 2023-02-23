@@ -74,7 +74,7 @@
 ;; =============
 (defn- search-graphs
   [dir & search-terms]
-  (-> (process "find" dir)
+  (-> (process (str "find " dir " -name .git -prune -o -name '*' -print"))
       (process {:out :string} "grep -i -E" (str/join "|" search-terms))
       deref
       :out
