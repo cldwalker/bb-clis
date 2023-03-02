@@ -5,7 +5,8 @@
             [babashka.process :refer [process shell]]
             [babashka.fs :as fs]
             [bb-dialog.core :as bb-dialog]
-            [clojure.pprint :as pprint]))
+            [clojure.pprint :as pprint]
+            [cldwalker.bb-clis.cli.logseq :as logseq]))
 
 ;; Ast tasks
 ;; =========
@@ -80,6 +81,28 @@
       :out
       str/split-lines))
 
+(defn copy-entities
+  "Copy mp entities to current graph"
+  [& search-terms]
+  (doseq [search-term search-terms]
+    (if-let [ent (->> (shell {:out :string} "mp show -e" search-term "-r")
+                      :out
+                      edn/read-string
+                      :full-entity)]
+      (let [type' (str/join " " (map #(let [tag (if (= "type" %) "class" %)]
+                                        (format "[[%s]]" (str/capitalize tag)))
+                                     (:tags ent)))]
+        (spit (str "pages/" (str/capitalize search-term) ".md")
+              (logseq/properties->block (cond-> {}
+                                                (seq type')
+                                                (assoc :type type')
+                                                (and (some? (:url ent))
+                                                     (not (str/includes? (:url ent) "https://notes.pinboard.in")))
+                                                (assoc :url (:url ent))
+                                                (seq (:description ent))
+                                                (assoc :desc (:description ent))))))
+      (println "Nothing found for" search-term))))
+
 (defn copy-files
   "Copy files from one graph to another"
   [dir & search-terms]
@@ -103,6 +126,7 @@
     (fs/glob (first dirs) "*/pages/*")
     (mapcat #(fs/glob % "pages/*") dirs)))
 
+;; TODO: Handle case-insensitive common pages like Clojure vs clojure
 (defn validate-common-pages
   "Find common pages across graphs and validate that they are equal"
   [& dirs]

@@ -144,6 +144,9 @@
   logseq:urls
   cldwalker.bb-clis.tasks.logseq/urls
 
+  logseq:copy-entities
+  cldwalker.bb-clis.tasks.logseq/copy-entities
+
   logseq:copy-files
   cldwalker.bb-clis.tasks.logseq/copy-files
 
