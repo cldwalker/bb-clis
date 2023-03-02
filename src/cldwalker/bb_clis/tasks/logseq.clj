@@ -90,7 +90,8 @@
                       edn/read-string
                       :full-entity)]
       (let [type' (str/join " " (map #(let [tag (if (= "type" %) "class" %)]
-                                        (format "[[%s]]" (str/capitalize tag)))
+                                        (format "[[%s]]"
+                                                (str/replace tag #"(?:^|-)(\S)" (fn [x] (str/capitalize (second x))))))
                                      (:tags ent)))]
         (spit (str "pages/" (str/capitalize search-term) ".md")
               (logseq/properties->block (cond-> {}
