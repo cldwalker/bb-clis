@@ -89,11 +89,11 @@
                       :out
                       edn/read-string
                       :full-entity)]
-      (let [type' (str/join " " (map #(let [tag (if (= "type" %) "class" %)]
-                                        (format "[[%s]]"
-                                                (str/replace tag #"(?:^|-)(\S)" (fn [x] (str/capitalize (second x))))))
-                                     (:tags ent)))]
-        (spit (str "pages/" (str/capitalize search-term) ".md")
+      (let [camel-case #(str/replace % #"(?:^|-)(\S)" (fn [x] (str/capitalize (second x))))
+            [type & tags] (:tags ent)
+            type' (let [tag (if (= "type" type) "class" type)]
+                    (format "[[%s]]" (camel-case tag)))]
+        (spit (str "pages/" (camel-case search-term) ".md")
               (logseq/properties->block (cond-> {}
                                                 (seq type')
                                                 (assoc :type type')
@@ -101,7 +101,10 @@
                                                      (not (str/includes? (:url ent) "https://notes.pinboard.in")))
                                                 (assoc :url (:url ent))
                                                 (seq (:description ent))
-                                                (assoc :desc (:description ent))))))
+                                                (assoc :desc (:description ent))
+                                                (seq tags)
+                                                (merge (into {}
+                                                             (map #(str/split % #":") tags)))))))
       (println "Nothing found for" search-term))))
 
 (defn copy-files
