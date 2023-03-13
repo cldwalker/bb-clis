@@ -122,6 +122,22 @@
           (apply shell (concat ["cp"] chosen-files ["pages"])))
         (println "Error: No files copied since none chosen")))))
 
+(defn copy-common-pages
+  "Copies chosen common file to other destinations"
+  [dir & search-terms]
+  (let [files (apply search-graphs dir search-terms)]
+    (if (= files [""])
+      (println "Error: No files found")
+      (if-let [chosen-file (some-> (bb-dialog/menu "Copy common files"
+                                                   "Choose file to copy to other locations"
+                                                   (into {} (map #(vector % (-> % slurp str/split-lines count)) files))
+                                                   :out-fn str)
+                                   name)]
+        (let [dest-files (remove #(= chosen-file %) files)]
+          (println (concat ["cp -f" chosen-file] dest-files))
+          (doseq [dest-file dest-files] (fs/copy chosen-file dest-file {:replace-existing true})))
+        (println "Error: no files copied since none chosen")))))
+
 (defn- get-graph-files
   "If one dir given, assume all children are graph dirs else assume each dir is
   a graph"

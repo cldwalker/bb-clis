@@ -150,6 +150,9 @@
   logseq:copy-files
   cldwalker.bb-clis.tasks.logseq/copy-files
 
+  logseq:copy-common-pages
+  cldwalker.bb-clis.tasks.logseq/copy-common-pages
+
   logseq:validate-common-pages
   cldwalker.bb-clis.tasks.logseq/validate-common-pages
 
