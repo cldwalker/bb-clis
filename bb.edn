@@ -159,6 +159,12 @@
   logseq:list-common-pages
   cldwalker.bb-clis.tasks.logseq/list-common-pages
 
+  dev:rdf-equal
+  cldwalker.bb-clis.tasks.rdf/rdf-equal
+  
+  dev:triples-count
+  cldwalker.bb-clis.tasks.rdf/triples-count
+
   wc-l
   cldwalker.bb-clis.tasks/wc-l
 
@@ -168,9 +174,6 @@
   specter:example
   {:extra-deps {com.rpl/specter {:mvn/version "1.1.4"}}
    :task cldwalker.bb-clis.tasks.specter/example}
-
-  nbb:write-deps
-  cldwalker.bb-clis.tasks.nbb/write-deps
 
   gh:checkout-pr-branch
   cldwalker.bb-clis.tasks.github/checkout-pr-branch}}
