@@ -5,13 +5,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      # TODO: Consider switching to DeLaGuardo install
       - name: Install babashka
-        run: |
-           curl -s https://raw.githubusercontent.com/borkdude/babashka/master/install -o install-bb
-           chmod +x install-bb
-           sudo ./install-bb
-           rm install-bb
+        uses: DeLaGuardo/setup-clojure@10.2
+        with:
+          bb: 1.0.166
       - name: Run bb tests
         run: PATH=$PWD/bin:$PATH bb test
   lint:
@@ -35,11 +32,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Install babashka
-        run: |
-           curl -s https://raw.githubusercontent.com/borkdude/babashka/master/install -o install-bb
-           chmod +x install-bb
-           sudo ./install-bb
-           rm install-bb
+        uses: DeLaGuardo/setup-clojure@10.2
+        with:
+          bb: 1.0.166
       # TODO: Re-enable or replace with carve that has better support for bb.edn usage or ignoring a regex of ns
       # - name: Check for unused vars
       #   run: bin/bb-unused-vars -i .github/workflows/unused-vars-to-ignore.edn  bin/* src

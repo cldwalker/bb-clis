@@ -1,5 +1,5 @@
 {:paths ["src"]
- :min-bb-version "0.7.2"
+ :min-bb-version "1.0.166"
  :deps
   {com.github.cldwalker/bb-dialog
    {:git/sha "e10f2d8461b3de4c521c1fcf71552f38c47f33da"}}
@@ -161,7 +161,7 @@
 
   dev:rdf-equal
   cldwalker.bb-clis.tasks.rdf/rdf-equal
-  
+
   dev:triples-count
   cldwalker.bb-clis.tasks.rdf/triples-count
 
