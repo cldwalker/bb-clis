@@ -10,4 +10,4 @@ Copy this from a github PR by looking for the branch after `Add more commits by 
     (assert matches "Branch url with correct format required")
     (shell "git remote add" user (format "git@github.com:%s/%s" user repo))
     (shell "git fetch" user)
-    (shell "git checkout -b" branch "-t" (str user "/" branch))))
+    (shell "git checkout -b" (str user "/" branch) "-t" (str user "/" branch))))
