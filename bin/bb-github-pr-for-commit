@@ -21,10 +21,15 @@
       (cli/error "Failed to fetch github information" (pr-str {:error (ex-message e)})))))
 
 (defn- fetch-response [commit options]
-  (let [{:keys [body]} (fetch-response* commit options)]
-    (if-let [url (-> body (json/parse-string true) first :html_url)]
+  (let [{:keys [body]} (fetch-response* commit options)
+        repos (json/parse-string body true)]
+    (if-let [url (if (= 1 (count repos))
+                   (-> repos first :html_url)
+                   (let [repos' (remove #(get-in % [:base :repo :fork]) repos)]
+                     (prn :URLS (map :html_url repos'))
+                     (->> repos' (filter :merged_at) first :html_url)))]
       (do (misc/open-url url)
-        url)
+          url)
       (cli/error "No github PR found for this commit"))))
 
 (defn -main [{:keys [options arguments summary]}]
