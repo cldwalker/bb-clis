@@ -1,4 +1,6 @@
 {:paths ["src"]
+ ;; b/c repl and help are overridden
+ :override-built-in true
  :min-bb-version "1.0.166"
  :deps
   {com.github.cldwalker/bb-dialog

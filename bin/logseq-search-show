@@ -1,0 +1,62 @@
+#!/usr/bin/env bb
+;; vim: set filetype=clojure:
+;; Search blocks via `logseq search block -c`, then `logseq show` chosen ids.
+
+(ns logseq-search-show
+  (:require [babashka.tasks :refer [shell]]
+            [clojure.string :as str]))
+
+(defn- parse-results
+  [out]
+  (->> (str/split-lines out)
+       (keep (fn [line]
+               (when-let [[_ id title] (re-matches #"(\d+)\s+(.*)" line)]
+                 [(parse-long id) title])))))
+
+(defn- expand-part [part]
+  (if (str/includes? part "-")
+    (let [[a b] (str/split part #"-")]
+      (range (parse-long a) (inc (parse-long b))))
+    [(parse-long part)]))
+
+(defn- parse-selection [input n]
+  (let [input (str/trim input)]
+    (if (= input "*")
+      (range 1 (inc n))
+      (->> (str/split input #",")
+           (map str/trim)
+           (remove str/blank?)
+           (mapcat expand-part)))))
+
+(defn -main [& args]
+  (when (empty? args)
+    (println "Usage: logseq-search-show.clj QUERY [& ARGS]")
+    (System/exit 1))
+  (let [[content show-opts] (split-with #(not (str/starts-with? % "-")) args)
+        out (:out (shell {:out :string} "logseq" "search" "block" "-c" (str/join " " content)))
+        results (vec (parse-results out))
+        n (count results)]
+    (if (zero? n)
+      (println "No results.")
+      (do
+        (doseq [[i [_ title]] (map-indexed vector results)]
+          (printf "%d. %s%n" (inc i) title))
+        (print "\nSelect items: ")
+        (flush)
+        (let [input (or (read-line) "")
+              indices (->> (parse-selection input n) distinct sort)
+              invalid (remove #(<= 1 % n) indices)]
+          (cond
+            (empty? indices)
+            (println "Nothing selected.")
+
+            (seq invalid)
+            (do (println "Invalid indices:" (str/join "," invalid))
+                (System/exit 1))
+
+            :else
+            (let [ids (mapv #(first (results (dec %))) indices)]
+              (apply shell "logseq" "show" "--id" (pr-str ids) show-opts))))))))
+
+(when (= *file* (System/getProperty "babashka.file"))
+  (apply -main *command-line-args*))
