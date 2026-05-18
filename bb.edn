@@ -1,6 +1,4 @@
 {:paths ["src"]
- ;; b/c repl and help are overridden
- :override-built-in true
  :min-bb-version "1.0.166"
  :deps
   {com.github.cldwalker/bb-dialog
@@ -17,6 +15,7 @@
   help
   {:doc "Print a task's help"
    :usage "TASK"
+   :override-builtin true
    :requires ([cldwalker.bb-clis.tasks :as tasks])
    :task (tasks/help *command-line-args*)}
 
@@ -24,6 +23,7 @@
   ;; Couldn't just reference whole task as a map as `bb tasks` failed
   {:doc "Pull up socket repl with #'tasks/result bound to result of given task and args"
    :usage "TASK [& ARGS]"
+   :override-builtin true
    :requires ([cldwalker.bb-clis.tasks :as tasks])
    :task (tasks/repl *command-line-args*)}
 
