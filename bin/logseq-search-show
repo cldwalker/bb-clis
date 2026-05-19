@@ -2,7 +2,7 @@
 ;; vim: set filetype=clojure:
 ;; Search blocks via `logseq search block -c`, then `logseq show` chosen ids.
 
-(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "d3c9cf60b2859a24e6f13e9389a1cfaba8b7085c"}}})
+(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "37efdf9e9c525cf83befc19da271f1673168d510"}}})
 
 (ns logseq-search-show
   (:require [babashka.tasks :refer [shell]]

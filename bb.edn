@@ -161,10 +161,16 @@
   logseq:list-common-pages
   cldwalker.bb-clis.tasks.logseq/list-common-pages
 
-  dev:rdf-equal
+  dev:bump-git-sha
+  {:doc "Bump :git/sha in deps/add-deps in given files to latest HEAD"
+   :usage "[& FILES]"
+   :requires ([cldwalker.bb-clis.tasks.dev :as dev])
+   :task (dev/bump-git-sha *command-line-args*)}
+
+  rdf:rdf-equal
   cldwalker.bb-clis.tasks.rdf/rdf-equal
 
-  dev:triples-count
+  rdf:triples-count
   cldwalker.bb-clis.tasks.rdf/triples-count
 
   wc-l
