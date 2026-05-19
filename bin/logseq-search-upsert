@@ -1,10 +1,10 @@
 #!/usr/bin/env bb
 ;; vim: set filetype=clojure:
-;; Search blocks via `logseq search block -c`, then `logseq show` chosen ids.
+;; Search blocks via `logseq search block -c`, then `logseq upsert task` chosen ids.
 
 (deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "d3c9cf60b2859a24e6f13e9389a1cfaba8b7085c"}}})
 
-(ns logseq-search-show
+(ns logseq-search-upsert
   (:require [babashka.tasks :refer [shell]]
             [cldwalker.bb-clis.util.input :as input]
             [clojure.string :as str]))
@@ -18,9 +18,9 @@
 
 (defn -main [& args]
   (when (empty? args)
-    (println "Usage: logseq-search-show QUERY [& ARGS]")
+    (println "Usage: logseq-search-upsert QUERY [& ARGS]")
     (System/exit 1))
-  (let [[content show-opts] (split-with #(not (str/starts-with? % "-")) args)
+  (let [[content upsert-opts] (split-with #(not (str/starts-with? % "-")) args)
         out (:out (shell {:out :string} "logseq" "search" "block" "-c" (str/join " " content)))
         results (vec (parse-results out))
         n (count results)]
@@ -43,8 +43,8 @@
                 (System/exit 1))
 
             :else
-            (let [ids (mapv #(first (results (dec %))) indices)]
-              (apply shell "logseq" "show" "--id" (pr-str ids) show-opts))))))))
+            (doseq [id (mapv #(first (results (dec %))) indices)]
+              (apply shell "logseq" "upsert" "block" "--id" (str id) upsert-opts))))))))
 
 (when (= *file* (System/getProperty "babashka.file"))
   (apply -main *command-line-args*))
