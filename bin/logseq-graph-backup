@@ -1,0 +1,41 @@
+#!/usr/bin/env bb
+; vim: set filetype=clojure:
+; Backup one or more logseq graphs by exporting EDN and staging changes in the graph's git repo.
+
+(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "8c743dca5b6ebae5bd6acbe5cec904d2affcf4f3"}}})
+
+(ns logseq-graph-backup
+  (:require [cldwalker.bb-clis.cli :as cli]
+            [babashka.tasks :refer [shell]]))
+
+(defn- backup-graph [graph message]
+  (let [home (System/getenv "HOME")
+        logseq-dir (str home "/code/repo/logseq")
+        graph-dir (str home "/logseq/graphs/" graph)]
+    (println "Running backups from" logseq-dir)
+    (println "==>" graph)
+    (shell {:dir logseq-dir}
+           "bb" "dev:cli" "export-edn" "-g" graph "-r" "-f" (str graph-dir "/graph.edn"))
+    (shell {:dir graph-dir} "git" "add" "-u")
+    (shell {:dir graph-dir} "git" "add" "mirror")
+    (when message
+      (shell {:dir graph-dir} "git" "commit" "-m" message))))
+
+(defn -main [{:keys [options arguments summary]}]
+  (cond
+    (:help options)
+    (cli/print-summary " GRAPH [GRAPH ...]" summary)
+
+    (empty? arguments)
+    (cli/error "At least one graph must be specified")
+
+    :else
+    (doseq [graph arguments]
+      (backup-graph graph (:message options)))))
+
+(def cli-options
+  [["-h" "--help"]
+   ["-m" "--message MESSAGE" "Commit message to use after staging changes"]])
+
+(when (= *file* (System/getProperty "babashka.file"))
+  (cli/run-command -main *command-line-args* cli-options))
