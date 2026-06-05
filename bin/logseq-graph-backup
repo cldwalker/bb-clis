@@ -5,21 +5,78 @@
 (deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "8c743dca5b6ebae5bd6acbe5cec904d2affcf4f3"}}})
 
 (ns logseq-graph-backup
-  (:require [cldwalker.bb-clis.cli :as cli]
-            [babashka.tasks :refer [shell]]))
+  (:require [babashka.fs :as fs]
+            [babashka.tasks :refer [shell]]
+            [cldwalker.bb-clis.cli :as cli]
+            [clojure.edn :as edn]
+            [clojure.pprint :as pprint]))
 
-(defn- backup-graph [graph message]
-  (let [home (System/getenv "HOME")
-        logseq-dir (str home "/code/repo/logseq")
-        graph-dir (str home "/logseq/graphs/" graph)]
-    (println "Running backups from" logseq-dir)
+(def logseq-dir (str (System/getenv "HOME") "/code/repo/logseq"))
+
+(defn- diff-expr
+  "Cljs expression that diffs two EDN exports. Inlined for `nbb-logseq -e` so the
+   nbb.edn in deps/db is discovered via cwd (an external script file isn't).
+   File paths go through pr-str so any quoting is handled safely."
+  [file1 file2]
+  (str
+   "(require '[clojure.edn :as edn]
+             '[clojure.pprint :as pprint]
+             '[logseq.db.sqlite.export :as sqlite-export]
+             '[\"fs\" :as fs])
+    (let [export-map  (edn/read-string (str (fs/readFileSync " (pr-str file1) ")))
+          export-map2 (edn/read-string (str (fs/readFileSync " (pr-str file2) ")))
+          diff (sqlite-export/diff-exports export-map export-map2)]
+      (if diff
+        (do (println \"The exported EDN's have the following diff:\")
+            (pprint/pprint diff)
+            (js/process.exit 1))
+        (println \"The exported EDN roundtrips successfully!\")))"))
+
+;; (defn- diff-exports
+;;   "Given two graph export edns, return a vector of diffs when there is a diff and nil when there is
+;;    no diff between the two"
+;;   [export-map export-map2]
+;;   (let [diff (->> (clojure.data/diff (dissoc export-map :logseq.db.sqlite.export/kv-values)
+;;                                      (dissoc export-map2 :logseq.db.sqlite.export/kv-values))
+;;                   butlast)]
+;;     (when-not (= [nil nil] diff)
+;;       diff)))
+;; TODO: Try a bb-only diff-expr using bb diff-exports. Would allow others to repro easily
+
+(defn- roundtrip-graph
+  "Roundtrips the exported EDN through a temp graph and diffs the re-export.
+   Leaves the temp graph and temp EDN behind on failure so they can be inspected."
+  [graph graph-edn export-options]
+  (let [temp-graph (str graph "-roundtrip" #_(System/currentTimeMillis))
+        temp-edn (str (System/getenv "HOME") "/logseq/graphs/" temp-graph "/graph.edn")]
+    (println "Roundtrip validation can take awhile ...")
+    (shell "logseq" "graph" "import" "-t" "edn" "--timeout-ms" "30000" "--input" graph-edn "-g" temp-graph)
+    (shell "logseq" "graph" "validate" "-g" temp-graph)
+    (shell "logseq" "graph" "export" "-t" "edn" "-e" export-options "-p" "-g" temp-graph "--file" temp-edn)
+    ;; Don't care about diffing datoms
+    (when (not= "{:export-type :graph}" export-options)
+      (shell {:dir (str logseq-dir "/deps/db")}
+             "pnpm" "exec" "nbb-logseq" "-cp" "src" "-e" (diff-expr graph-edn temp-edn)))
+    (shell "logseq" "graph" "remove" "-g" temp-graph)))
+
+(defn- backup-graph [graph {:keys [message roundtrip datoms]}]
+  (let [graph-dir (str (System/getenv "HOME") "/logseq/graphs/" graph)
+        graph-edn (str graph-dir "/graph.edn")
+        export-options (if datoms "{:export-type :graph}" "{:export-type :graph-human}")]
     (println "==>" graph)
-    (shell {:dir logseq-dir}
-           "bb" "dev:cli" "export-edn" "-g" graph "-r" "-f" (str graph-dir "/graph.edn"))
-    (shell {:dir graph-dir} "git" "add" "-u")
-    (shell {:dir graph-dir} "git" "add" "mirror")
+    (shell "logseq" "graph" "export" "-t" "edn" "-e" export-options "-p" "-g" graph "--file" graph-edn)
+    (when roundtrip (roundtrip-graph graph graph-edn export-options))
     (when message
+      (shell {:dir graph-dir} "git" "add" "-u")
+      (shell {:dir graph-dir} "git" "add" "mirror")
       (shell {:dir graph-dir} "git" "commit" "-m" message))))
+
+;; To debug failed diff
+#_(defn- diff-files [graph temp-edn]
+    (let [graph-dir (str (System/getenv "HOME") "/logseq/graphs/" graph)
+          graph-edn (str graph-dir "/graph.edn")]
+      (shell {:dir (str logseq-dir "/deps/db")}
+             "pnpm" "exec" "nbb-logseq" "-cp" "src" "-e" (diff-expr graph-edn temp-edn))))
 
 (defn -main [{:keys [options arguments summary]}]
   (cond
@@ -31,10 +88,12 @@
 
     :else
     (doseq [graph arguments]
-      (backup-graph graph (:message options)))))
+      (backup-graph graph options))))
 
 (def cli-options
   [["-h" "--help"]
+   ["-d" "--datoms" "Export raw datoms (:graph) instead of human-readable EDN (:graph-human)"]
+   ["-r" "--roundtrip" "Roundtrips export by importing, exporting and comparing diff"]
    ["-m" "--message MESSAGE" "Commit message to use after staging changes"]])
 
 (when (= *file* (System/getProperty "babashka.file"))
