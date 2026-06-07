@@ -5,44 +5,46 @@
 (deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "8c743dca5b6ebae5bd6acbe5cec904d2affcf4f3"}}})
 
 (ns logseq-graph-backup
-  (:require [babashka.fs :as fs]
-            [babashka.tasks :refer [shell]]
+  (:require [babashka.tasks :refer [shell]]
             [cldwalker.bb-clis.cli :as cli]
+            [clojure.data :as data]
             [clojure.edn :as edn]
             [clojure.pprint :as pprint]
             [clojure.string :as str]))
 
-(def logseq-dir (str (System/getenv "HOME") "/code/repo/logseq"))
+(defn- prepare-export-to-diff
+  "Prepare a graph's exported edn to be diffed with another"
+  [m]
+  (-> m
+      (update :logseq.db.sqlite.export/kv-values
+              (fn [kvs]
+                (->> kvs
+                     ;; This varies per copied graph so ignore it
+                     (remove #(#{:logseq.kv/import-type :logseq.kv/imported-at :logseq.kv/local-graph-uuid}
+                               (:db/ident %)))
+                     (sort-by :db/ident)
+                     vec)))))
 
-(defn- diff-expr
-  "Cljs expression that diffs two EDN exports. Inlined for `nbb-logseq -e` so the
-   nbb.edn in deps/db is discovered via cwd (an external script file isn't).
-   File paths go through pr-str so any quoting is handled safely."
+;; Copied from l.db.sqlite.export
+(defn diff-exports
+  "Given two graph export edns, return a vector of diffs when there is a diff and nil when there is
+     no diff between the two"
+  [export-map export-map2]
+  (let [diff (->> (data/diff (prepare-export-to-diff export-map) (prepare-export-to-diff export-map2))
+                  butlast)]
+    (when-not (= [nil nil] diff)
+      diff)))
+
+(defn diff-files*
   [file1 file2]
-  (str
-   "(require '[clojure.edn :as edn]
-             '[clojure.pprint :as pprint]
-             '[logseq.db.sqlite.export :as sqlite-export]
-             '[\"fs\" :as fs])
-    (let [export-map  (edn/read-string (str (fs/readFileSync " (pr-str file1) ")))
-          export-map2 (edn/read-string (str (fs/readFileSync " (pr-str file2) ")))
-          diff (sqlite-export/diff-exports export-map export-map2)]
+  (let [export-map  (edn/read-string (slurp file1))
+        export-map2 (edn/read-string (slurp file2))
+        diff (diff-exports export-map export-map2)]
       (if diff
-        (do (println \"The exported EDN's have the following diff:\")
+        (do (println "The exported EDN's have the following diff:")
             (pprint/pprint diff)
-            (js/process.exit 1))
-        (println \"The exported EDN roundtrips successfully!\")))"))
-
-;; (defn- diff-exports
-;;   "Given two graph export edns, return a vector of diffs when there is a diff and nil when there is
-;;    no diff between the two"
-;;   [export-map export-map2]
-;;   (let [diff (->> (clojure.data/diff (dissoc export-map :logseq.db.sqlite.export/kv-values)
-;;                                      (dissoc export-map2 :logseq.db.sqlite.export/kv-values))
-;;                   butlast)]
-;;     (when-not (= [nil nil] diff)
-;;       diff)))
-;; TODO: Try a bb-only diff-expr using bb diff-exports. Would allow others to repro easily
+            (System/exit 1))
+        (println "The exported EDN roundtrips successfully!"))))
 
 (defn- roundtrip-graph
   "Roundtrips the exported EDN through a temp graph and diffs the re-export.
@@ -56,8 +58,7 @@
     (shell "logseq" "graph" "export" "-t" "edn" "-e" export-options "-p" "-g" temp-graph "--file" temp-edn)
     ;; Don't care about diffing datoms
     (when (not= "{:export-type :graph}" export-options)
-      (shell {:dir (str logseq-dir "/deps/db")}
-             "pnpm" "exec" "nbb-logseq" "-cp" "src" "-e" (diff-expr graph-edn temp-edn)))
+      (diff-files* graph-edn temp-edn))
     (when-not keep
       (shell "logseq" "graph" "remove" "-g" temp-graph))))
 
@@ -82,8 +83,7 @@
   (let [graph-edn (str (System/getenv "HOME") "/logseq/graphs/" graph "/graph.edn")
         temp-edn (if (str/includes? (str temp-edn*) "/") temp-edn*
                      (str (System/getenv "HOME") "/logseq/graphs/" temp-edn* "/graph.edn"))]
-    (shell {:dir (str logseq-dir "/deps/db")}
-           "pnpm" "exec" "nbb-logseq" "-cp" "src" "-e" (diff-expr graph-edn temp-edn))))
+    (diff-files* graph-edn temp-edn)))
 
 (defn -main [{:keys [options arguments summary]}]
   (cond
