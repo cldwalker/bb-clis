@@ -9,7 +9,8 @@
             [babashka.tasks :refer [shell]]
             [cldwalker.bb-clis.cli :as cli]
             [clojure.edn :as edn]
-            [clojure.pprint :as pprint]))
+            [clojure.pprint :as pprint]
+            [clojure.string :as str]))
 
 (def logseq-dir (str (System/getenv "HOME") "/code/repo/logseq"))
 
@@ -46,7 +47,7 @@
 (defn- roundtrip-graph
   "Roundtrips the exported EDN through a temp graph and diffs the re-export.
    Leaves the temp graph and temp EDN behind on failure so they can be inspected."
-  [graph graph-edn export-options]
+  [graph graph-edn export-options {:keys [keep]}]
   (let [temp-graph (str graph "-roundtrip" #_(System/currentTimeMillis))
         temp-edn (str (System/getenv "HOME") "/logseq/graphs/" temp-graph "/graph.edn")]
     (println "Roundtrip validation can take awhile ...")
@@ -57,26 +58,32 @@
     (when (not= "{:export-type :graph}" export-options)
       (shell {:dir (str logseq-dir "/deps/db")}
              "pnpm" "exec" "nbb-logseq" "-cp" "src" "-e" (diff-expr graph-edn temp-edn)))
-    (shell "logseq" "graph" "remove" "-g" temp-graph)))
+    (when-not keep
+      (shell "logseq" "graph" "remove" "-g" temp-graph))))
 
-(defn- backup-graph [graph {:keys [message roundtrip datoms]}]
+(defn- backup-graph [graph {:keys [message roundtrip datoms git-show] :as options}]
   (let [graph-dir (str (System/getenv "HOME") "/logseq/graphs/" graph)
         graph-edn (str graph-dir "/graph.edn")
         export-options (if datoms "{:export-type :graph}" "{:export-type :graph-human}")]
     (println "==>" graph)
     (shell "logseq" "graph" "export" "-t" "edn" "-e" export-options "-p" "-g" graph "--file" graph-edn)
-    (when roundtrip (roundtrip-graph graph graph-edn export-options))
+    (when roundtrip (roundtrip-graph graph graph-edn export-options options))
     (when message
       (shell {:dir graph-dir} "git" "add" "-u")
       (shell {:dir graph-dir} "git" "add" "mirror")
-      (shell {:dir graph-dir} "git" "commit" "-m" message))))
+      (shell {:dir graph-dir} "git" "commit" "-m" message))
+    (when git-show
+      (if message
+        (shell {:dir graph-dir} "git" "show" "graph.edn" "mirror")
+        ;; only graph.edn since mirror is incomplete without git actions
+        (shell {:dir graph-dir} "git" "diff" "graph.edn")))))
 
-;; To debug failed diff
-#_(defn- diff-files [graph temp-edn]
-    (let [graph-dir (str (System/getenv "HOME") "/logseq/graphs/" graph)
-          graph-edn (str graph-dir "/graph.edn")]
-      (shell {:dir (str logseq-dir "/deps/db")}
-             "pnpm" "exec" "nbb-logseq" "-cp" "src" "-e" (diff-expr graph-edn temp-edn))))
+(defn- diff-files [[graph temp-edn*]]
+  (let [graph-edn (str (System/getenv "HOME") "/logseq/graphs/" graph "/graph.edn")
+        temp-edn (if (str/includes? (str temp-edn*) "/") temp-edn*
+                     (str (System/getenv "HOME") "/logseq/graphs/" temp-edn* "/graph.edn"))]
+    (shell {:dir (str logseq-dir "/deps/db")}
+           "pnpm" "exec" "nbb-logseq" "-cp" "src" "-e" (diff-expr graph-edn temp-edn))))
 
 (defn -main [{:keys [options arguments summary]}]
   (cond
@@ -86,6 +93,9 @@
     (empty? arguments)
     (cli/error "At least one graph must be specified")
 
+    (:diff options)
+    (diff-files arguments)
+
     :else
     (doseq [graph arguments]
       (backup-graph graph options))))
@@ -93,8 +103,11 @@
 (def cli-options
   [["-h" "--help"]
    ["-d" "--datoms" "Export raw datoms (:graph) instead of human-readable EDN (:graph-human)"]
+   ["-D" "--diff" "Diff two graph's edn exports"]
    ["-r" "--roundtrip" "Roundtrips export by importing, exporting and comparing diff"]
-   ["-m" "--message MESSAGE" "Commit message to use after staging changes"]])
+   ["" "--keep" "Doesn't delete temporary roundtrip graph"]
+   ["-m" "--message MESSAGE" "Git add and commit with message"]
+   ["-g" "--git-show" "Show what has changed since last commit"]])
 
 (when (= *file* (System/getProperty "babashka.file"))
   (cli/run-command -main *command-line-args* cli-options))
