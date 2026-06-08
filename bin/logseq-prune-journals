@@ -1,0 +1,89 @@
+#!/usr/bin/env bb
+; vim: set filetype=clojure:
+; Find journals with no/blank children and no linked references; pretend or delete them.
+
+(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "c6e51784d7eaad7e6ce9786e59169ac6d09a98f8"}}})
+
+(ns logseq-prune-journals
+  (:require [babashka.tasks :refer [shell]]
+            [cldwalker.bb-clis.cli :as cli]
+            [clojure.edn :as edn]
+            [clojure.pprint :as pprint]
+            [clojure.string :as str]))
+
+(defn- graph-args [graph]
+  (when graph ["-g" graph]))
+
+(defn- logseq-edn [graph & args]
+  (let [{:keys [out]} (apply shell {:out :string} "logseq"
+                              (concat args (graph-args graph) ["-o" "edn"]))
+        {:keys [status data]} (edn/read-string out)]
+    (when (not= :ok status)
+      (cli/error "Command failed:" out))
+    data))
+
+(defn- empty-journal? [{:keys [root linked-references]}]
+  (and (zero? (:count linked-references))
+       (every? #(str/blank? (:block/title %))
+               (:block/children root))))
+
+(defn- todays-journal-uuid-prefix []
+  ;; Logseq journal uuids are of the form 00000001-YYYY-MMDD-0000-000000000000
+  (let [today (java.time.LocalDate/now)]
+    (format "00000001-%04d-%02d%02d"
+            (.getYear today) (.getMonthValue today) (.getDayOfMonth today))))
+
+(defn- empty-journals [graph]
+  (let [today-prefix (todays-journal-uuid-prefix)
+        journal-ids (->> (logseq-edn graph "list" "page" "--journal-only" "-e")
+                         :items
+                         (remove #(str/starts-with? (str (:block/uuid %)) today-prefix))
+                         (mapv :db/id))]
+    (->> (logseq-edn graph "show" "--id" (pr-str journal-ids))
+         (filter empty-journal?)
+         (map (fn [{:keys [root]}]
+                {:id (:db/id root)
+                 :title (:block/title root)
+                 :block-count (count (:block/children root))}))
+         (sort-by :id))))
+
+(defn- print-summary [rows]
+  (pprint/print-table
+    ["ID" "Journal" "Block Count"]
+    (map (fn [{:keys [id title block-count]}]
+           {"ID" id "Journal" title "Block Count" block-count})
+         rows)))
+
+(defn -main [{:keys [options summary]}]
+  (if (:help options)
+    (cli/print-summary "" summary)
+    (let [{:keys [graph pretend]} options
+          rows (empty-journals graph)]
+      (cond
+        (empty? rows)
+        (println "No empty journals found.")
+
+        pretend
+        (let [ids (mapv :id rows)]
+          (apply shell "logseq" "show"
+                 (concat (graph-args graph) ["--id" (pr-str ids)]))
+          (println)
+          (print-summary rows)
+          (println "Total: " (count rows)))
+
+        :else
+        (do
+          (doseq [{:keys [id title]} rows]
+            (println "Removing" title)
+            ;; TODO: Permanently delete pages when it's possible
+            (apply shell "logseq" "remove" "page"
+                   (concat (graph-args graph) ["--id" (str id)])))
+          (println "Recycled" (count rows) "journals"))))))
+
+(def cli-options
+  [["-h" "--help"]
+   ["-g" "--graph GRAPH" "Graph name"]
+   ["-n" "--pretend" "Preview journals that would be deleted"]])
+
+(when (= *file* (System/getProperty "babashka.file"))
+  (cli/run-command -main *command-line-args* cli-options))
