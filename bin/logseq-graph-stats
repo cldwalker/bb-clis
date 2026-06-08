@@ -1,0 +1,67 @@
+#!/usr/bin/env bb
+; vim: set filetype=clojure:
+; Print page, class and property counts for a Logseq graph.
+
+(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "86b9b3c1a18ddece55f8f2d9d667ba1049a6a561"}}})
+
+(ns logseq-graph-stats
+  (:require [babashka.tasks :refer [shell]]
+            [cldwalker.bb-clis.cli :as cli]
+            [clojure.edn :as edn]
+            [clojure.pprint :as pprint]))
+
+(defn- graph-args [graph]
+  (when graph ["-g" graph]))
+
+(defn- logseq-query [graph query]
+  (let [{:keys [out]} (apply shell {:out :string} "logseq" "query"
+                             (concat (graph-args graph)
+                                     ["-o" "edn" "--query" (pr-str query)]))
+        {:keys [status data]} (edn/read-string out)]
+    (when (not= :ok status)
+      (cli/error "Query failed:" out))
+    (or (:result data) 0)))
+
+(defn- logseq-list-count [graph subcommand & extra-args]
+  (let [{:keys [out]} (apply shell {:out :string} "logseq" "list" subcommand
+                             (concat (graph-args graph)
+                                     ["-o" "edn" "--fields" "id"]
+                                     extra-args))
+        {:keys [status data]} (edn/read-string out)]
+    (when (not= :ok status)
+      (cli/error "list" subcommand "failed:" out))
+    (count (:items data))))
+
+(defn- graph-counts [graph user?]
+  (let [extra (when user? ["--no-include-built-in"])]
+    (array-map
+     :entities (logseq-query graph '[:find (count-distinct ?e) . :where [?e _ _]])
+     :pages (apply logseq-list-count graph "page" "--include-hidden" extra)
+     :classes (apply logseq-list-count graph "tag" extra)
+     :properties (apply logseq-list-count graph "property" extra))))
+
+(defn- object-counts [graph {:keys [user]}]
+  (let [pairs (logseq-query graph '[:find ?title (count ?e)
+                                    :where [?e :block/tags ?t] [?t :block/title ?title]])
+        pairs' (cond->> pairs
+                 user (remove #(#{"Property" "Tag" "Journal" "Page"} (first %))))
+        rows (->> pairs'
+                  (sort-by second >)
+                  (map (fn [[tag c]] {"Tag" tag "Count" c})))]
+    (pprint/print-table ["Tag" "Count"] rows)
+    (println "Count: " (apply + (map second pairs')))))
+
+(defn -main [{:keys [options summary]}]
+  (cond
+    (:help options) (cli/print-summary "" summary)
+    (:objects options) (object-counts (:graph options) options)
+    :else (pprint/pprint (graph-counts (:graph options) (:user options)))))
+
+(def cli-options
+  [["-h" "--help"]
+   ["-g" "--graph GRAPH" "Graph name"]
+   ["-o" "--objects" "Show tag/count breakdown for nodes with :block/tags"]
+   ["-u" "--user" "Exclude built-in pages, classes and properties"]])
+
+(when (= *file* (System/getProperty "babashka.file"))
+  (cli/run-command -main *command-line-args* cli-options))
