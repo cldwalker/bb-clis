@@ -1,0 +1,89 @@
+#!/usr/bin/env bb
+; vim: set filetype=clojure:
+; Fail if any user class does not extend from Thing (directly or transitively).
+
+(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "7e5a22f19cfbb1c4cf265369af08dab8a43053d0"}}})
+
+(ns logseq-validate-class-extends
+  (:require [babashka.tasks :refer [shell]]
+            [cldwalker.bb-clis.cli :as cli]
+            [clojure.edn :as edn]
+            [clojure.string :as str]))
+
+(defn- graph-args [graph]
+  (when graph ["-g" graph]))
+
+(defn- logseq-query [graph query]
+  (let [{:keys [out]} (apply shell {:out :string :continue true} "logseq" "query"
+                             (concat (graph-args graph)
+                                     ["-o" "edn" "--query" (pr-str query)]))
+        {:keys [status data error]} (edn/read-string out)]
+    (when (not= :ok status)
+      (cli/error "Query failed:" (or (:message error) (pr-str error) out)))
+    (:result data)))
+
+(def ^:private user-class? (comp #(not (str/starts-with? % ":logseq.class/")) str))
+
+(defn- thing-ident [graph]
+  (let [results (logseq-query graph
+                              '[:find ?ident
+                                :where
+                                [?e :db/ident ?ident]
+                                [?e :block/title "Thing"]
+                                [?e :block/tags :logseq.class/Tag]])
+        idents (->> results (map first) (filter user-class?))]
+    (cond
+      (empty? idents) (cli/error "No user class titled 'Thing' was found.")
+      (> (count idents) 1) (cli/error "Multiple user classes titled 'Thing' found:" (pr-str idents))
+      :else (first idents))))
+
+(defn- all-classes [graph]
+  (logseq-query graph
+                '[:find ?ident ?ext-ident
+                  :where
+                  [?e :db/ident ?ident]
+                  [?e :block/tags :logseq.class/Tag]
+                  [?e :logseq.property.class/extends ?p]
+                  [?p :db/ident ?ext-ident]]))
+
+(defn- thing-descendants
+  "Closure of classes whose extends chain reaches `thing` (excluding `thing`)."
+  [pairs thing]
+  (loop [descendants #{thing}]
+    (let [next-set (into descendants
+                         (keep (fn [[child parent]]
+                                 (when (descendants parent) child)))
+                         pairs)]
+      (if (= next-set descendants)
+        (disj descendants thing)
+        (recur next-set)))))
+
+(defn- invalid-classes [pairs thing]
+  (let [valid (conj (thing-descendants pairs thing) thing)
+        by-class (reduce (fn [m [c p]] (update m c (fnil conj []) p)) {} pairs)]
+    (->> by-class
+         (filter (fn [[c _]] (and (user-class? c) (not (valid c)))))
+         (sort-by first)
+         (map (fn [[c parents]] {:class c :extends parents})))))
+
+(defn -main [{:keys [options summary]}]
+  (if (:help options)
+    (cli/print-summary "" summary)
+    (let [graph (:graph options)
+          thing (thing-ident graph)
+          pairs (all-classes graph)
+          rows (invalid-classes pairs thing)]
+      (if (empty? rows)
+        (println "All user classes extend from Thing.")
+        (do
+          (println (count rows) "user class(es) do not extend from Thing:")
+          (doseq [{:keys [class extends]} rows]
+            (println " " class "extends" (pr-str extends)))
+          (System/exit 1))))))
+
+(def cli-options
+  [["-h" "--help"]
+   ["-g" "--graph GRAPH" "Graph name"]])
+
+(when (= *file* (System/getProperty "babashka.file"))
+  (cli/run-command -main *command-line-args* cli-options))
