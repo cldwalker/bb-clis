@@ -14,6 +14,7 @@
   (try
     (let [body (:body (http/get url {:timeout 5000}))
           [_ title] (re-find #"(?is)<title[^>]*>(.*?)</title>" (or body ""))]
+      (println "Fetched title:" (pr-str title))
       (if title
         (str/trim (str/replace title #"\s+" " "))
         (do (println "Unable to find url's title") nil)))
@@ -32,9 +33,11 @@
 
     :else
     (let [[url] arguments
-          {:keys [graph description tag content]} options
+          {:keys [graph description deadline referrerURL tag content]} options
           properties (cond-> {"url" url}
-                       description (assoc "description" description))]
+                       description (assoc "description" description)
+                       deadline (assoc "deadline" deadline)
+                       referrerURL (assoc "referrerURL" referrerURL))]
       (shell "logseq" "upsert" "block"
              "-g" graph
              "-c" (or content (fetch-title url) "Untitled")
@@ -45,7 +48,9 @@
   [["-h" "--help"]
    ["-g" "--graph GRAPH" "Graph name" :default "personal"]
    ["-d" "--description DESCRIPTION" "Block description property"]
+   ["-D" "--deadline DEADLINE" "Deadline for a task"]
    ["-t" "--tag TAG" "Tag to add" :default "Task"]
+   ["-r" "--referrerURL URL"]
    ["-c" "--content CONTENT" "Block content (default: fetched <title> or \"Untitled\")"]])
 
 (when (= *file* (System/getProperty "babashka.file"))
