@@ -8,7 +8,8 @@
   (:require [babashka.tasks :refer [shell]]
             [cldwalker.bb-clis.cli :as cli]
             [clojure.edn :as edn]
-            [clojure.pprint :as pprint]))
+            [clojure.pprint :as pprint]
+            [clojure.string :as string]))
 
 (defn- graph-args [graph]
   (when graph ["-g" graph]))
@@ -32,6 +33,37 @@
       (cli/error "list" subcommand "failed:" out))
     (count (:items data))))
 
+(defn- builtin-class-titles [graph]
+  (let [{:keys [out]} (apply shell {:out :string} "logseq" "list" "tag"
+                             (concat (graph-args graph) ["-o" "edn"]))
+        {:keys [status data]} (edn/read-string out)]
+    (when (not= :ok status)
+      (cli/error "list tag failed:" out))
+    (->> (:items data)
+         (filter #(some-> % :db/ident namespace (string/starts-with? "logseq.class")))
+         (map :block/title)
+         set)))
+
+(defn- url-property-ident [graph]
+  (let [{:keys [out]} (apply shell {:out :string} "logseq" "search" "property"
+                             (concat (graph-args graph) ["-c" "url" "-o" "edn"]))
+        {:keys [status data]} (edn/read-string out)]
+    (when (not= :ok status)
+      (cli/error "search property failed:" out))
+    (some #(when (= "url" (:block/title %)) (:db/ident %)) (:items data))))
+
+(defn- tag->url [graph]
+  (if-let [ident (url-property-ident graph)]
+    (->> (logseq-query graph
+                       [:find '?title '?url
+                        :where
+                        ['?e :block/tags '?t]
+                        ['?t :block/title '?title]
+                        ['?t ident '?url-ref]
+                        ['?url-ref :block/title '?url]])
+         (into {}))
+    {}))
+
 (defn- graph-counts [graph user?]
   (let [extra (when user? ["--no-include-built-in"])]
     (array-map
@@ -40,16 +72,32 @@
      :classes (apply logseq-list-count graph "tag" extra)
      :properties (apply logseq-list-count graph "property" extra))))
 
+(defn- pct [num denom]
+  (if (zero? denom) "n/a" (format "%.1f%%" (* 100.0 (/ num (double denom))))))
+
 (defn- object-counts [graph {:keys [user]}]
   (let [pairs (logseq-query graph '[:find ?title (count ?e)
                                     :where [?e :block/tags ?t] [?t :block/title ?title]])
+        builtins (when user (builtin-class-titles graph))
         pairs' (cond->> pairs
-                 user (remove #(#{"Property" "Tag" "Journal" "Page"} (first %))))
+                 user (remove #(builtins (first %))))
+        urls (tag->url graph)
         rows (->> pairs'
                   (sort-by second >)
-                  (map (fn [[tag c]] {"Tag" tag "Count" c})))]
-    (pprint/print-table ["Tag" "Count"] rows)
-    (println "Count: " (apply + (map second pairs')))))
+                  (map (fn [[cls c]] {"Class" cls "Url" (get urls cls "") "Count" c})))
+        total-objects (apply + (map second pairs'))
+        total-classes (count pairs')
+        objects-with-url (->> pairs' (filter #(get urls (first %))) (map second) (apply +))
+        classes-with-url (->> pairs' (filter #(get urls (first %))) count)]
+    (pprint/print-table ["Class" "Url" "Count"] rows)
+    (println "Total objects:" total-objects)
+    (println "Total classes:" total-classes)
+    (println "Objects with url:"
+             (format "%d/%d = %s"
+                     objects-with-url total-objects (pct objects-with-url total-objects)))
+    (println "Classes with url:"
+             (format "%d/%d = %s"
+                     classes-with-url total-classes (pct classes-with-url total-classes)))))
 
 (defn -main [{:keys [options summary]}]
   (cond
