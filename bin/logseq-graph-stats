@@ -9,7 +9,7 @@
             [cldwalker.bb-clis.cli :as cli]
             [clojure.edn :as edn]
             [clojure.pprint :as pprint]
-            [clojure.string :as string]))
+            [clojure.string :as str]))
 
 (defn- graph-args [graph]
   (when graph ["-g" graph]))
@@ -40,7 +40,7 @@
     (when (not= :ok status)
       (cli/error "list tag failed:" out))
     (->> (:items data)
-         (filter #(some-> % :db/ident namespace (string/starts-with? "logseq.class")))
+         (filter #(some-> % :db/ident namespace (str/starts-with? "logseq.class")))
          (map :block/title)
          set)))
 

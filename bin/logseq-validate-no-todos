@@ -7,8 +7,7 @@
 (ns logseq-validate-no-todos
   (:require [babashka.tasks :refer [shell]]
             [cldwalker.bb-clis.cli :as cli]
-            [clojure.edn :as edn]
-            [clojure.pprint :as pprint]))
+            [clojure.edn :as edn]))
 
 (defn- graph-args [graph]
   (when graph ["-g" graph]))
