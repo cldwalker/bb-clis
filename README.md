@@ -28,9 +28,9 @@ Scripts/commands/executables are located in `bin/`. To use an individual script,
 and use it:
 
 ```sh
-$ curl -o bb-github-repo https://raw.githubusercontent.com/cldwalker/bb-clis/master/bin/bb-github-repo
-$ chmod +x bb-github-repo
-$ ./bb-github-repo -h
+$ curl -o gh-repo https://raw.githubusercontent.com/cldwalker/bb-clis/master/bin/gh-repo
+$ chmod +x gh-repo
+$ ./gh-repo -h
 ```
 
 If you want to use all scripts in this repo, then put `bin/` on `$PATH`:
