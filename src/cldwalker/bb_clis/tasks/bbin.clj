@@ -16,11 +16,13 @@
       (shell "bbin" "uninstall" name))))
 
 (defn install
-  "Install every :bbin/bin entry from current bb.edn. Installs with
-  `--local/root` so edits to src/ are picked up live without reinstalling."
-  []
+  "Install every :bbin/bin entry from current bb.edn by default.
+  Optional commands will only install those commands.
+  Installs with `--local/root` so edits to src/ are picked up live without reinstalling."
+  [& cmds]
   (let [root (str (fs/cwd))
-        entries (:bbin/bin (edn/read-string (slurp (str (fs/path root "bb.edn")))))]
+        entries* (:bbin/bin (edn/read-string (slurp (str (fs/path root "bb.edn")))))
+        entries (if (seq cmds) (select-keys entries* (map symbol cmds)) entries*)]
     (when (empty? entries)
       (println "No :bbin/bin entries found in bb.edn")
       (System/exit 1))

@@ -9,8 +9,16 @@ jobs:
         uses: DeLaGuardo/setup-clojure@10.2
         with:
           bb: 1.0.166
+      - name: Install bbin
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL -o "$HOME/.local/bin/bbin" https://raw.githubusercontent.com/babashka/bbin/v0.2.5/bbin
+          chmod +x "$HOME/.local/bin/bbin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Install project CLIs via bbin
+        run: bb bbin:install bb-replace bb-table
       - name: Run bb tests
-        run: PATH=$PWD/bin:$PATH bb test
+        run: bb test
   lint:
     runs-on: ubuntu-latest
     steps:
