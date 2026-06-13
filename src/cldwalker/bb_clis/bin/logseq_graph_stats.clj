@@ -100,7 +100,7 @@
     (:objects options) (object-counts (:graph options) options)
     :else (pprint/pprint (graph-counts (:graph options) (:user options)))))
 
-(def cli-options
+(def ^:private cli-options
   [["-h" "--help"]
    ["-g" "--graph GRAPH" "Graph name"]
    ["-o" "--objects" "Show tag/count breakdown for nodes with :block/tags"]
@@ -108,6 +108,3 @@
 
 (defn -main [& args]
   (cli/run-command command args cli-options))
-
-(when (= *file* (System/getProperty "babashka.file"))
-  (apply -main *command-line-args*))

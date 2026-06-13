@@ -65,13 +65,10 @@
     (:query options) (query-icon (:graph options) (:query options))
     :else (icon-stats (:graph options))))
 
-(def cli-options
+(def ^:private cli-options
   [["-h" "--help"]
    ["-g" "--graph GRAPH" "Graph name"]
    ["-q" "--query ICON_ID" "Show nodes that use the given icon id (e.g. 'exclamation')"]])
 
 (defn -main [& args]
   (cli/run-command command args cli-options))
-
-(when (= *file* (System/getProperty "babashka.file"))
-  (apply -main *command-line-args*))
