@@ -1,10 +1,4 @@
-#!/usr/bin/env bb
-;; vim: set filetype=clojure:
-
-(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "c5da64153fb29e2f3fa807df4228b6e434f00fcd"}}})
-; (deps/add-deps {:deps {'io.github.cldwalker/bb-clis {:local/root (str (fs/parent (fs/parent *file*)))}}})
-
-(ns bb-unused-vars
+(ns cldwalker.bb-clis.bin.bb-unused-vars
   "A slightly modified version of https://github.com/borkdude/clj-kondo/blob/master/analysis/src/clj_kondo/tools/unused_vars.clj"
   (:require [clojure.set :as set]
             [clojure.string :as str]
@@ -15,7 +9,7 @@
 (pods/load-pod "clj-kondo")
 (require '[pod.borkdude.clj-kondo :as clj-kondo])
 
-(defn check-unused-vars
+(defn- check-unused-vars
   "Checks for unused vars. If found prints them and fails with exit 1."
   [paths {:keys [ignore-file]}]
   (let [analysis (:analysis (clj-kondo/run! {:lint paths
@@ -37,13 +31,14 @@
       (do (println "No unused vars found.")
         (System/exit 0)))))
 
-(defn -main [{:keys [summary arguments options]}]
+(defn- command [{:keys [summary arguments options]}]
   (if (or (:help options) (zero? (count arguments)))
     (cli/print-summary " SOURCE-PATHS" summary)
     (check-unused-vars arguments options)))
 
-(def cli-options
+(def ^:private cli-options
   [["-h" "--help"]
    ["-i" "--ignore-file FILE"]])
 
-(cli/run-command -main *command-line-args* cli-options)
+(defn -main [& args]
+  (cli/run-command command args cli-options))

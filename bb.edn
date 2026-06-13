@@ -6,7 +6,8 @@
 
  :bbin/bin
  {logseq-graph-icons {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-graph-icons"]}
-  logseq-graph-stats {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-graph-stats"]}}
+  logseq-graph-stats {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-graph-stats"]}
+  bb-unused-vars     {:main-opts ["-m" "cldwalker.bb-clis.bin.bb-unused-vars"]}}
 
  :tasks
  {:requires ([cldwalker.bb-clis.tasks.util :as tasks-util])
