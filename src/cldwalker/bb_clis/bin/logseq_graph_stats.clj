@@ -1,10 +1,5 @@
-#!/usr/bin/env bb
-; vim: set filetype=clojure:
-; Print page, class and property counts for a Logseq graph.
-
-(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "86b9b3c1a18ddece55f8f2d9d667ba1049a6a561"}}})
-
-(ns logseq-graph-stats
+(ns cldwalker.bb-clis.bin.logseq-graph-stats
+  "Print page, class and property counts for a Logseq graph."
   (:require [babashka.tasks :refer [shell]]
             [cldwalker.bb-clis.cli :as cli]
             [clojure.edn :as edn]
@@ -99,7 +94,7 @@
              (format "%d/%d = %s"
                      classes-with-url total-classes (pct classes-with-url total-classes)))))
 
-(defn -main [{:keys [options summary]}]
+(defn- command [{:keys [options summary]}]
   (cond
     (:help options) (cli/print-summary "" summary)
     (:objects options) (object-counts (:graph options) options)
@@ -111,5 +106,8 @@
    ["-o" "--objects" "Show tag/count breakdown for nodes with :block/tags"]
    ["-u" "--user" "Exclude built-in pages, classes and properties"]])
 
+(defn -main [& args]
+  (cli/run-command command args cli-options))
+
 (when (= *file* (System/getProperty "babashka.file"))
-  (cli/run-command -main *command-line-args* cli-options))
+  (apply -main *command-line-args*))

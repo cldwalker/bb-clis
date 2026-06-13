@@ -4,6 +4,10 @@
   {com.github.cldwalker/bb-dialog
    {:git/sha "e10f2d8461b3de4c521c1fcf71552f38c47f33da"}}
 
+ :bbin/bin
+ {logseq-graph-icons {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-graph-icons"]}
+  logseq-graph-stats {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-graph-stats"]}}
+
  :tasks
  {:requires ([cldwalker.bb-clis.tasks.util :as tasks-util])
 
@@ -184,4 +188,10 @@
    :task cldwalker.bb-clis.tasks.specter/example}
 
   gh:checkout-pr-branch
-  cldwalker.bb-clis.tasks.github/checkout-pr-branch}}
+  cldwalker.bb-clis.tasks.github/checkout-pr-branch
+
+  bbin:install
+  cldwalker.bb-clis.tasks.bbin/install
+
+  bbin:uninstall
+  cldwalker.bb-clis.tasks.bbin/uninstall}}

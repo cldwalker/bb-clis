@@ -1,10 +1,5 @@
-#!/usr/bin/env bb
-; vim: set filetype=clojure:
-; Show icon usage stats or list nodes that use a given icon in a Logseq graph.
-
-(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "5b294ceadd5066965096f62d7960367f22cf22e5"}}})
-
-(ns logseq-graph-icons
+(ns cldwalker.bb-clis.bin.logseq-graph-icons
+  "Show icon usage stats or list nodes that use a given icon in a Logseq graph."
   (:require [babashka.tasks :refer [shell]]
             [cldwalker.bb-clis.cli :as cli]
             [clojure.edn :as edn]
@@ -64,7 +59,7 @@
                "--ref-id-footer" "false")
         (println "Count:" (count ids))))))
 
-(defn -main [{:keys [options summary]}]
+(defn- command [{:keys [options summary]}]
   (cond
     (:help options) (cli/print-summary "" summary)
     (:query options) (query-icon (:graph options) (:query options))
@@ -75,5 +70,8 @@
    ["-g" "--graph GRAPH" "Graph name"]
    ["-q" "--query ICON_ID" "Show nodes that use the given icon id (e.g. 'exclamation')"]])
 
+(defn -main [& args]
+  (cli/run-command command args cli-options))
+
 (when (= *file* (System/getProperty "babashka.file"))
-  (cli/run-command -main *command-line-args* cli-options))
+  (apply -main *command-line-args*))
