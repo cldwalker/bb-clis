@@ -5,7 +5,7 @@ scripts and tasks. scripts strive to be compatible with Clojure.
 
 ## Prerequisites
 
-[Babashka](https://github.com/borkdude/babashka#installation) >= 1.0.166 is required.
+[Babashka](https://github.com/borkdude/babashka#installation) >= 1.12.218 is required.
 
 ## Tasks
 

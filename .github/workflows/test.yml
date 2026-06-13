@@ -8,7 +8,7 @@ jobs:
       - name: Install babashka
         uses: DeLaGuardo/setup-clojure@10.2
         with:
-          bb: 1.0.166
+          bb: 1.12.218
       - name: Install bbin
         run: |
           mkdir -p "$HOME/.local/bin"
@@ -42,7 +42,7 @@ jobs:
       - name: Install babashka
         uses: DeLaGuardo/setup-clojure@10.2
         with:
-          bb: 1.0.166
+          bb: 1.12.218
       # TODO: Re-enable or replace with carve that has better support for bb.edn usage or ignoring a regex of ns
       # - name: Check for unused vars
       #   run: bin/bb-unused-vars -i .github/workflows/unused-vars-to-ignore.edn  src
