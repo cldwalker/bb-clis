@@ -1,11 +1,5 @@
-#!/usr/bin/env bb
-; Updates a lein dependency on specified git-able dir(s)
-; vim: set filetype=clojure:
-
-(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "c5da64153fb29e2f3fa807df4228b6e434f00fcd"}}})
-; (deps/add-deps {:deps {'io.github.cldwalker/bb-clis {:local/root (str (fs/parent (fs/parent *file*)))}}})
-
-(ns bb-update-lein-dependency
+(ns cldwalker.bb-clis.bin.bb-update-lein-dependency
+  "Updates a lein dependency on specified git-able dir(s)"
   (:require [cldwalker.bb-clis.cli :as cli]
             [clojure.java.io :as io]
             [clojure.string :as str]
@@ -59,7 +53,7 @@ Takes following options:
       (sh "git" "commit" "-m" (format "Updated %s dependency" dependency) "." options)
       (sh "git" "push" options))))
 
-(def cli-options
+(def ^:private cli-options
   [["-d" "--directories DIR" "Directories to update"
     :default-fn (fn [_x] [(System/getenv "PWD")])
     :default-desc "Current directory"
@@ -71,10 +65,11 @@ Takes following options:
    ["-n" "--dry-run" "Actions are printed and not executed"]
    ["-h" "--help"]])
 
-(defn -main [{:keys [options arguments summary]}]
+(defn- command [{:keys [options arguments summary]}]
   (if (or (:help options) (< (count arguments) 2))
     (cli/print-summary " DEPENDENCY VERSION" summary)
     (doseq [dir (:directories options)]
       (update-dir arguments dir options))))
 
-(cli/run-command -main *command-line-args* cli-options)
+(defn -main [& args]
+  (cli/run-command command args cli-options))

@@ -1,10 +1,5 @@
-#!/usr/bin/env bb
-; vim: set filetype=clojure:
-; Backup one or more logseq graphs by exporting EDN and staging changes in the graph's git repo.
-
-(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "8c743dca5b6ebae5bd6acbe5cec904d2affcf4f3"}}})
-
-(ns logseq-graph-backup
+(ns cldwalker.bb-clis.bin.logseq-graph-backup
+  "Backup one or more logseq graphs by exporting EDN and staging changes in the graph's git repo."
   (:require [babashka.tasks :refer [shell]]
             [cldwalker.bb-clis.cli :as cli]
             [clojure.data :as data]
@@ -26,7 +21,7 @@
                      vec)))))
 
 ;; Copied from l.db.sqlite.export
-(defn diff-exports
+(defn- diff-exports
   "Given two graph export edns, return a vector of diffs when there is a diff and nil when there is
      no diff between the two"
   [export-map export-map2]
@@ -35,7 +30,7 @@
     (when-not (= [nil nil] diff)
       diff)))
 
-(defn diff-files*
+(defn- diff-files*
   [file1 file2]
   (let [export-map  (edn/read-string (slurp file1))
         export-map2 (edn/read-string (slurp file2))
@@ -85,7 +80,7 @@
                      (str (System/getenv "HOME") "/logseq/graphs/" temp-edn* "/graph.edn"))]
     (diff-files* graph-edn temp-edn)))
 
-(defn -main [{:keys [options arguments summary]}]
+(defn- command [{:keys [options arguments summary]}]
   (cond
     (:help options)
     (cli/print-summary " GRAPH [GRAPH ...]" summary)
@@ -100,7 +95,7 @@
     (doseq [graph arguments]
       (backup-graph graph options))))
 
-(def cli-options
+(def ^:private cli-options
   [["-h" "--help"]
    ["-d" "--datoms" "Export raw datoms (:graph) instead of human-readable EDN (:graph-human)"]
    ["-D" "--diff" "Diff two graph's edn exports"]
@@ -109,5 +104,5 @@
    ["-m" "--message MESSAGE" "Git add and commit with message"]
    ["-g" "--git-show" "Show what has changed since last commit"]])
 
-(when (= *file* (System/getProperty "babashka.file"))
-  (cli/run-command -main *command-line-args* cli-options))
+(defn -main [& args]
+  (cli/run-command command args cli-options))

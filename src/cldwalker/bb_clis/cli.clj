@@ -1,7 +1,6 @@
 (ns cldwalker.bb-clis.cli
   "Common fns for babashka/clojure CLIs"
   (:require [clojure.string :as str]
-            [clojure.java.io :as io]
             [clojure.tools.cli :as cli]))
 
 (defn error
@@ -10,13 +9,15 @@
   (apply println "Error:" msgs)
   (System/exit 1))
 
-(defn print-summary
-  "Print help summary given args and opts strings"
+(defmacro print-summary
+  "Print help summary given args and opts strings. Program name is the last
+  segment of the caller's namespace (e.g. cldwalker.bb-clis.bin.bb-table → bb-table)."
   [args-string options-summary]
-  (println (format "Usage: %s [OPTIONS]%s\nOptions:\n%s"
-                   (.getName (io/file *file*))
-                   args-string
-                   options-summary)))
+  (let [program-name (last (str/split (str (ns-name *ns*)) #"\."))]
+    `(println (format "Usage: %s [OPTIONS]%s\nOptions:\n%s"
+                      ~program-name
+                      ~args-string
+                      ~options-summary))))
 
 (defn run-command
   "Processes a command's functionality given a cli options definition, arguments

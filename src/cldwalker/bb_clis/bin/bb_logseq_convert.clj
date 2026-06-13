@@ -1,14 +1,8 @@
-#!/usr/bin/env bb
-; vim: set filetype=clojure:
-; Converts a url into a set of markdown properties for use
-; as a multi-line logseq block
+(ns cldwalker.bb-clis.bin.bb-logseq-convert
+  "Converts a url into a set of markdown properties for use as a multi-line
+  logseq block.
 
-;; Setup: npm install -g rdf-dereference
-
-(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "c5da64153fb29e2f3fa807df4228b6e434f00fcd"}}})
-; (deps/add-deps {:deps {'io.github.cldwalker/bb-clis {:local/root (str (fs/parent (fs/parent *file*)))}}})
-
-(ns bb-logseq-convert
+  Setup: npm install -g rdf-dereference"
   (:require [cldwalker.bb-clis.cli :as cli]
             [cldwalker.bb-clis.cli.logseq :as logseq]
             [clojure.string :as str]
@@ -23,7 +17,7 @@
 
 ;; Config
 ;; ======
-(def default-config
+(def ^:private default-config
   ;; Configures what properties a given host keeps from rdf data to be converted
   ;; to a block.
   {:host-properties {}
@@ -136,7 +130,7 @@ process that generates this map from your logseq data"
                         (into {}))]
     properties))
 
-(defn get-rdf-properties [url-obj config options]
+(defn- get-rdf-properties [url-obj config options]
   (let [triples (try (-> ["rdf-dereference" (str url-obj)]
                          ;; Need a timeout as rdf-dereference has been wierdly hanging
                          ;; out for imdb and wikipedia
@@ -175,14 +169,14 @@ process that generates this map from your logseq data"
     (shell {:in block-text} "pbcopy")
     (println block-text)))
 
-(defn -main [{:keys [options arguments summary]}]
+(defn- command [{:keys [options arguments summary]}]
   (if (:help options)
     (cli/print-summary " [& LOGSEQ_TEXT]" summary)
     (create-block arguments options)))
 
-(def cli-options
+(def ^:private cli-options
   [["-h" "--help"]
    ["-d" "--debug"]])
 
-(when (= *file* (System/getProperty "babashka.file"))
-  (cli/run-command -main *command-line-args* cli-options))
+(defn -main [& args]
+  (cli/run-command command args cli-options))

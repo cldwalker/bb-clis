@@ -1,10 +1,5 @@
-#!/usr/bin/env bb
-; vim: set filetype=clojure:
-; Recursively grep a logseq graph directory.
-
-(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "c5da64153fb29e2f3fa807df4228b6e434f00fcd"}}})
-
-(ns logseq-graph-grep
+(ns cldwalker.bb-clis.bin.logseq-graph-grep
+  "Recursively grep a logseq graph directory."
   (:require [cldwalker.bb-clis.cli :as cli]
             [babashka.tasks :refer [shell]]
             [clojure.string :as str]))
@@ -15,7 +10,7 @@
       str/trim
       not-empty))
 
-(defn -main [{:keys [options arguments summary]}]
+(defn- command [{:keys [options arguments summary]}]
   (if (:help options)
     (cli/print-summary " [& GREP-ARGS]" summary)
     (let [graph (or (:graph options)
@@ -26,9 +21,9 @@
                                 "grep" "-r" (concat arguments ["."]))]
       (System/exit exit))))
 
-(def cli-options
+(def ^:private cli-options
   [["-h" "--help"]
    ["-g" "--graph GRAPH" "Graph to grep (default: current graph)"]])
 
-(when (= *file* (System/getProperty "babashka.file"))
-  (cli/run-command -main *command-line-args* cli-options :in-order true))
+(defn -main [& args]
+  (cli/run-command command args cli-options :in-order true))

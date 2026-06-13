@@ -1,10 +1,5 @@
-#!/usr/bin/env bb
-; vim: set filetype=clojure:
-
-(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "c5da64153fb29e2f3fa807df4228b6e434f00fcd"}}})
-; (deps/add-deps {:deps {'io.github.cldwalker/bb-clis {:local/root (str (fs/parent (fs/parent *file*)))}}})
-
-(ns bb-github-pr-for-commit
+(ns cldwalker.bb-clis.bin.gh-pr-for-commit
+  "Fetch and open info related to a github PR"
   (:require [babashka.curl :as curl]
             [cheshire.core :as json]
             [cldwalker.bb-clis.cli :as cli]
@@ -32,13 +27,13 @@
           url)
       (cli/error "No github PR found for this commit"))))
 
-(defn -main [{:keys [options arguments summary]}]
+(defn- command [{:keys [options arguments summary]}]
   (when (:debug options) (println "Options:" options))
   (if (or (:help options) (empty? arguments))
     (cli/print-summary " COMMIT" summary)
     (fetch-response (first arguments) options)))
 
-(def cli-options
+(def ^:private cli-options
   ;; An option with a required argument
   [["-r" "--repository REPO"
     :default-fn misc/find-current-user-repo
@@ -53,4 +48,5 @@
     :default-desc "$GITHUB_OAUTH_TOKEN"]
    ["-h" "--help"]])
 
-(cli/run-command -main *command-line-args* cli-options)
+(defn -main [& args]
+  (cli/run-command command args cli-options))

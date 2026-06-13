@@ -1,16 +1,10 @@
-#!/usr/bin/env bb
-;; vim: set filetype=clojure:
-;; Try a dependency with bb like lein-try
-
-(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "c5da64153fb29e2f3fa807df4228b6e434f00fcd"}}})
-; (deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:local/root "."}}})
-
-(ns bb-try
+(ns cldwalker.bb-clis.bin.bb-try
+  "Try a dependency with bb like lein-try"
   (:require [cldwalker.bb-clis.cli :as cli]
             [babashka.tasks :refer [shell]]
             [clojure.java.shell :as shell]))
 
-(def cli-options
+(def ^:private cli-options
   [["-h" "--help"]
    ["-c" "--command COMMAND"]
    ["-v" "--version DEPENDENCY_VERSION"]
@@ -64,11 +58,11 @@
     (clj-main arguments options)
     (bb-main arguments (assoc options :command command))))
 
-(defn -main
+(defn- command
   [{:keys [summary arguments options]}]
   (cond
     (:help options) (cli/print-summary " DEPENDENCY [& ARGS]" summary)
     :else (-main* arguments options)))
 
-(when (= *file* (System/getProperty "babashka.file"))
-  (cli/run-command -main *command-line-args* cli-options :in-order true))
+(defn -main [& args]
+  (cli/run-command command args cli-options :in-order true))

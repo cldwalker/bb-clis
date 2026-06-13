@@ -1,10 +1,4 @@
-#!/usr/bin/env bb
-;; vim: set filetype=clojure:
-
-(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "c5da64153fb29e2f3fa807df4228b6e434f00fcd"}}})
-; (deps/add-deps {:deps {'io.github.cldwalker/bb-clis {:local/root (str (fs/parent (fs/parent *file*)))}}})
-
-(ns bb-missed-docstrings
+(ns cldwalker.bb-clis.bin.bb-missed-docstrings
   "A slightly modified version of https://github.com/borkdude/clj-kondo/blob/master/analysis/src/clj_kondo/tools/missing_docstrings.clj"
   (:require [cldwalker.bb-clis.cli :as cli]
             [babashka.pods :as pods]))
@@ -25,13 +19,14 @@
                  (not (ignore-var? (str name))))
         (println (str ns "/" name ": missing docstring"))))))
 
-(defn -main [{:keys [arguments summary options]}]
+(defn- command [{:keys [arguments summary options]}]
   (if (:help options)
     (cli/print-summary " SOURCE-PATHS" summary)
     (missed-docstrings arguments options)))
 
-(def cli-options
+(def ^:private cli-options
   [["-h" "--help"]
    ["-i" "--ignore-regex REGEX"]])
 
-(cli/run-command -main *command-line-args* cli-options)
+(defn -main [& args]
+  (cli/run-command command args cli-options))

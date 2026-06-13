@@ -1,11 +1,5 @@
-#!/usr/bin/env bb
-; Opens urls related to current or specified github repository
-; vim: set filetype=clojure:
-
-(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "c5da64153fb29e2f3fa807df4228b6e434f00fcd"}}})
-; (deps/add-deps {:deps {'io.github.cldwalker/bb-clis {:local/root (str (fs/parent (fs/parent *file*)))}}})
-
-(ns bb-github-repo
+(ns cldwalker.bb-clis.bin.gh-repo
+  "Opens urls related to current or specified github repository"
   (:require [cldwalker.bb-clis.cli :as cli]
             [cldwalker.bb-clis.cli.misc :as misc]
             [clojure.string :as str]
@@ -50,13 +44,13 @@
                     (find-current-branch))]
     (doto url misc/open-url)))
 
-(defn -main [{:keys [options _arguments summary]}]
+(defn- command [{:keys [options _arguments summary]}]
   (cond
     (:help options) (cli/print-summary "" summary)
     (:circleci options) (open-circleci-url options)
     :else (open-github-url options)))
 
-(def cli-options
+(def ^:private cli-options
   [["-r" "--repository REPO"
     :default-fn misc/find-current-user-repo
     :default-desc "Current directory's repository"
@@ -67,4 +61,5 @@
    ["-f" "--file FILE" "Opens file in current branch on github"]
    ["-h" "--help"]])
 
-(cli/run-command -main *command-line-args* cli-options)
+(defn -main [& args]
+  (cli/run-command command args cli-options))

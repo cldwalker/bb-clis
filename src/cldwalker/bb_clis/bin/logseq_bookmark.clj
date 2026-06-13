@@ -1,10 +1,5 @@
-#!/usr/bin/env bb
-; vim: set filetype=clojure:
-; Bookmark a URL by upserting a block with url/description properties and a tag.
-
-(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "c6e51784d7eaad7e6ce9786e59169ac6d09a98f8"}}})
-
-(ns logseq-bookmark
+(ns cldwalker.bb-clis.bin.logseq-bookmark
+  "Bookmark a URL by upserting a block with url/description properties and a tag."
   (:require [babashka.http-client :as http]
             [babashka.tasks :refer [shell]]
             [cldwalker.bb-clis.cli :as cli]
@@ -25,7 +20,7 @@
       (println "Unable to find url's title")
       nil)))
 
-(defn -main [{:keys [options arguments summary]}]
+(defn- command [{:keys [options arguments summary]}]
   (cond
     (or (:help options)
         (not= 1 (count arguments)))
@@ -44,7 +39,7 @@
              "--update-properties" (pr-str properties)
              "--update-tags" (pr-str [tag])))))
 
-(def cli-options
+(def ^:private cli-options
   [["-h" "--help"]
    ["-g" "--graph GRAPH" "Graph name" :default "personal"]
    ["-d" "--description DESCRIPTION" "Block description property"]
@@ -53,5 +48,5 @@
    ["-r" "--referrerURL URL"]
    ["-c" "--content CONTENT" "Block content (default: fetched <title> or \"Untitled\")"]])
 
-(when (= *file* (System/getProperty "babashka.file"))
-  (cli/run-command -main *command-line-args* cli-options))
+(defn -main [& args]
+  (cli/run-command command args cli-options))

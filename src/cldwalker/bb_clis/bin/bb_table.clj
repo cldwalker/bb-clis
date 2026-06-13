@@ -1,12 +1,6 @@
-#!/usr/bin/env bb
-;; vim: set filetype=clojure:
-;; Prints an ascii table for streamed in edn or edn file
-;; Edn must be a map or a collection of collections
-
-(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "c5da64153fb29e2f3fa807df4228b6e434f00fcd"}}})
-; (deps/add-deps {:deps {'io.github.cldwalker/bb-clis {:local/root (str (fs/parent (fs/parent *file*)))}}})
-
-(ns bb-table
+(ns cldwalker.bb-clis.bin.bb-table
+  "Prints an ascii table for streamed in edn or edn file.
+  Edn must be a map or a collection of collections."
   (:require [clojure.edn :as edn]
             [clojure.string :as str]
             [babashka.deps :as deps]
@@ -97,7 +91,7 @@
             {:column col :count (column-counts col 0)})
           columns)))
 
-(defn print-rows
+(defn- print-rows
   "Prints rows in a table, handling a couple different data structures as input"
   [arg {:keys [print-headers] :as options}]
   (let [arg_ (if print-headers
@@ -113,15 +107,7 @@
         processed-rows (process-rows rows options)]
     (print-rows* processed-rows options)))
 
-(defn -main [{:keys [summary _arguments options]}]
-  (cond
-    (:help options) (cli/print-summary "\nReads from stdin if no arguments given" summary)
-    (:file options) (print-rows (-> (:file options) slurp edn/read-string)
-                                options)
-    :else           (print-rows (first (misc/read-stdin-edn))
-                                options)))
-
-(def table-styles
+(def ^:private table-styles
   "Table styles that can be passed to table library via :style"
   #{:plain :org :unicode :github-markdown})
 
@@ -130,7 +116,7 @@
    (filter #(str/starts-with? (name %) query)
            choices)))
 
-(def cli-options
+(def ^:private cli-options
   [["-h" "--help"]
    ["-f" "--file FILE"]
    ["-c" "--columns-filter FILTER" "Select columns by comma delimited substring matches or numbers from -H"]
@@ -144,4 +130,13 @@
     :parse-fn #(keyword (unalias-choice table-styles %))
     :validate [table-styles]]])
 
-(cli/run-command -main *command-line-args* cli-options)
+(defn- command [{:keys [summary _arguments options]}]
+  (cond
+    (:help options) (cli/print-summary "\nReads from stdin if no arguments given" summary)
+    (:file options) (print-rows (-> (:file options) slurp edn/read-string)
+                                options)
+    :else           (print-rows (first (misc/read-stdin-edn))
+                                options)))
+
+(defn -main [& args]
+  (cli/run-command command args cli-options))

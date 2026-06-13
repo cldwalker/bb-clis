@@ -26,7 +26,7 @@ jobs:
         with:
           cli: 1.11.1.1165
 
-      - run: clojure -M:clj-kondo --lint src bin/* test
+      - run: clojure -M:clj-kondo --lint src test
   custom-lint:
     runs-on: ubuntu-latest
     steps:
@@ -37,11 +37,11 @@ jobs:
           bb: 1.0.166
       # TODO: Re-enable or replace with carve that has better support for bb.edn usage or ignoring a regex of ns
       # - name: Check for unused vars
-      #   run: bin/bb-unused-vars -i .github/workflows/unused-vars-to-ignore.edn  bin/* src
+      #   run: bin/bb-unused-vars -i .github/workflows/unused-vars-to-ignore.edn  src
       - run: bb --config dev-bb.edn lint:large-vars
       - run: bb --config dev-bb.edn lint:ns-docstrings
       - run: bb --config dev-bb.edn lint:minimize-public-vars
 
       # TODO: Re-enable or replace when there is more docstrings
       # - name: Check for missed docstrings
-      #   run: bin/bb-missed-docstrings -i 'cli-options|-main' bin/* src
+      #   run: bin/bb-missed-docstrings -i 'cli-options|-main' src

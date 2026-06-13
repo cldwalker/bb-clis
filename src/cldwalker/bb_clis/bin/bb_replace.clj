@@ -1,13 +1,7 @@
-#!/usr/bin/env bb
-; vim: set filetype=clojure:
-; Light-weight alternative to sed or perl -i. Aims to provide replacements
-; that are more readable by supporting named replacements.
-; See get-replacements for config docs
-
-(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "c5da64153fb29e2f3fa807df4228b6e434f00fcd"}}})
-; (deps/add-deps {:deps {'io.github.cldwalker/bb-clis {:local/root (str (fs/parent (fs/parent *file*)))}}})
-
-(ns bb-replace
+(ns cldwalker.bb-clis.bin.bb-replace
+  "Light-weight alternative to sed or perl -i. Aims to provide replacements
+  that are more readable by supporting named replacements.
+  See get-replacements for config docs"
   (:require [clojure.string :as str]
             [clojure.java.io :as io]
             [clojure.edn :as edn]
@@ -51,12 +45,12 @@ A replacement consists of three keys:
        :file file}
       (cli/error "File option required if providing a regex as a replacement"))))
 
-(def cli-options
+(def ^:private cli-options
   [["-h" "--help"]
    ["-f" "--file FILE" "Overrides default file for a replacement"]
    ["-F" "--format-string FORMAT" "Overrides default format string for a replacement"]])
 
-(defn -main [{:keys [options arguments summary]}]
+(defn- command [{:keys [options arguments summary]}]
   (if (or (:help options) (zero? (count arguments)))
     (cli/print-summary (str " REPLACEMENT/REGEX [& ARGUMENTS]\nReplacements available: "
                              (str/join ", " (->> (get-replacements) keys (map name))))
@@ -66,4 +60,5 @@ A replacement consists of three keys:
                                           (select-keys options [:file :format-string]))
                                     (rest arguments)))))
 
-(cli/run-command -main *command-line-args* cli-options)
+(defn -main [& args]
+  (cli/run-command command args cli-options))

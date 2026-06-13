@@ -1,21 +1,13 @@
-#!/usr/bin/env bb
-;; vim: set filetype=clojure:
-;; Usage
-;; =====
-;; Run aws commands the same way the awscli does e.g.
-;; - bb-aws s3api list-buckets
-;; - bb-aws s3api get-bucket-acl --bucket X
-;; Note: Does not support commands with non-option arguments e.g.
-;;   bb-aws lambda invoke --function-name FN OUT_FILE
-;; Drop into a repl with command's result stored in #'result
-;; - bb-aws --repl s3api list-buckets
-#_:clj-kondo/ignore
-(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "c5da64153fb29e2f3fa807df4228b6e434f00fcd"}}})
-; (deps/add-deps {:deps {'io.github.cldwalker/bb-clis {:local/root (str (fs/parent (fs/parent *file*)))}}})
-
-(ns bb-aws
+(ns cldwalker.bb-clis.bin.bb-aws
+  "Run aws commands the same way the awscli does e.g.
+  - bb-aws s3api list-buckets
+  - bb-aws s3api get-bucket-acl --bucket X
+  Note: Does not support commands with non-option arguments e.g.
+    bb-aws lambda invoke --function-name FN OUT_FILE
+  Drop into a repl with command's result stored in #'result
+  - bb-aws --repl s3api list-buckets"
   {:clj-kondo/config
-  '{:linters {:inline-def {:level :off}}}}
+   '{:linters {:inline-def {:level :off}}}}
   (:require [babashka.pods :as pods]
             [cldwalker.bb-clis.cli :as cli]
             [clojure.string :as str]
@@ -31,7 +23,7 @@
        (map str/capitalize)
        str/join))
 
-(def aws-command->aws-api-api
+(def ^:private aws-command->aws-api-api
   {:s3api :s3})
 
 (defn- parse-options-and-args [all-args]
@@ -43,7 +35,7 @@
         (drop 2 args))
       [options args])))
 
-(defn invoke-aws-operation [[cmd subcmd & args] {:keys [region debug]}]
+(defn- invoke-aws-operation [[cmd subcmd & args] {:keys [region debug]}]
   (let [api (aws-command->aws-api-api (keyword cmd) (keyword cmd))
         op (keyword (clojure-case->camel-case subcmd))
         client (aws/client {:api api :region region})
@@ -83,7 +75,7 @@
     :else
     result))
 
-(def cli-options
+(def ^:private cli-options
   [["-h" "--help"]
    ["-d" "--debug"]
    ["-R" "--repl" "Drop into repl with operation result set to #'result"]
@@ -92,7 +84,7 @@
     :default-desc "$AWS_REGION or us-east-2"
     :default-fn (fn [_] (or (System/getenv "AWS_REGION") "us-east-2"))]])
 
-(defn -main [{:keys [summary arguments options]}]
+(defn- command [{:keys [summary arguments options]}]
   (if (or (:help options) (zero? (count arguments)))
     (cli/print-summary " COMMAND SUBCOMMAND [SUBCOMMAND-OPTIONS]" summary)
     (let [result (invoke-aws-operation arguments options)
@@ -104,11 +96,11 @@
         (def result result_)
         (main/repl)))))
 
-(when (= *file* (System/getProperty "babashka.file"))
-  (cli/run-command -main *command-line-args* cli-options :in-order true))
+(defn -main [& args]
+  (cli/run-command command args cli-options :in-order true))
 
 (comment
- (def s3-client (aws/client {:api :s3 :region "us-east-1"}))
+ (def ^:private s3-client (aws/client {:api :s3 :region "us-east-1"}))
  (aws/doc s3-client :ListBuckets)
  (aws/invoke s3-client {:op :ListBuckets})
  )

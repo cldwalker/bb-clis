@@ -1,10 +1,5 @@
-#!/usr/bin/env bb
-;; vim: set filetype=clojure:
-;; Search blocks via `logseq search block -c`, then `logseq upsert task` chosen ids.
-
-(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "37efdf9e9c525cf83befc19da271f1673168d510"}}})
-
-(ns logseq-search-upsert
+(ns cldwalker.bb-clis.bin.logseq-search-upsert
+  "Search blocks via `logseq search block -c`, then `logseq upsert task` chosen ids."
   (:require [babashka.tasks :refer [shell]]
             [cldwalker.bb-clis.util.input :as input]
             [clojure.string :as str]))
@@ -45,6 +40,3 @@
             :else
             (doseq [id (mapv #(first (results (dec %))) indices)]
               (apply shell "logseq" "upsert" "block" "--id" (str id) upsert-opts))))))))
-
-(when (= *file* (System/getProperty "babashka.file"))
-  (apply -main *command-line-args*))

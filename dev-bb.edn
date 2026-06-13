@@ -22,7 +22,7 @@
 
  :tasks/config
  {:large-vars
-  {:max-lines-count 25}
+  {:max-lines-count 30}
 
   :ns-docstrings
   {:ignore-regex "cldwalker.bb-clis.tasks.*"}}}

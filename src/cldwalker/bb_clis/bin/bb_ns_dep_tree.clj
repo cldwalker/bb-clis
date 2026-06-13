@@ -1,11 +1,5 @@
-#!/usr/bin/env bb
-;; Prints ascii tree of ns dependencies like tree command
-;; vim: set filetype=clojure:
-
-(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "c5da64153fb29e2f3fa807df4228b6e434f00fcd"}}})
-; (deps/add-deps {:deps {'io.github.cldwalker/bb-clis {:local/root (str (fs/parent (fs/parent *file*)))}}})
-
-(ns bb-ns-dep-tree
+(ns cldwalker.bb-clis.bin.bb-ns-dep-tree
+  "Prints ascii tree of ns dependencies like tree command"
   (:require [cldwalker.bb-clis.cli :as cli]
             [clojure.java.io :as io]
             [babashka.pods :as pods]))
@@ -14,12 +8,12 @@
 (require '[pod.borkdude.clj-kondo :as clj-kondo])
 
 ;; Ascii tree from https://github.com/babashka/babashka/blob/master/examples/tree.clj
-(def I-branch "│   ")
-(def T-branch "├── ")
-(def L-branch "└── ")
-(def SPACER   "    ")
+(def ^:private I-branch "│   ")
+(def ^:private T-branch "├── ")
+(def ^:private L-branch "└── ")
+(def ^:private SPACER   "    ")
 
-(def already-seen (atom #{}))
+(def ^:private already-seen (atom #{}))
 
 (defn- build-tree
   [node children-map {:keys [expand-duplicate-branches] :as opts}]
@@ -34,7 +28,7 @@
                                              (map #(build-tree % children-map opts)
                                                   children)))))
 
-(defn render-tree
+(defn- render-tree
   [{:keys [name children]}]
   (cons name
         (mapcat
@@ -61,7 +55,7 @@
           {}
           (:namespace-usages analysis)))
 
-(defn print-ns-tree [[ns-or-file] {:keys [source-paths lang] :as options}]
+(defn- print-ns-tree [[ns-or-file] {:keys [source-paths lang] :as options}]
   (let [analysis (clj-kondo-analysis source-paths)
         ns-sym (if (.exists (io/file ns-or-file))
                  (some #(when (= ns-or-file (:filename %)) (:name %))
@@ -71,7 +65,7 @@
     (doseq [l (render-tree tree)]
       (println l))))
 
-(def cli-options
+(def ^:private cli-options
   [["-h" "--help"]
    ["-e" "--expand-duplicate-branches" "Expands all ns dependencies including duplicate branches"]
    ["-l" "--lang LANG" "Language for .cljc analysis"
@@ -84,10 +78,10 @@
     :validate [#(.isDirectory (io/file %))
                "Must be a valid directory"]]])
 
-(defn -main [{:keys [summary arguments options]}]
+(defn- command [{:keys [summary arguments options]}]
   (if (or (:help options) (zero? (count arguments)))
     (cli/print-summary " NS/FILE" summary)
     (print-ns-tree arguments options)))
 
-(when (= *file* (System/getProperty "babashka.file"))
-  (cli/run-command -main *command-line-args* cli-options))
+(defn -main [& args]
+  (cli/run-command command args cli-options))

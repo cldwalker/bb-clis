@@ -1,11 +1,5 @@
-#!/usr/bin/env bb
-; Prints out a lein project.clj file as a map
-; vim: set filetype=clojure:
-
-(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "c5da64153fb29e2f3fa807df4228b6e434f00fcd"}}})
-; (deps/add-deps {:deps {'io.github.cldwalker/bb-clis {:local/root (str (fs/parent (fs/parent *file*)))}}})
-
-(ns bb-project-clj
+(ns cldwalker.bb-clis.bin.bb-project-clj
+  "Prints out a lein project.clj file as a map"
   (:require [cldwalker.bb-clis.cli :as cli]
             [clojure.string :as str]
             [clojure.pprint :as pprint]))
@@ -38,13 +32,13 @@
        (map vec)
        (into {})))
 
-(defn- -main [{:keys [options summary]}]
+(defn- command [{:keys [options summary]}]
   (cond
     (:help options) (cli/print-summary "" summary)
     :else (let [project-clj (project-clj-map (:file options) (:drop-forms options))]
             (pprint/pprint project-clj))))
 
-(def cli-options
+(def ^:private cli-options
   [["-f" "--file FILE" "Location of project.clj file"
     :default "project.clj"]
    ["-d" "--drop-forms FORMS" "Forms to drop before defproject form"
@@ -52,4 +46,5 @@
     :parse-fn #(Integer/parseInt %)]
    ["-h" "--help"]])
 
-(cli/run-command -main *command-line-args* cli-options)
+(defn -main [& args]
+  (cli/run-command command args cli-options))

@@ -1,17 +1,12 @@
-#!/usr/bin/env bb
-;; vim: set filetype=clojure:
-
-(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "c5da64153fb29e2f3fa807df4228b6e434f00fcd"}}})
-; (deps/add-deps {:deps {'io.github.cldwalker/bb-clis {:local/root (str (fs/parent (fs/parent *file*)))}}})
-
-(ns bb-cli-test
+(ns cldwalker.bb-clis.bin.bb-cli-test
+  "CLI tests that record successful results and then save them as fixtures for tests"
   (:require [clojure.string :as str]
             [clojure.java.shell :as shell]
             [clojure.pprint :as pprint]
             [clojure.java.io :as io]
             [cldwalker.bb-clis.cli :as cli]))
 
-(def default-test-format
+(def ^:private default-test-format
     "(deftest %s
   (let [cmd-results (shell/sh %s)
         expected-results (-> (io/resource \"%s\")
@@ -55,7 +50,7 @@
     {:fixture-file fixture-file
      :cmd-and-args cmd-and-args_}))
 
-(def default-ns-format
+(def ^:private default-ns-format
   "(ns %s
   (:require [clojure.test :refer [deftest is]]
             [clojure.edn :as edn]
@@ -81,13 +76,13 @@
     (spit file (str "\n" new-test-string) :append true)
     (println "Successfully added test!")))
 
-(def cli-options
+(def ^:private cli-options
   [["-h" "--help"]
    ["-f" "--file FILE"]
    ["-v" "--verbose"]
    ["-t" "--test TEST"]])
 
-(defn -main
+(defn- command
   [{:keys [summary arguments options]}]
   (cond
     (or (:help options) (zero? (count arguments)))
@@ -97,5 +92,5 @@
     (= "record" (first arguments)) (do (record-test (rest arguments) options) nil)
     :else (cli/error "Unknown subcommand given")))
 
-(when (= *file* (System/getProperty "babashka.file"))
-  (cli/run-command -main *command-line-args* cli-options :in-order true :strict true))
+(defn -main [& args]
+  (cli/run-command command args cli-options :in-order true :strict true))

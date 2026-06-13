@@ -5,9 +5,30 @@
    {:git/sha "e10f2d8461b3de4c521c1fcf71552f38c47f33da"}}
 
  :bbin/bin
- {logseq-graph-icons {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-graph-icons"]}
-  logseq-graph-stats {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-graph-stats"]}
-  bb-unused-vars     {:main-opts ["-m" "cldwalker.bb-clis.bin.bb-unused-vars"]}}
+ {bb-aws                        {:main-opts ["-m" "cldwalker.bb-clis.bin.bb-aws"]}
+  bb-cli-test                   {:main-opts ["-m" "cldwalker.bb-clis.bin.bb-cli-test"]}
+  bb-logseq-convert             {:main-opts ["-m" "cldwalker.bb-clis.bin.bb-logseq-convert"]}
+  bb-missed-docstrings          {:main-opts ["-m" "cldwalker.bb-clis.bin.bb-missed-docstrings"]}
+  bb-ns-dep-tree                {:main-opts ["-m" "cldwalker.bb-clis.bin.bb-ns-dep-tree"]}
+  bb-project-clj                {:main-opts ["-m" "cldwalker.bb-clis.bin.bb-project-clj"]}
+  bb-replace                    {:main-opts ["-m" "cldwalker.bb-clis.bin.bb-replace"]}
+  bb-table                      {:main-opts ["-m" "cldwalker.bb-clis.bin.bb-table"]}
+  bb-try                        {:main-opts ["-m" "cldwalker.bb-clis.bin.bb-try"]}
+  bb-unused-vars                {:main-opts ["-m" "cldwalker.bb-clis.bin.bb-unused-vars"]}
+  bb-update-lein-dependency     {:main-opts ["-m" "cldwalker.bb-clis.bin.bb-update-lein-dependency"]}
+  bb-var-usages                 {:main-opts ["-m" "cldwalker.bb-clis.bin.bb-var-usages"]}
+  gh-pr-for-commit              {:main-opts ["-m" "cldwalker.bb-clis.bin.gh-pr-for-commit"]}
+  gh-repo                       {:main-opts ["-m" "cldwalker.bb-clis.bin.gh-repo"]}
+  logseq-bookmark               {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-bookmark"]}
+  logseq-graph-backup           {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-graph-backup"]}
+  logseq-graph-grep             {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-graph-grep"]}
+  logseq-graph-icons            {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-graph-icons"]}
+  logseq-graph-stats            {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-graph-stats"]}
+  logseq-prune-journals         {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-prune-journals"]}
+  logseq-search-show            {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-search-show"]}
+  logseq-search-upsert          {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-search-upsert"]}
+  logseq-validate-class-extends {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-validate-class-extends"]}
+  logseq-validate-no-todos      {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-validate-no-todos"]}}
 
  :tasks
  {:requires ([cldwalker.bb-clis.tasks.util :as tasks-util])

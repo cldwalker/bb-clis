@@ -1,10 +1,5 @@
-#!/usr/bin/env bb
-; vim: set filetype=clojure:
-; Fail if any user class does not extend from Thing (directly or transitively).
-
-(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "7e5a22f19cfbb1c4cf265369af08dab8a43053d0"}}})
-
-(ns logseq-validate-class-extends
+(ns cldwalker.bb-clis.bin.logseq-validate-class-extends
+  "Fail if any user class does not extend from Thing (directly or transitively)."
   (:require [babashka.tasks :refer [shell]]
             [cldwalker.bb-clis.cli :as cli]
             [clojure.edn :as edn]
@@ -66,7 +61,7 @@
          (sort-by first)
          (map (fn [[c parents]] {:class c :extends parents})))))
 
-(defn -main [{:keys [options summary]}]
+(defn- command [{:keys [options summary]}]
   (if (:help options)
     (cli/print-summary "" summary)
     (let [graph (:graph options)
@@ -81,9 +76,9 @@
             (println " " class "extends" (pr-str extends)))
           (System/exit 1))))))
 
-(def cli-options
+(def ^:private cli-options
   [["-h" "--help"]
    ["-g" "--graph GRAPH" "Graph name"]])
 
-(when (= *file* (System/getProperty "babashka.file"))
-  (cli/run-command -main *command-line-args* cli-options))
+(defn -main [& args]
+  (cli/run-command command args cli-options))

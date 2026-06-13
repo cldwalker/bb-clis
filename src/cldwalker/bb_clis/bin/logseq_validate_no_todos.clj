@@ -1,10 +1,5 @@
-#!/usr/bin/env bb
-; vim: set filetype=clojure:
-; Fail if blocks contain 'td:' outside of incomplete Tasks or their references.
-
-(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "04e4a7c538637af59e26cda466f8711c7a84b596"}}})
-
-(ns logseq-validate-no-todos
+(ns cldwalker.bb-clis.bin.logseq-validate-no-todos
+  "Fail if blocks contain 'td:' outside of incomplete Tasks or their references."
   (:require [babashka.tasks :refer [shell]]
             [cldwalker.bb-clis.cli :as cli]
             [clojure.edn :as edn]))
@@ -35,7 +30,7 @@
                   (or [?t :logseq.property/status :logseq.property/status.done]
                       [?t :logseq.property/status :logseq.property/status.canceled])))])
 
-(defn -main [{:keys [options summary]}]
+(defn- command [{:keys [options summary]}]
   (if (:help options)
     (cli/print-summary "" summary)
     (let [rows (->> (logseq-query (:graph options) invalid-blocks-query)
@@ -48,9 +43,9 @@
           (println (count rows) "invalid block(s):" (pr-str (mapv :id rows)))
           (System/exit 1))))))
 
-(def cli-options
+(def ^:private cli-options
   [["-h" "--help"]
    ["-g" "--graph GRAPH" "Graph name"]])
 
-(when (= *file* (System/getProperty "babashka.file"))
-  (cli/run-command -main *command-line-args* cli-options))
+(defn -main [& args]
+  (cli/run-command command args cli-options))

@@ -1,10 +1,5 @@
-#!/usr/bin/env bb
-; vim: set filetype=clojure:
-; Find journals with no/blank children and no linked references; pretend or delete them.
-
-(deps/add-deps '{:deps {io.github.cldwalker/bb-clis {:git/sha "c6e51784d7eaad7e6ce9786e59169ac6d09a98f8"}}})
-
-(ns logseq-prune-journals
+(ns cldwalker.bb-clis.bin.logseq-prune-journals
+  "Find journals with no/blank children and no linked references; pretend or delete them."
   (:require [babashka.tasks :refer [shell]]
             [cldwalker.bb-clis.cli :as cli]
             [clojure.edn :as edn]
@@ -54,7 +49,7 @@
            {"ID" id "Journal" title "Block Count" block-count})
          rows)))
 
-(defn -main [{:keys [options summary]}]
+(defn- command [{:keys [options summary]}]
   (if (:help options)
     (cli/print-summary "" summary)
     (let [{:keys [graph pretend]} options
@@ -80,10 +75,10 @@
                    (concat (graph-args graph) ["--id" (str id)])))
           (println "Recycled" (count rows) "journals"))))))
 
-(def cli-options
+(def ^:private cli-options
   [["-h" "--help"]
    ["-g" "--graph GRAPH" "Graph name"]
    ["-n" "--pretend" "Preview journals that would be deleted"]])
 
-(when (= *file* (System/getProperty "babashka.file"))
-  (cli/run-command -main *command-line-args* cli-options))
+(defn -main [& args]
+  (cli/run-command command args cli-options))
