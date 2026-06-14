@@ -24,20 +24,22 @@ Run `bbg tasks` to see all the available tasks.
 
 ### Setup
 
-Scripts/commands/executables are located in `bin/`. To use an individual script, simply copy
-and use it:
+Scripts are located in `src/cldwalker/bb_clis/bin/`. To install a script as a CLI, install [bbin](https://github.com/babashka/bbin) and then use it:
 
 ```sh
-$ curl -o gh-repo https://raw.githubusercontent.com/cldwalker/bb-clis/master/bin/gh-repo
-$ chmod +x gh-repo
-$ ./gh-repo -h
+# For example, install logseq-graph-stats
+$ bbin install https://github.com/cldwalker/bb-clis.git --as logseq-graph-stats --main-opts '["-m" "cldwalker.bb-clis.bin.logseq-graph-stats"]'
+# Confirm that the CLI is installed
+$ bbin ls
 ```
 
-If you want to use all scripts in this repo, then put `bin/` on `$PATH`:
+To install a different CLI, use different `--as` and `--main-opts`. If you're unsure of what to use for those values, see [the :bbin/bin key in bb.edn](https://github.com/cldwalker/bb-clis/blob/140c8f5f45b126b341ae4b8b0457aca1629bec17/bb.edn#L7-L31).
+
+If you want to install all scripts in this repo:
 
 ```sh
 $ git clone https://github.com/cldwalker/bb-clis
-$ export PATH=$PATH:$HOME/path/to/bb-clis/bin
+$ bb bbin:install
 ```
 
 ### Usage
@@ -48,7 +50,8 @@ See [scripts.md](doc/scripts.md) which provides useful examples of several scrip
 
 Code is organized as follows:
 * `src/cldwalker/bb-clis/tasks/` - Namespaces that are mainly run within babashka tasks
-* `src/cldwalker/bb-clis/cli/` - Namespaces that useful to scripts and possibly tasks.
+* `src/cldwalker/bb-clis/bin/` - Namespaces that each represent a separate CLI
+* `src/cldwalker/bb-clis/cli/` - Namespaces that are useful utils to CLI
 * `src/cldwalker/bb-clis/util/` - Namespaces that are useful to any clojure or bb program, not just CLIs.
 
 ## Misc bb tips

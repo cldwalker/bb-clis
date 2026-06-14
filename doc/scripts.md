@@ -1,7 +1,7 @@
 
 ## Scripts
 
-The following scripts are under bin/:
+The following scripts are under `src/cldwalker/bb_clis/bin/`:
 
 * [gh-pr-for-commit](#gh-pr-for-commit)
 * [gh-repo](#gh-repo)
@@ -12,7 +12,7 @@ The following scripts are under bin/:
 * [bb-ns-dep-tree](#bb-ns-dep-tree)
 * [bb-update-lein-dependency](#bb-update-lein-dependency)
 * [bb-logseq-convert](#bb-logseq-convert)
-* [bb-logseq-move-to-page](#bb-logseq-move-to-page)
+* [Logseq CLIs](#logseq-clis)
 
 ### gh-pr-for-commit
 
@@ -84,7 +84,7 @@ $ bb-replace json-version 2.1.1
 $ bb-replace -f project.clj -F '$1 %s' "(:pseudo-names)\s+\w+" false
 ```
 
-## bb-try
+### bb-try
 
 Try a Clojure library easily with bb. Inspired by https://github.com/avescodes/lein-try.
 
@@ -99,7 +99,7 @@ $ bb-try camel-snake-kebab "(require '[camel-snake-kebab.core :as csk]) (csk/->S
 
 Currently it only fetches the latest version of a library but I'm thinking of making a version optional.
 
-## bb-ns-dep-tree
+### bb-ns-dep-tree
 
 Print the ns dependency tree for a given ns or file. For example, if we want to
 print the dependencies of
@@ -153,14 +153,13 @@ Updates lein dependency of specified directories and optionally commits and push
 
 Given a url, returns auto populated properties as a logseq block. The properties
 are derived from the url's rdf data and what is converted to the logseq block is
-highly configurable.
-
-### bb-logseq-move-to-page
-
-Given a logseq text block with a name property, moves that block to a logseq page.
-
-## Logseq scripts
-
-Scripts starting with `bb-logseq-` are a group of scripts for use with
-[logseq](https://logseq.com/). My config of these scripts are in [this
+highly configurable. My config of these scripts are in [this
 directory](https://github.com/cldwalker/dotfiles/tree/master/.bb-logseq).
+
+### Logseq CLIs
+
+There are several logseq commands to try. These are all for the DB version. Here are just a few:
+* `logseq-bookmark` - Quickly adds bookmarks with my preferred ontology
+* `logseq-graph-backup` - Backs up one or more graphs using export of [build EDN](https://github.com/logseq/docs/blob/master/db-version.md#build-edn-data). Has a number of options to ensure export data is idempotent and bug free.
+* `logseq-validate-*` - CLIs with this prefix are validations that most of my graphs have to pass. I run these with a pre-commit hook
+* `logseq-search-*` - CLIs that search, let users pick specific nodes from the search results and then apply a subsequent action on them
