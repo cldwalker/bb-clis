@@ -15,7 +15,9 @@
               (fn [kvs]
                 (->> kvs
                      ;; This varies per copied graph so ignore it
-                     (remove #(#{:logseq.kv/import-type :logseq.kv/imported-at :logseq.kv/local-graph-uuid}
+                     (remove #(#{:logseq.kv/import-type :logseq.kv/imported-at :logseq.kv/local-graph-uuid
+                                 ;; TODO: Add upstream
+                                 :logseq.kv/recycle-last-gc-at}
                                (:db/ident %)))
                      (sort-by :db/ident)
                      vec)))))
