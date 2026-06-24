@@ -1,6 +1,7 @@
 (ns cldwalker.bb-clis.bin.logseq-graph-backup
   "Backup one or more logseq graphs by exporting EDN and staging changes in the graph's git repo."
-  (:require [babashka.tasks :refer [shell]]
+  (:require [babashka.fs :as fs]
+            [babashka.tasks :refer [shell]]
             [cldwalker.bb-clis.cli :as cli]
             [clojure.data :as data]
             [clojure.edn :as edn]
@@ -48,9 +49,15 @@
    Leaves the temp graph and temp EDN behind on failure so they can be inspected."
   [graph graph-edn export-options {:keys [keep]}]
   (let [temp-graph (str graph "-roundtrip" #_(System/currentTimeMillis))
-        temp-edn (str (System/getenv "HOME") "/logseq/graphs/" temp-graph "/graph.edn")]
+        temp-graph-dir (str (System/getenv "HOME") "/logseq/graphs/" temp-graph)
+        temp-edn (str temp-graph-dir "/graph.edn")]
     (println "Roundtrip validation can take awhile ...")
-    (shell "logseq" "graph" "import" "-t" "edn" "--timeout-ms" "30000" "--input" graph-edn "-g" temp-graph)
+    ;; Always start from a clean graph: importing EDN into an existing graph is
+    ;; additive (blocks aren't deduplicated against existing ones), so a leftover
+    ;; temp graph from a prior failed run would cause every block to duplicate.
+    (when (fs/exists? temp-graph-dir)
+      (shell "logseq" "graph" "remove" "-g" temp-graph))
+    (shell "logseq" "graph" "import" "-t" "edn" "--timeout-ms" "40000" "--input" graph-edn "-g" temp-graph)
     (shell "logseq" "graph" "validate" "-g" temp-graph)
     (shell "logseq" "graph" "export" "-t" "edn" "-e" export-options "-p" "-g" temp-graph "--file" temp-edn)
     ;; Don't care about diffing datoms
