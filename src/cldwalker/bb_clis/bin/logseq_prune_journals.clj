@@ -64,7 +64,8 @@
                  (concat (graph-args graph) ["--id" (pr-str ids)]))
           (println)
           (print-summary rows)
-          (println "Total: " (count rows)))
+          (println "Total: " (count rows))
+          (System/exit 1))
 
         :else
         (do
