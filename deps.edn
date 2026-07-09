@@ -3,5 +3,8 @@
  :deps {org.babashka/cli {:mvn/version "0.12.75"}}
  :aliases
  {:clj-kondo
-  {:replace-deps {clj-kondo/clj-kondo {:mvn/version "2022.09.08"}}
-   :main-opts  ["-m" "clj-kondo.main"]}}}
+  {:replace-deps {clj-kondo/clj-kondo {:mvn/version "2026.05.25"}}
+   :main-opts  ["-m" "clj-kondo.main"]}
+  :outdated
+  {:replace-deps {com.github.liquidz/antq {:mvn/version "RELEASE"}}
+   :main-opts ["-m" "antq.core" "--exclude" "com.github.liquidz/antq"]}}}
