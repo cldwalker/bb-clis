@@ -1,14 +1,17 @@
-{:out "Usage: bb-table [OPTIONS]
-Reads from stdin if no arguments given
+{:out "Usage: bb-table [options]
+Reads from stdin if no file is given
+
 Options:
-  -h, --help
-  -f, --file FILE
-  -c, --columns-filter FILTER          Select columns by comma delimited substring matches or numbers from -H
-  -H, --print-headers                  Print column headers and their counts across rows
-  -n, --number-rows
-  -s, --sort COLUMN                    Sort by column
-  -r, --reverse-sort COLUMN            Reverse sort by column
-  -S, --style STYLE            :plain  Table style when using table clojar. Available styles are :plain, :org, :unicode and :github-markdown. Default is :plain.
+  -f, --file            Read edn from FILE instead of stdin
+  -c, --columns-filter  Select columns by comma delimited substring matches or
+                        numbers from -H
+  -H, --print-headers   Print column headers and their counts across rows
+  -n, --number-rows     Add a :number column with row numbers
+  -s, --sort            Sort by column
+  -r, --reverse-sort    Reverse sort by column
+  -S, --style           Table style. One of :plain, :org, :unicode or
+                        :github-markdown (default: :plain)
+  -h, --help            Show this help
 "
  :exit 0
  :err ""}

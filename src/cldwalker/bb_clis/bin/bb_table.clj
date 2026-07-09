@@ -1,11 +1,15 @@
 (ns cldwalker.bb-clis.bin.bb-table
   "Prints an ascii table for streamed in edn or edn file.
   Edn must be a map or a collection of collections."
-  (:require [clojure.edn :as edn]
-            [clojure.string :as str]
+  (:require [babashka.cli :as cli]
             [babashka.deps :as deps]
-            [cldwalker.bb-clis.cli :as cli]
-            [cldwalker.bb-clis.cli.misc :as misc]))
+            [cldwalker.bb-clis.cli :as cli-util]
+            [cldwalker.bb-clis.cli.misc :as misc]
+            [clojure.edn :as edn]
+            [clojure.string :as str]))
+
+;; :reload picks up the newer babashka.cli dep
+(require '[babashka.cli :as cli] :reload)
 
 (defn- get-columns
   "Extract columns from rows. Defaults to searching across all rows"
@@ -45,7 +49,7 @@
                       (selected-columns columns_ columns-filter)
                       columns_)]
       (print-table columns__ rows style))
-    (cli/error "Input is not an EDN collection of maps")))
+    (cli-util/error "Input is not an EDN collection of maps")))
 
 (defn- get-sort-key [rows query]
   (let [columns (get-columns rows)]
@@ -116,27 +120,32 @@
    (filter #(str/starts-with? (name %) query)
            choices)))
 
-(def ^:private cli-options
-  [["-h" "--help"]
-   ["-f" "--file FILE"]
-   ["-c" "--columns-filter FILTER" "Select columns by comma delimited substring matches or numbers from -H"]
-   ["-H" "--print-headers" "Print column headers and their counts across rows"]
-   ["-n" "--number-rows"]
+(def ^:private spec
+  {:file {:alias :f :desc "Read edn from FILE instead of stdin"}
+   :columns-filter {:alias :c :desc "Select columns by comma delimited substring matches or numbers from -H"}
+   :print-headers {:alias :H :coerce :boolean :desc "Print column headers and their counts across rows"}
+   :number-rows {:alias :n :coerce :boolean :desc "Add a :number column with row numbers"}
    ;; Sort and reverse sort don't handle keywords yet
-   ["-s" "--sort COLUMN" "Sort by column"]
-   ["-r" "--reverse-sort COLUMN" "Reverse sort by column"]
-   ["-S" "--style STYLE" "Table style when using table clojar. Available styles are :plain, :org, :unicode and :github-markdown. Default is :plain."
-    :default :plain
-    :parse-fn #(keyword (unalias-choice table-styles %))
-    :validate [table-styles]]])
+   :sort {:alias :s :desc "Sort by column"}
+   :reverse-sort {:alias :r :desc "Reverse sort by column"}
+   :style {:alias :S
+           :default :plain
+           :coerce #(keyword (unalias-choice table-styles %))
+           :validate table-styles
+           :desc "Table style. One of :plain, :org, :unicode or :github-markdown"}})
 
-(defn- command [{:keys [summary _arguments options]}]
-  (cond
-    (:help options) (cli/print-summary "\nReads from stdin if no arguments given" summary)
-    (:file options) (print-rows (-> (:file options) slurp edn/read-string)
-                                options)
-    :else           (print-rows (first (misc/read-stdin-edn))
-                                options)))
+(defn- command [{:keys [opts]}]
+  (if (:file opts)
+    (print-rows (-> (:file opts) slurp edn/read-string) opts)
+    (print-rows (first (misc/read-stdin-edn)) opts)))
+
+(defn- help-fn [{:keys [prog tree]}]
+  (println (str "Usage: " prog " [options]\n"
+                "Reads from stdin if no file is given\n\n"
+                "Options:\n"
+                (cli/format-opts tree))))
 
 (defn -main [& args]
-  (cli/run-command command args cli-options))
+  (cli/dispatch [{:cmds [] :fn command :spec spec}]
+                args
+                {:prog "bb-table" :help true :help-fn help-fn}))

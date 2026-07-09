@@ -39,7 +39,7 @@
   []
   (let [completions-dir (str (fs/path (fs/home) ".zsh" "completions"))
         ;; TODO: Read from :bbin/bbin like install
-        completion-cmds ["logseq-bookmark"]]
+        completion-cmds ["logseq-bookmark" "bb-replace" "bb-table"]]
     (fs/create-dirs completions-dir)
     (doseq [cmd completion-cmds]
       (let [out-file (str (fs/path completions-dir (str "_" cmd)))

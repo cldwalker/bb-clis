@@ -2,10 +2,14 @@
   "Light-weight alternative to sed or perl -i. Aims to provide replacements
   that are more readable by supporting named replacements.
   See get-replacements for config docs"
-  (:require [clojure.string :as str]
-            [clojure.java.io :as io]
+  (:require [babashka.cli :as cli]
+            [cldwalker.bb-clis.cli :as cli-util]
             [clojure.edn :as edn]
-            [cldwalker.bb-clis.cli :as cli]))
+            [clojure.java.io :as io]
+            [clojure.string :as str]))
+
+;; :reload picks up the newer babashka.cli dep
+(require '[babashka.cli :as cli] :reload)
 
 (defn- get-replacements
   "Reads replacements from ./bb-replace.edn and ~/.bb-replace.edn.
@@ -32,7 +36,7 @@ A replacement consists of three keys:
         new-body (str/replace-first body regex
                                     (apply format format-string arguments))]
     (if (= body new-body)
-      (cli/error (str "Replacement did not change " file))
+      (cli-util/error (str "Replacement did not change " file))
       (spit file new-body))))
 
 (defn- arg->replacement [arg options]
@@ -43,22 +47,27 @@ A replacement consists of three keys:
        ;; Not sure if this is a sensible default
        :format-string "$1 %s"
        :file file}
-      (cli/error "File option required if providing a regex as a replacement"))))
+      (cli-util/error "File option required if providing a regex as a replacement"))))
 
-(def ^:private cli-options
-  [["-h" "--help"]
-   ["-f" "--file FILE" "Overrides default file for a replacement"]
-   ["-F" "--format-string FORMAT" "Overrides default format string for a replacement"]])
+(defn- command [{:keys [opts args]}]
+  (let [replacement (arg->replacement (:replacement opts) opts)]
+    (update-file-with-replacement (merge replacement
+                                         (select-keys opts [:file :format-string]))
+                                  args)))
 
-(defn- command [{:keys [options arguments summary]}]
-  (if (or (:help options) (zero? (count arguments)))
-    (cli/print-summary (str " REPLACEMENT/REGEX [& ARGUMENTS]\nReplacements available: "
-                             (str/join ", " (->> (get-replacements) keys (map name))))
-                        summary)
-    (let [replacement (arg->replacement (first arguments) options)]
-      (update-file-with-replacement (merge replacement
-                                          (select-keys options [:file :format-string]))
-                                    (rest arguments)))))
+(def ^:private spec
+  {:replacement {:desc "Named replacement or regex" :require true :no-doc true}
+   :file {:alias :f :desc "Overrides default file for a replacement"}
+   :format-string {:alias :F :desc "Overrides default format string for a replacement"}})
+
+(defn- help-fn [{:keys [prog tree]}]
+  (println (str "Usage: " prog " [options] <replacement> [& args]\n\n"
+                "Options:\n"
+                (cli/format-opts tree)
+                "\n\nReplacements available: "
+                (str/join ", " (->> (get-replacements) keys (map name))))))
 
 (defn -main [& args]
-  (cli/run-command command args cli-options))
+  (cli/dispatch [{:cmds [] :fn command :spec spec :args->opts [:replacement]}]
+                args
+                {:prog "bb-replace" :help true :help-fn help-fn}))
