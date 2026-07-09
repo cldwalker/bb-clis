@@ -1,6 +1,7 @@
 (ns cldwalker.bb-clis.tasks.bbin
   "bbin related tasks"
   (:require [babashka.fs :as fs]
+            [babashka.process :as process]
             [babashka.tasks :refer [shell]]
             [clojure.edn :as edn]))
 
@@ -31,3 +32,21 @@
       (shell "bbin" "install" root
              "--as" (str name)
              "--main-opts" (pr-str main-opts)))))
+
+(defn build-completions
+  "Regenerate zsh completion files from bb for bbin CLI's
+  `completion-cmds` by invoking its babashka.cli completions snippet."
+  []
+  (let [completions-dir (str (fs/path (fs/home) ".zsh" "completions"))
+        ;; TODO: Read from :bbin/bbin like install
+        completion-cmds ["logseq-bookmark"]]
+    (fs/create-dirs completions-dir)
+    (doseq [cmd completion-cmds]
+      (let [out-file (str (fs/path completions-dir (str "_" cmd)))
+            {:keys [out exit]} (process/shell {:out :string}
+                                              cmd "org.babashka.cli/completions"
+                                              "snippet" "--shell" "zsh")]
+        (if (zero? exit)
+          (do (spit out-file out)
+              (println "Wrote" out-file))
+          (println "Skipping" cmd "(non-zero exit)"))))))

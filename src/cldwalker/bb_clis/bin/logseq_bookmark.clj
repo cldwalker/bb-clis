@@ -1,9 +1,12 @@
 (ns cldwalker.bb-clis.bin.logseq-bookmark
   "Bookmark a URL by upserting a block with url/description properties and a tag."
-  (:require [babashka.http-client :as http]
+  (:require [babashka.cli :as cli]
+            [babashka.http-client :as http]
             [babashka.tasks :refer [shell]]
-            [cldwalker.bb-clis.cli :as cli]
             [clojure.string :as str]))
+
+;; :reload picks up the newer babashka.cli dep
+(require '[babashka.cli :as cli] :reload)
 
 (defn- fetch-title [url]
   (try
@@ -20,33 +23,28 @@
       (println "Unable to find url's title")
       nil)))
 
-(defn- command [{:keys [options arguments summary]}]
-  (cond
-    (or (:help options)
-        (not= 1 (count arguments)))
-    (cli/print-summary " URL" summary)
+(defn- command [{:keys [opts]}]
+  (let [{:keys [url graph description deadline referrerURL tag content]} opts
+        properties (cond-> {"url" url}
+                     description (assoc "description" description)
+                     deadline (assoc "deadline" deadline)
+                     referrerURL (assoc "referrerURL" referrerURL))]
+    (shell "logseq" "upsert" "block"
+           "-g" graph
+           "-c" (or content (fetch-title url) "Untitled")
+           "--update-properties" (pr-str properties)
+           "--update-tags" (pr-str [tag]))))
 
-    :else
-    (let [[url] arguments
-          {:keys [graph description deadline referrerURL tag content]} options
-          properties (cond-> {"url" url}
-                       description (assoc "description" description)
-                       deadline (assoc "deadline" deadline)
-                       referrerURL (assoc "referrerURL" referrerURL))]
-      (shell "logseq" "upsert" "block"
-             "-g" graph
-             "-c" (or content (fetch-title url) "Untitled")
-             "--update-properties" (pr-str properties)
-             "--update-tags" (pr-str [tag])))))
-
-(def ^:private cli-options
-  [["-h" "--help"]
-   ["-g" "--graph GRAPH" "Graph name" :default "personal"]
-   ["-d" "--description DESCRIPTION" "Block description property"]
-   ["-D" "--deadline DEADLINE" "Deadline for a task"]
-   ["-t" "--tag TAG" "Tag to add" :default "Task"]
-   ["-r" "--referrerURL URL"]
-   ["-c" "--content CONTENT" "Block content (default: fetched <title> or \"Untitled\")"]])
+(def ^:private spec
+  {:url {:desc "URL to bookmark" :require true :no-doc true}
+   :graph {:alias :g :desc "Graph name" :default "personal"}
+   :description {:alias :d :desc "Description for node"}
+   :deadline {:alias :D :desc "Deadline for node"}
+   :tag {:alias :t :desc "Tag for node" :default "Task"}
+   :referrerURL {:alias :r :desc "Referrer URL for node"}
+   :content {:alias :c :desc "Block content (default: fetched <title> or \"Untitled\")"}})
 
 (defn -main [& args]
-  (cli/run-command command args cli-options))
+  (cli/dispatch [{:cmds [] :fn command :spec spec :args->opts [:url]}]
+                args
+                {:prog "logseq-bookmark" :help true}))

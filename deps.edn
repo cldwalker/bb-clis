@@ -1,4 +1,7 @@
-{:aliases
+{:paths ["src"]
+ ;; babashka.cli needed for bbin-install bins which use :local/root
+ :deps {org.babashka/cli {:mvn/version "0.12.75"}}
+ :aliases
  {:clj-kondo
   {:replace-deps {clj-kondo/clj-kondo {:mvn/version "2022.09.08"}}
    :main-opts  ["-m" "clj-kondo.main"]}}}

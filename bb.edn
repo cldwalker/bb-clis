@@ -2,7 +2,9 @@
  :min-bb-version "1.12.218"
  :deps
   {com.github.cldwalker/bb-dialog
-   {:git/sha "e10f2d8461b3de4c521c1fcf71552f38c47f33da"}}
+   {:git/sha "e10f2d8461b3de4c521c1fcf71552f38c47f33da"}
+   ;; Override built-in for usage and completion features
+   org.babashka/cli {:mvn/version "0.12.75"}}
 
  :bbin/bin
  {bb-aws                        {:main-opts ["-m" "cldwalker.bb-clis.bin.bb-aws"]}
@@ -216,4 +218,7 @@
   cldwalker.bb-clis.tasks.bbin/install
 
   bbin:uninstall
-  cldwalker.bb-clis.tasks.bbin/uninstall}}
+  cldwalker.bb-clis.tasks.bbin/uninstall
+
+  bbin:build-completions
+  cldwalker.bb-clis.tasks.bbin/build-completions}}
