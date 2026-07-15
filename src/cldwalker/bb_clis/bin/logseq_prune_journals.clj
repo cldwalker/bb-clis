@@ -1,10 +1,14 @@
 (ns cldwalker.bb-clis.bin.logseq-prune-journals
   "Find journals with no/blank children and no linked references; pretend or delete them."
-  (:require [babashka.tasks :refer [shell]]
-            [cldwalker.bb-clis.cli :as cli]
+  (:require [babashka.cli :as cli]
+            [babashka.tasks :refer [shell]]
+            [cldwalker.bb-clis.cli :as cli-util]
             [clojure.edn :as edn]
             [clojure.pprint :as pprint]
             [clojure.string :as str]))
+
+;; :reload picks up the newer babashka.cli dep
+(require '[babashka.cli :as cli] :reload)
 
 (defn- graph-args [graph]
   (when graph ["-g" graph]))
@@ -14,7 +18,7 @@
                               (concat args (graph-args graph) ["-o" "edn"]))
         {:keys [status data]} (edn/read-string out)]
     (when (not= :ok status)
-      (cli/error "Command failed:" out))
+      (cli-util/error "Command failed:" out))
     data))
 
 (defn- empty-journal? [{:keys [root linked-references]}]
@@ -49,37 +53,36 @@
            {"ID" id "Journal" title "Block Count" block-count})
          rows)))
 
-(defn- command [{:keys [options summary]}]
-  (if (:help options)
-    (cli/print-summary "" summary)
-    (let [{:keys [graph pretend]} options
-          rows (empty-journals graph)]
-      (cond
-        (empty? rows)
-        (println "No empty journals found.")
+(defn- command [{:keys [opts]}]
+  (let [{:keys [graph pretend]} opts
+        rows (empty-journals graph)]
+    (cond
+      (empty? rows)
+      (println "No empty journals found.")
 
-        pretend
-        (let [ids (mapv :id rows)]
-          (apply shell "logseq" "show"
-                 (concat (graph-args graph) ["--id" (pr-str ids)]))
-          (println)
-          (print-summary rows)
-          (println "Total: " (count rows))
-          (System/exit 1))
+      pretend
+      (let [ids (mapv :id rows)]
+        (apply shell "logseq" "show"
+               (concat (graph-args graph) ["--id" (pr-str ids)]))
+        (println)
+        (print-summary rows)
+        (println "Total: " (count rows))
+        (System/exit 1))
 
-        :else
-        (do
-          (doseq [{:keys [id title]} rows]
-            (println "Removing" title)
-            ;; TODO: Permanently delete pages when it's possible
-            (apply shell "logseq" "remove" "page"
-                   (concat (graph-args graph) ["--id" (str id)])))
-          (println "Recycled" (count rows) "journals"))))))
+      :else
+      (do
+        (doseq [{:keys [id title]} rows]
+          (println "Removing" title)
+          ;; TODO: Permanently delete pages when it's possible
+          (apply shell "logseq" "remove" "page"
+                 (concat (graph-args graph) ["--id" (str id)])))
+        (println "Recycled" (count rows) "journals")))))
 
-(def ^:private cli-options
-  [["-h" "--help"]
-   ["-g" "--graph GRAPH" "Graph name"]
-   ["-n" "--pretend" "Preview journals that would be deleted"]])
+(def ^:private spec
+  {:graph {:alias :g :desc "Graph name"}
+   :pretend {:alias :n :coerce :boolean :desc "Preview journals that would be deleted"}})
 
 (defn -main [& args]
-  (cli/run-command command args cli-options))
+  (cli/dispatch [{:cmds [] :fn command :spec spec}]
+                args
+                {:prog "logseq-prune-journals" :help true}))

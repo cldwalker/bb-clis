@@ -1,9 +1,13 @@
 (ns cldwalker.bb-clis.bin.logseq-graph-icons
   "Show icon usage stats or list nodes that use a given icon in a Logseq graph."
-  (:require [babashka.tasks :refer [shell]]
-            [cldwalker.bb-clis.cli :as cli]
+  (:require [babashka.cli :as cli]
+            [babashka.tasks :refer [shell]]
+            [cldwalker.bb-clis.cli :as cli-util]
             [clojure.edn :as edn]
             [clojure.pprint :as pprint]))
+
+;; :reload picks up the newer babashka.cli dep
+(require '[babashka.cli :as cli] :reload)
 
 (defn- graph-args [graph]
   (when graph ["-g" graph]))
@@ -17,7 +21,7 @@
                                       (when inputs ["--inputs" (pr-str inputs)])))
          {:keys [status data]} (edn/read-string out)]
      (when (not= :ok status)
-       (cli/error "Query failed:" out))
+       (cli-util/error "Query failed:" out))
      (:result data))))
 
 (defn- icon-stats [graph]
@@ -59,16 +63,16 @@
                "--ref-id-footer" "false")
         (println "Count:" (count ids))))))
 
-(defn- command [{:keys [options summary]}]
-  (cond
-    (:help options) (cli/print-summary "" summary)
-    (:query options) (query-icon (:graph options) (:query options))
-    :else (icon-stats (:graph options))))
+(defn- command [{:keys [opts]}]
+  (if (:query opts)
+    (query-icon (:graph opts) (:query opts))
+    (icon-stats (:graph opts))))
 
-(def ^:private cli-options
-  [["-h" "--help"]
-   ["-g" "--graph GRAPH" "Graph name"]
-   ["-q" "--query ICON_ID" "Show nodes that use the given icon id (e.g. 'exclamation')"]])
+(def ^:private spec
+  {:graph {:alias :g :desc "Graph name"}
+   :query {:alias :q :desc "Show nodes that use the given icon id (e.g. 'exclamation')"}})
 
 (defn -main [& args]
-  (cli/run-command command args cli-options))
+  (cli/dispatch [{:cmds [] :fn command :spec spec}]
+                args
+                {:prog "logseq-graph-icons" :help true}))

@@ -1,8 +1,11 @@
 (ns cldwalker.bb-clis.bin.bb-project-clj
   "Prints out a lein project.clj file as a map"
-  (:require [cldwalker.bb-clis.cli :as cli]
-            [clojure.string :as str]
-            [clojure.pprint :as pprint]))
+  (:require [babashka.cli :as cli]
+            [clojure.pprint :as pprint]
+            [clojure.string :as str]))
+
+;; :reload picks up the newer babashka.cli dep
+(require '[babashka.cli :as cli] :reload)
 
 ;; While these are preventing breakages, these may be worth putting
 ;; behind an option if they have unintended consequences
@@ -32,19 +35,15 @@
        (map vec)
        (into {})))
 
-(defn- command [{:keys [options summary]}]
-  (cond
-    (:help options) (cli/print-summary "" summary)
-    :else (let [project-clj (project-clj-map (:file options) (:drop-forms options))]
-            (pprint/pprint project-clj))))
+(defn- command [{:keys [opts]}]
+  (let [project-clj (project-clj-map (:file opts) (:drop-forms opts))]
+    (pprint/pprint project-clj)))
 
-(def ^:private cli-options
-  [["-f" "--file FILE" "Location of project.clj file"
-    :default "project.clj"]
-   ["-d" "--drop-forms FORMS" "Forms to drop before defproject form"
-    :default 0
-    :parse-fn #(Integer/parseInt %)]
-   ["-h" "--help"]])
+(def ^:private spec
+  {:file {:alias :f :default "project.clj" :desc "Location of project.clj file"}
+   :drop-forms {:alias :d :coerce :long :default 0 :desc "Forms to drop before defproject form"}})
 
 (defn -main [& args]
-  (cli/run-command command args cli-options))
+  (cli/dispatch [{:cmds [] :fn command :spec spec}]
+                args
+                {:prog "bb-project-clj" :help true}))

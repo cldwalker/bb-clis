@@ -1,8 +1,11 @@
 (ns cldwalker.bb-clis.bin.bb-ns-dep-tree
   "Prints ascii tree of ns dependencies like tree command"
-  (:require [cldwalker.bb-clis.cli :as cli]
-            [clojure.java.io :as io]
-            [babashka.pods :as pods]))
+  (:require [babashka.cli :as cli]
+            [babashka.pods :as pods]
+            [clojure.java.io :as io]))
+
+;; :reload picks up the newer babashka.cli dep
+(require '[babashka.cli :as cli] :reload)
 
 (pods/load-pod "clj-kondo")
 (require '[pod.borkdude.clj-kondo :as clj-kondo])
@@ -55,7 +58,7 @@
           {}
           (:namespace-usages analysis)))
 
-(defn- print-ns-tree [[ns-or-file] {:keys [source-paths lang] :as options}]
+(defn- print-ns-tree [ns-or-file {:keys [source-paths lang] :as options}]
   (let [analysis (clj-kondo-analysis source-paths)
         ns-sym (if (.exists (io/file ns-or-file))
                  (some #(when (= ns-or-file (:filename %)) (:name %))
@@ -65,23 +68,19 @@
     (doseq [l (render-tree tree)]
       (println l))))
 
-(def ^:private cli-options
-  [["-h" "--help"]
-   ["-e" "--expand-duplicate-branches" "Expands all ns dependencies including duplicate branches"]
-   ["-l" "--lang LANG" "Language for .cljc analysis"
-    :parse-fn keyword
-    :default :clj]
-   ["-s" "--source-paths DIR" "Source paths to analyze"
-    :default ["src"]
-    ;; Allows us to specify multiple values for this option
-    :assoc-fn (fn [curr _key val] (update curr :source-paths conj val))
-    :validate [#(.isDirectory (io/file %))
-               "Must be a valid directory"]]])
+(def ^:private spec
+  {:ns-or-file {:positional true :coerce :string :desc "Namespace or file" :require true}
+   :expand-duplicate-branches {:alias :e :coerce :boolean :desc "Expands all ns dependencies including duplicate branches"}
+   :lang {:alias :l :coerce :keyword :default :clj :desc "Language for .cljc analysis"}
+   :source-paths {:alias :s :coerce [:string] :default ["src"]
+                  :validate {:pred #(every? (fn [d] (.isDirectory (io/file d))) %)
+                             :ex-msg (constantly "Must be a valid directory")}
+                  :desc "Source paths to analyze"}})
 
-(defn- command [{:keys [summary arguments options]}]
-  (if (or (:help options) (zero? (count arguments)))
-    (cli/print-summary " NS/FILE" summary)
-    (print-ns-tree arguments options)))
+(defn- command [{:keys [opts]}]
+  (print-ns-tree (:ns-or-file opts) opts))
 
 (defn -main [& args]
-  (cli/run-command command args cli-options))
+  (cli/dispatch [{:cmds [] :fn command :spec spec :args->opts [:ns-or-file] :restrict-args true}]
+                args
+                {:prog "bb-ns-dep-tree" :help true}))

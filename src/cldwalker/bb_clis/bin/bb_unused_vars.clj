@@ -1,10 +1,13 @@
 (ns cldwalker.bb-clis.bin.bb-unused-vars
   "A slightly modified version of https://github.com/borkdude/clj-kondo/blob/master/analysis/src/clj_kondo/tools/unused_vars.clj"
-  (:require [clojure.set :as set]
-            [clojure.string :as str]
+  (:require [babashka.cli :as cli]
+            [babashka.pods :as pods]
             [clojure.edn :as edn]
-            [cldwalker.bb-clis.cli :as cli]
-            [babashka.pods :as pods]))
+            [clojure.set :as set]
+            [clojure.string :as str]))
+
+;; :reload picks up the newer babashka.cli dep
+(require '[babashka.cli :as cli] :reload)
 
 (pods/load-pod "clj-kondo")
 (require '[pod.borkdude.clj-kondo :as clj-kondo])
@@ -31,14 +34,14 @@
       (do (println "No unused vars found.")
         (System/exit 0)))))
 
-(defn- command [{:keys [summary arguments options]}]
-  (if (or (:help options) (zero? (count arguments)))
-    (cli/print-summary " SOURCE-PATHS" summary)
-    (check-unused-vars arguments options)))
+(defn- command [{:keys [opts]}]
+  (check-unused-vars (:source-paths opts) opts))
 
-(def ^:private cli-options
-  [["-h" "--help"]
-   ["-i" "--ignore-file FILE"]])
+(def ^:private spec
+  {:source-paths {:positional true :coerce [:string] :require true :desc "Source paths to analyze"}
+   :ignore-file {:alias :i :desc "EDN file of vars to ignore"}})
 
 (defn -main [& args]
-  (cli/run-command command args cli-options))
+  (cli/dispatch [{:cmds [] :fn command :spec spec :args->opts (repeat :source-paths)}]
+                args
+                {:prog "bb-unused-vars" :help true}))

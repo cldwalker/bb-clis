@@ -8,11 +8,15 @@
   - bb-aws --repl s3api list-buckets"
   {:clj-kondo/config
    '{:linters {:inline-def {:level :off}}}}
-  (:require [babashka.pods :as pods]
-            [cldwalker.bb-clis.cli :as cli]
-            [clojure.string :as str]
+  (:require [babashka.cli :as cli]
+            [babashka.pods :as pods]
+            [cldwalker.bb-clis.cli :as cli-util]
             [clojure.main :as main]
-            [clojure.pprint :as pprint]))
+            [clojure.pprint :as pprint]
+            [clojure.string :as str]))
+
+;; :reload picks up the newer babashka.cli dep
+(require '[babashka.cli :as cli] :reload)
 
 (pods/load-pod 'org.babashka/aws "0.0.6")
 (require '[pod.babashka.aws :as aws])
@@ -75,29 +79,33 @@
     :else
     result))
 
-(def ^:private cli-options
-  [["-h" "--help"]
-   ["-d" "--debug"]
-   ["-R" "--repl" "Drop into repl with operation result set to #'result"]
-   ["-a" "--auto-result" "Drills into result one level if main entity to list is detected"]
-   ["-r" "--region REGION"
-    :default-desc "$AWS_REGION or us-east-2"
-    :default-fn (fn [_] (or (System/getenv "AWS_REGION") "us-east-2"))]])
+(def ^:private spec
+  {:debug {:alias :d :coerce :boolean :desc "Print debug info"}
+   :repl {:alias :R :coerce :boolean :desc "Drop into repl with operation result set to #'result"}
+   :auto-result {:alias :a :coerce :boolean :desc "Drills into result one level if main entity to list is detected"}
+   :region {:alias :r
+            :default (or (System/getenv "AWS_REGION") "us-east-2")
+            :default-desc "$AWS_REGION or us-east-2"
+            :desc "AWS region"}})
 
-(defn- command [{:keys [summary arguments options]}]
-  (if (or (:help options) (zero? (count arguments)))
-    (cli/print-summary " COMMAND SUBCOMMAND [SUBCOMMAND-OPTIONS]" summary)
-    (let [result (invoke-aws-operation arguments options)
-          result_ (if (:auto-result options)
-                    (auto-result result (second arguments))
-                    result)]
-      (pprint/pprint result_)
-      (when (:repl options)
-        (def result result_)
-        (main/repl)))))
+(defn- print-help []
+  (println (str "Usage: bb-aws [options] <command> <subcommand> [subcommand-options]\n\n"
+                "Options:\n"
+                (cli/format-opts {:spec (assoc spec :help {:alias :h :coerce :boolean :desc "Show this help"})}))))
 
 (defn -main [& args]
-  (cli/run-command command args cli-options :in-order true))
+  (if (or (empty? args) (some #{"-h" "--help"} args))
+    (print-help)
+    (let [[our-args aws-args] (cli-util/split-leading-opts spec args)
+          opts (:opts (cli/parse-args our-args {:spec spec}))
+          result (invoke-aws-operation aws-args opts)
+          result_ (if (:auto-result opts)
+                    (auto-result result (second aws-args))
+                    result)]
+      (pprint/pprint result_)
+      (when (:repl opts)
+        (def result result_)
+        (main/repl)))))
 
 (comment
  (def ^:private s3-client (aws/client {:api :s3 :region "us-east-1"}))

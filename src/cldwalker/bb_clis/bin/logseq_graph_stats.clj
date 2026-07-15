@@ -1,10 +1,14 @@
 (ns cldwalker.bb-clis.bin.logseq-graph-stats
   "Print page, class and property counts for a Logseq graph."
-  (:require [babashka.tasks :refer [shell]]
-            [cldwalker.bb-clis.cli :as cli]
+  (:require [babashka.cli :as cli]
+            [babashka.tasks :refer [shell]]
+            [cldwalker.bb-clis.cli :as cli-util]
             [clojure.edn :as edn]
             [clojure.pprint :as pprint]
             [clojure.string :as str]))
+
+;; :reload picks up the newer babashka.cli dep
+(require '[babashka.cli :as cli] :reload)
 
 (defn- graph-args [graph]
   (when graph ["-g" graph]))
@@ -15,7 +19,7 @@
                                      ["-o" "edn" "--query" (pr-str query)]))
         {:keys [status data]} (edn/read-string out)]
     (when (not= :ok status)
-      (cli/error "Query failed:" out))
+      (cli-util/error "Query failed:" out))
     (or (:result data) 0)))
 
 (defn- logseq-list-count [graph subcommand & extra-args]
@@ -25,7 +29,7 @@
                                      extra-args))
         {:keys [status data]} (edn/read-string out)]
     (when (not= :ok status)
-      (cli/error "list" subcommand "failed:" out))
+      (cli-util/error "list" subcommand "failed:" out))
     (count (:items data))))
 
 (defn- builtin-class-titles [graph]
@@ -33,7 +37,7 @@
                              (concat (graph-args graph) ["-o" "edn"]))
         {:keys [status data]} (edn/read-string out)]
     (when (not= :ok status)
-      (cli/error "list tag failed:" out))
+      (cli-util/error "list tag failed:" out))
     (->> (:items data)
          (filter #(some-> % :db/ident namespace (str/starts-with? "logseq.class")))
          (map :block/title)
@@ -44,7 +48,7 @@
                              (concat (graph-args graph) ["-c" "url" "-o" "edn"]))
         {:keys [status data]} (edn/read-string out)]
     (when (not= :ok status)
-      (cli/error "search property failed:" out))
+      (cli-util/error "search property failed:" out))
     (some #(when (= "url" (:block/title %)) (:db/ident %)) (:items data))))
 
 (defn- tag->url [graph]
@@ -94,17 +98,17 @@
              (format "%d/%d = %s"
                      classes-with-url total-classes (pct classes-with-url total-classes)))))
 
-(defn- command [{:keys [options summary]}]
-  (cond
-    (:help options) (cli/print-summary "" summary)
-    (:objects options) (object-counts (:graph options) options)
-    :else (pprint/pprint (graph-counts (:graph options) (:user options)))))
+(defn- command [{:keys [opts]}]
+  (if (:objects opts)
+    (object-counts (:graph opts) opts)
+    (pprint/pprint (graph-counts (:graph opts) (:user opts)))))
 
-(def ^:private cli-options
-  [["-h" "--help"]
-   ["-g" "--graph GRAPH" "Graph name"]
-   ["-o" "--objects" "Show tag/count breakdown for nodes with :block/tags"]
-   ["-u" "--user" "Exclude built-in pages, classes and properties"]])
+(def ^:private spec
+  {:graph {:alias :g :desc "Graph name"}
+   :objects {:alias :o :coerce :boolean :desc "Show tag/count breakdown for nodes with :block/tags"}
+   :user {:alias :u :coerce :boolean :desc "Exclude built-in pages, classes and properties"}})
 
 (defn -main [& args]
-  (cli/run-command command args cli-options))
+  (cli/dispatch [{:cmds [] :fn command :spec spec}]
+                args
+                {:prog "logseq-graph-stats" :help true}))

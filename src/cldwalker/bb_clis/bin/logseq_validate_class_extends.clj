@@ -1,9 +1,13 @@
 (ns cldwalker.bb-clis.bin.logseq-validate-class-extends
   "Fail if any user class does not extend from Thing (directly or transitively)."
-  (:require [babashka.tasks :refer [shell]]
-            [cldwalker.bb-clis.cli :as cli]
+  (:require [babashka.cli :as cli]
+            [babashka.tasks :refer [shell]]
+            [cldwalker.bb-clis.cli :as cli-util]
             [clojure.edn :as edn]
             [clojure.string :as str]))
+
+;; :reload picks up the newer babashka.cli dep
+(require '[babashka.cli :as cli] :reload)
 
 (defn- graph-args [graph]
   (when graph ["-g" graph]))
@@ -14,7 +18,7 @@
                                      ["-o" "edn" "--query" (pr-str query)]))
         {:keys [status data error]} (edn/read-string out)]
     (when (not= :ok status)
-      (cli/error "Query failed:" (or (:message error) (pr-str error) out)))
+      (cli-util/error "Query failed:" (or (:message error) (pr-str error) out)))
     (:result data)))
 
 (def ^:private user-class? (comp #(not (str/starts-with? % ":logseq.class/")) str))
@@ -28,8 +32,8 @@
                                 [?e :block/tags :logseq.class/Tag]])
         idents (->> results (map first) (filter user-class?))]
     (cond
-      (empty? idents) (cli/error "No user class titled 'Thing' was found.")
-      (> (count idents) 1) (cli/error "Multiple user classes titled 'Thing' found:" (pr-str idents))
+      (empty? idents) (cli-util/error "No user class titled 'Thing' was found.")
+      (> (count idents) 1) (cli-util/error "Multiple user classes titled 'Thing' found:" (pr-str idents))
       :else (first idents))))
 
 (defn- all-classes [graph]
@@ -61,24 +65,23 @@
          (sort-by first)
          (map (fn [[c parents]] {:class c :extends parents})))))
 
-(defn- command [{:keys [options summary]}]
-  (if (:help options)
-    (cli/print-summary "" summary)
-    (let [graph (:graph options)
-          thing (thing-ident graph)
-          pairs (all-classes graph)
-          rows (invalid-classes pairs thing)]
-      (if (empty? rows)
-        (println "All user classes extend from Thing.")
-        (do
-          (println (count rows) "user class(es) do not extend from Thing:")
-          (doseq [{:keys [class extends]} rows]
-            (println " " class "extends" (pr-str extends)))
-          (System/exit 1))))))
+(defn- command [{:keys [opts]}]
+  (let [graph (:graph opts)
+        thing (thing-ident graph)
+        pairs (all-classes graph)
+        rows (invalid-classes pairs thing)]
+    (if (empty? rows)
+      (println "All user classes extend from Thing.")
+      (do
+        (println (count rows) "user class(es) do not extend from Thing:")
+        (doseq [{:keys [class extends]} rows]
+          (println " " class "extends" (pr-str extends)))
+        (System/exit 1)))))
 
-(def ^:private cli-options
-  [["-h" "--help"]
-   ["-g" "--graph GRAPH" "Graph name"]])
+(def ^:private spec
+  {:graph {:alias :g :desc "Graph name"}})
 
 (defn -main [& args]
-  (cli/run-command command args cli-options))
+  (cli/dispatch [{:cmds [] :fn command :spec spec}]
+                args
+                {:prog "logseq-validate-class-extends" :help true}))

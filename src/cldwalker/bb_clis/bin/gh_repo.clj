@@ -1,10 +1,14 @@
 (ns cldwalker.bb-clis.bin.gh-repo
   "Opens urls related to current or specified github repository"
-  (:require [cldwalker.bb-clis.cli :as cli]
+  (:require [babashka.cli :as cli]
+            [cldwalker.bb-clis.cli :as cli-util]
             [cldwalker.bb-clis.cli.misc :as misc]
-            [clojure.string :as str]
             [clojure.java.io :as io]
-            [clojure.java.shell :as shell]))
+            [clojure.java.shell :as shell]
+            [clojure.string :as str]))
+
+;; :reload picks up the newer babashka.cli dep
+(require '[babashka.cli :as cli] :reload)
 
 (defn- find-current-branch []
   (if-let [branch (->> (shell/sh "git" "branch")
@@ -14,7 +18,7 @@
                        first
                        (re-find #"\S+$"))]
     branch
-    (cli/error "Unable to detect current tree")))
+    (cli-util/error "Unable to detect current tree")))
 
 (defn- get-relative-git-root-path
   "Given a path, return its path relative to git root"
@@ -44,22 +48,24 @@
                     (find-current-branch))]
     (doto url misc/open-url)))
 
-(defn- command [{:keys [options _arguments summary]}]
-  (cond
-    (:help options) (cli/print-summary "" summary)
-    (:circleci options) (open-circleci-url options)
-    :else (open-github-url options)))
+(defn- command [{:keys [opts]}]
+  ;; Applied lazily here since it shells out and errors outside a git repo
+  (let [opts (update opts :repository #(or % (misc/find-current-user-repo opts)))]
+    (if (:circleci opts)
+      (open-circleci-url opts)
+      (open-github-url opts))))
 
-(def ^:private cli-options
-  [["-r" "--repository REPO"
-    :default-fn misc/find-current-user-repo
-    :default-desc "Current directory's repository"
-    :validate [#(re-find #"\S+/\S+" %) "Must contain a '/'"]]
-   ["-c" "--commit COMMIT" "Opens specified commit"]
-   ["-C" "--circleci" "Opens current branch on circleci"]
-   ["-t" "--tree" "Opens current branch on github"]
-   ["-f" "--file FILE" "Opens file in current branch on github"]
-   ["-h" "--help"]])
+(def ^:private spec
+  {:repository {:alias :r
+                :default-desc "Current directory's repository"
+                :validate {:pred #(re-find #"\S+/\S+" %) :ex-msg (constantly "Must contain a '/'")}
+                :desc "Github repository"}
+   :commit {:alias :c :desc "Opens specified commit"}
+   :circleci {:alias :C :coerce :boolean :desc "Opens current branch on circleci"}
+   :tree {:alias :t :coerce :boolean :desc "Opens current branch on github"}
+   :file {:alias :f :desc "Opens file in current branch on github"}})
 
 (defn -main [& args]
-  (cli/run-command command args cli-options))
+  (cli/dispatch [{:cmds [] :fn command :spec spec}]
+                args
+                {:prog "gh-repo" :help true}))

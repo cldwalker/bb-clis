@@ -36,10 +36,14 @@
 (defn build-completions
   "Regenerate zsh completion files from bb for bbin CLI's
   `completion-cmds` by invoking its babashka.cli completions snippet."
-  []
+  [& cmds]
   (let [completions-dir (str (fs/path (fs/home) ".zsh" "completions"))
-        ;; TODO: Read from :bbin/bbin like install
-        completion-cmds ["logseq-bookmark" "bb-replace" "bb-table"]]
+        root (str (fs/cwd))
+        entries* (-> (:bbin/bin (edn/read-string (slurp (str (fs/path root "bb.edn")))))
+                     (dissoc 'bb-aws 'bb-cli-test 'bb-try 'logseq-graph-grep))
+        completion-cmds (->> (if (seq cmds) (select-keys entries* (map symbol cmds)) entries*)
+                             keys
+                             (map str))]
     (fs/create-dirs completions-dir)
     (doseq [cmd completion-cmds]
       (let [out-file (str (fs/path completions-dir (str "_" cmd)))

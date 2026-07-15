@@ -1,10 +1,14 @@
 (ns cldwalker.bb-clis.bin.bb-cli-test
   "CLI tests that record successful results and then save them as fixtures for tests"
-  (:require [clojure.string :as str]
+  (:require [babashka.cli :as cli]
+            [cldwalker.bb-clis.cli :as cli-util]
+            [clojure.java.io :as io]
             [clojure.java.shell :as shell]
             [clojure.pprint :as pprint]
-            [clojure.java.io :as io]
-            [cldwalker.bb-clis.cli :as cli]))
+            [clojure.string :as str]))
+
+;; :reload picks up the newer babashka.cli dep
+(require '[babashka.cli :as cli] :reload)
 
 (def ^:private default-test-format
     "(deftest %s
@@ -76,21 +80,33 @@
     (spit file (str "\n" new-test-string) :append true)
     (println "Successfully added test!")))
 
-(def ^:private cli-options
-  [["-h" "--help"]
-   ["-f" "--file FILE"]
-   ["-v" "--verbose"]
-   ["-t" "--test TEST"]])
+(def ^:private spec
+  {:file {:alias :f :desc "Test file to add test to"}
+   :verbose {:alias :v :coerce :boolean :desc "Print verbose output"}
+   :test {:alias :t :desc "Test name"}})
 
-(defn- command
-  [{:keys [summary arguments options]}]
-  (cond
-    (or (:help options) (zero? (count arguments)))
-    (cli/print-summary " add|record &COMMAND-AND-ARGS" summary)
+(defn- record-cmd [{:keys [opts args]}]
+  (record-test args opts)
+  nil)
 
-    (= "add" (first arguments))    (record-and-add-test (rest arguments) options)
-    (= "record" (first arguments)) (do (record-test (rest arguments) options) nil)
-    :else (cli/error "Unknown subcommand given")))
+(defn- add-cmd [{:keys [opts args]}]
+  (record-and-add-test args opts))
+
+(defn- print-help []
+  (println (str "Usage: bb-cli-test [options] add|record [& command-and-args]\n\n"
+                "Options:\n"
+                (cli/format-opts {:spec (assoc spec :help {:alias :h :coerce :boolean :desc "Show this help"})}))))
 
 (defn -main [& args]
-  (cli/run-command command args cli-options :in-order true :strict true))
+  (cond
+    (or (empty? args) (some #{"-h" "--help"} args))
+    (print-help)
+
+    :else
+    (let [[our-args rest-args] (cli-util/split-leading-opts spec args)
+          opts (:opts (cli/parse-args our-args {:spec spec}))
+          [subcmd & cmd-args] rest-args]
+      (case subcmd
+        "add" (add-cmd {:opts opts :args cmd-args})
+        "record" (record-cmd {:opts opts :args cmd-args})
+        (cli-util/error "Unknown subcommand:" (pr-str subcmd))))))

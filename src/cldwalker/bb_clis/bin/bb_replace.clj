@@ -56,18 +56,14 @@ A replacement consists of three keys:
                                   args)))
 
 (def ^:private spec
-  {:replacement {:desc "Named replacement or regex" :require true :no-doc true}
+  ;; :coerce :string prevents a numeric regex like "404" auto-coercing to a number
+  {:replacement {:positional true :coerce :string :require true
+                 :desc (str "Named replacement or regex. Replacements available: "
+                            (str/join ", " (->> (get-replacements) keys (map name))))}
    :file {:alias :f :desc "Overrides default file for a replacement"}
    :format-string {:alias :F :desc "Overrides default format string for a replacement"}})
-
-(defn- help-fn [{:keys [prog tree]}]
-  (println (str "Usage: " prog " [options] <replacement> [& args]\n\n"
-                "Options:\n"
-                (cli/format-opts tree)
-                "\n\nReplacements available: "
-                (str/join ", " (->> (get-replacements) keys (map name))))))
 
 (defn -main [& args]
   (cli/dispatch [{:cmds [] :fn command :spec spec :args->opts [:replacement]}]
                 args
-                {:prog "bb-replace" :help true :help-fn help-fn}))
+                {:prog "bb-replace" :help true}))

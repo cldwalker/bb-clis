@@ -1,15 +1,18 @@
 (ns cldwalker.bb-clis.bin.bb-try
   "Try a dependency with bb like lein-try"
-  (:require [cldwalker.bb-clis.cli :as cli]
+  (:require [babashka.cli :as cli]
             [babashka.tasks :refer [shell]]
+            [cldwalker.bb-clis.cli :as cli-util]
             [clojure.java.shell :as shell]))
 
-(def ^:private cli-options
-  [["-h" "--help"]
-   ["-c" "--command COMMAND"]
-   ["-v" "--version DEPENDENCY_VERSION"]
+;; :reload picks up the newer babashka.cli dep
+(require '[babashka.cli :as cli] :reload)
+
+(def ^:private spec
+  {:command {:alias :c :desc "Command to run (bb or clojure)"}
+   :version {:alias :v :desc "Dependency version"}
    ;; print-command only works for commands without env var e.g. clj
-   ["-p" "--print-command"]])
+   :print-command {:alias :p :coerce :boolean :desc "Print command instead of running it"}})
 
 (defn- create-deps-string
   [dependency {:keys [version] :or {version "RELEASE"}}]
@@ -28,9 +31,8 @@
       nil)))
 
 (defn- bb-main
-  [arguments {:keys [command print-command] :as options}]
-  (let [[dependency & bb-args] arguments
-        deps-string (create-deps-string dependency options)
+  [dependency bb-args {:keys [command print-command] :as options}]
+  (let [deps-string (create-deps-string dependency options)
         new-classpath (str (System/getenv "BABASHKA_CLASSPATH")
                            ":"
                            (:out (shell {:out :string} "clojure" "-Spath" "-Sdeps" deps-string)))
@@ -41,9 +43,8 @@
           {"BABASHKA_CLASSPATH" new-classpath}
           print-command)))
 
-(defn- clj-main [arguments {:keys [print-command] :as options}]
-  (let [[dependency & clj-args] arguments
-        deps-string (create-deps-string dependency options)
+(defn- clj-main [dependency clj-args {:keys [print-command] :as options}]
+  (let [deps-string (create-deps-string dependency options)
         clj-options ["-Sdeps" deps-string]
         clj-invocation (if (-> (shell/sh "which" "rlwrap") :exit zero?)
                          ["rlwrap" "clojure"]
@@ -52,17 +53,18 @@
           {}
           print-command)))
 
-(defn- -main*
-  [arguments {:keys [command] :or {command "bb"} :as options}]
-  (if (#{"clj" "clojure"} command)
-    (clj-main arguments options)
-    (bb-main arguments (assoc options :command command))))
-
-(defn- command
-  [{:keys [summary arguments options]}]
-  (cond
-    (:help options) (cli/print-summary " DEPENDENCY [& ARGS]" summary)
-    :else (-main* arguments options)))
+(defn- print-help []
+  (println (str "Usage: bb-try [options] <dependency> [& args]\n\n"
+                "Options:\n"
+                (cli/format-opts {:spec (assoc spec :help {:alias :h :coerce :boolean :desc "Show this help"})}))))
 
 (defn -main [& args]
-  (cli/run-command command args cli-options :in-order true))
+  (if (or (empty? args) (some #{"-h" "--help"} args))
+    (print-help)
+    (let [[our-args rest-args] (cli-util/split-leading-opts spec args)
+          opts (:opts (cli/parse-args our-args {:spec spec}))
+          [dependency & extra] rest-args
+          command (:command opts "bb")]
+      (if (#{"clj" "clojure"} command)
+        (clj-main dependency extra opts)
+        (bb-main dependency extra (assoc opts :command command))))))

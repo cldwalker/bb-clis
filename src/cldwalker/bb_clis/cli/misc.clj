@@ -1,6 +1,6 @@
 (ns cldwalker.bb-clis.cli.misc
   "Misc fns that are useful to bb/clojure clis"
-  (:require [cldwalker.bb-clis.cli :as cli]
+  (:require [cldwalker.bb-clis.cli :as cli-util]
             [clojure.edn :as edn]
             [clojure.string :as str]
             [clojure.java.shell :as shell]))
@@ -31,7 +31,7 @@ Takes following options:
             (apply shell/sh
               (concat args [:dir (:dir options)]))]
         (if ((:is-error-fn options) res)
-          (cli/error (format "Command '%s' failed with:\n%s"
+          (cli-util/error (format "Command '%s' failed with:\n%s"
                              (str/join " " args)
                              (str out "\n" err)))
           out)))))
@@ -50,8 +50,8 @@ Takes following options:
         ;; Can handle gh:atom/atom, https://github.com/atom/atom.git or git@github.com:atom/atom.git
         (if-let [user-repo (second (re-find #"(?:gh|github.com)(?::|/)([^/]+/[^/.\s]+)" out))]
           user-repo
-          (cli/error "Failed to determine current directory's repository" (pr-str {:out out})))
-        (cli/error "Failed to determine current directory's repository" (pr-str {:error err :out out}))))))
+          (cli-util/error "Failed to determine current directory's repository" (pr-str {:out out})))
+        (cli-util/error "Failed to determine current directory's repository" (pr-str {:error err :out out}))))))
 
 ;; I/O
 ;; ===

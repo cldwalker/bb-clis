@@ -8,7 +8,7 @@
     cheshire.core json
     clojure.edn edn
     clojure.java.io io
-    cldwalker.bb-clis.cli cli
+    cldwalker.bb-clis.cli cli-util
     clojure.pprint pprint
     babashka.pods pods}}
   :unresolved-symbol

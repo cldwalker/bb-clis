@@ -3,17 +3,21 @@
   logseq block.
 
   Setup: npm install -g rdf-dereference"
-  (:require [cldwalker.bb-clis.cli :as cli]
+  (:require [babashka.cli :as cli]
+            [babashka.process :as process]
+            [babashka.tasks :refer [shell]]
+            [cheshire.core :as json]
+            [cldwalker.bb-clis.cli :as cli-util]
             [cldwalker.bb-clis.cli.logseq :as logseq]
-            [clojure.string :as str]
-            [clojure.set :as set]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
-            [cheshire.core :as json]
-            [babashka.process :as process]
-            [babashka.tasks :refer [shell]])
+            [clojure.set :as set]
+            [clojure.string :as str])
   (:import (java.net URL)
            (java.io StringWriter)))
+
+;; :reload picks up the newer babashka.cli dep
+(require '[babashka.cli :as cli] :reload)
 
 ;; Config
 ;; ======
@@ -155,7 +159,7 @@ process that generates this map from your logseq data"
               (str/join " " arguments)
               (:out (shell {:out :string} "pbpaste")))
         url-obj (or (->url-object url)
-                    (cli/error "The following is not a url -" (pr-str url)))
+                    (cli-util/error "The following is not a url -" (pr-str url)))
         properties (merge {:desc "" :url (str url-obj)}
                           (url->properties url-obj config options))
         ;; Keep first properties in order
@@ -169,14 +173,14 @@ process that generates this map from your logseq data"
     (shell {:in block-text} "pbcopy")
     (println block-text)))
 
-(defn- command [{:keys [options arguments summary]}]
-  (if (:help options)
-    (cli/print-summary " [& LOGSEQ_TEXT]" summary)
-    (create-block arguments options)))
+(defn- command [{:keys [opts]}]
+  (create-block (:logseq-text opts) opts))
 
-(def ^:private cli-options
-  [["-h" "--help"]
-   ["-d" "--debug"]])
+(def ^:private spec
+  {:logseq-text {:positional true :coerce [:string] :desc "Url to convert (default: clipboard contents)"}
+   :debug {:alias :d :coerce :boolean :desc "Print debug info"}})
 
 (defn -main [& args]
-  (cli/run-command command args cli-options))
+  (cli/dispatch [{:cmds [] :fn command :spec spec :args->opts (repeat :logseq-text)}]
+                args
+                {:prog "bb-logseq-convert" :help true}))

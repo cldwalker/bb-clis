@@ -1,12 +1,15 @@
 (ns cldwalker.bb-clis.bin.logseq-graph-backup
   "Backup one or more logseq graphs by exporting EDN and staging changes in the graph's git repo."
-  (:require [babashka.fs :as fs]
+  (:require [babashka.cli :as cli]
+            [babashka.fs :as fs]
             [babashka.tasks :refer [shell]]
-            [cldwalker.bb-clis.cli :as cli]
             [clojure.data :as data]
             [clojure.edn :as edn]
             [clojure.pprint :as pprint]
             [clojure.string :as str]))
+
+;; :reload picks up the newer babashka.cli dep
+(require '[babashka.cli :as cli] :reload)
 
 (defn- prepare-export-to-diff
   "Prepare a graph's exported edn to be diffed with another"
@@ -89,29 +92,24 @@
                      (str (System/getenv "HOME") "/logseq/graphs/" temp-edn* "/graph.edn"))]
     (diff-files* graph-edn temp-edn)))
 
-(defn- command [{:keys [options arguments summary]}]
-  (cond
-    (:help options)
-    (cli/print-summary " GRAPH [GRAPH ...]" summary)
+(defn- command [{:keys [opts]}]
+  (let [graphs (:graphs opts)]
+    (if (:diff opts)
+      (diff-files graphs)
+      (doseq [graph graphs]
+        (backup-graph graph opts)))))
 
-    (empty? arguments)
-    (cli/error "At least one graph must be specified")
-
-    (:diff options)
-    (diff-files arguments)
-
-    :else
-    (doseq [graph arguments]
-      (backup-graph graph options))))
-
-(def ^:private cli-options
-  [["-h" "--help"]
-   ["-d" "--datoms" "Export raw datoms (:graph) instead of human-readable EDN (:graph-human)"]
-   ["-D" "--diff" "Diff two graph's edn exports"]
-   ["-r" "--roundtrip" "Roundtrips export by importing, exporting and comparing diff"]
-   ["" "--keep" "Doesn't delete temporary roundtrip graph"]
-   ["-m" "--message MESSAGE" "Git add and commit with message"]
-   ["-g" "--git-show" "Show what has changed since last commit"]])
+(def ^:private spec
+  {:graphs {:positional true :coerce [:string] :require true :desc "Graphs to backup"}
+   :datoms {:alias :d :coerce :boolean :desc "Export raw datoms (:graph) instead of human-readable EDN (:graph-human)"}
+   :diff {:alias :D :coerce :boolean :desc "Diff two graph's edn exports"}
+   :roundtrip {:alias :r :coerce :boolean :desc "Roundtrips export by importing, exporting and comparing diff"}
+   :keep {:coerce :boolean :desc "Doesn't delete temporary roundtrip graph"}
+   :message {:alias :m :desc "Git add and commit with message"}
+   :git-show {:alias :g :coerce :boolean :desc "Show what has changed since last commit"}})
 
 (defn -main [& args]
-  (cli/run-command command args cli-options))
+  ;; (repeat :graphs) collects positionals anywhere so options can follow graph args
+  (cli/dispatch [{:cmds [] :fn command :spec spec :args->opts (repeat :graphs)}]
+                args
+                {:prog "logseq-graph-backup" :help true}))

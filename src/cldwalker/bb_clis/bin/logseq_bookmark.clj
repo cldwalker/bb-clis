@@ -36,7 +36,7 @@
            "--update-tags" (pr-str [tag]))))
 
 (def ^:private spec
-  {:url {:desc "URL to bookmark" :require true :no-doc true}
+  {:url {:positional true :coerce :string :desc "URL to bookmark" :require true}
    :graph {:alias :g :desc "Graph name" :default "personal"}
    :description {:alias :d :desc "Description for node"}
    :deadline {:alias :D :desc "Deadline for node"}
@@ -45,6 +45,6 @@
    :content {:alias :c :desc "Block content (default: fetched <title> or \"Untitled\")"}})
 
 (defn -main [& args]
-  (cli/dispatch [{:cmds [] :fn command :spec spec :args->opts [:url]}]
+  (cli/dispatch [{:cmds [] :fn command :spec spec :args->opts [:url] :restrict-args true}]
                 args
                 {:prog "logseq-bookmark" :help true}))
