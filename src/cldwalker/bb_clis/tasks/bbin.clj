@@ -39,8 +39,7 @@
   [& cmds]
   (let [completions-dir (str (fs/path (fs/home) ".zsh" "completions"))
         root (str (fs/cwd))
-        entries* (-> (:bbin/bin (edn/read-string (slurp (str (fs/path root "bb.edn")))))
-                     (dissoc 'bb-aws 'bb-cli-test 'bb-try 'logseq-graph-grep))
+        entries* (:bbin/bin (edn/read-string (slurp (str (fs/path root "bb.edn")))))
         completion-cmds (->> (if (seq cmds) (select-keys entries* (map symbol cmds)) entries*)
                              keys
                              (map str))]

@@ -97,9 +97,12 @@
                 "Options:\n"
                 (cli/format-opts {:spec (assoc spec :help {:alias :h :coerce :boolean :desc "Show this help"})}))))
 
-(defn -main [& args]
+(defn- command
+  "Ignores dispatch's parsed input in favor of raw args so the recorded
+  command's options pass through untouched"
+  [args]
   (cond
-    (or (empty? args) (some #{"-h" "--help"} args))
+    (empty? args)
     (print-help)
 
     :else
@@ -110,3 +113,9 @@
         "add" (add-cmd {:opts opts :args cmd-args})
         "record" (record-cmd {:opts opts :args cmd-args})
         (cli-util/error "Unknown subcommand:" (pr-str subcmd))))))
+
+(defn -main [& args]
+  ;; Dispatch is only used for -h and to provide org.babashka.cli/completions
+  (cli/dispatch [{:cmds [] :spec spec :fn (fn [_] (command args))}]
+                args
+                {:prog "bb-cli-test" :help true :help-fn (fn [_] (print-help))}))

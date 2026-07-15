@@ -31,9 +31,16 @@
                 "Options:\n"
                 (cli/format-opts {:spec (assoc spec :help {:alias :h :coerce :boolean :desc "Show this help"})}))))
 
+(defn- command
+  "Ignores dispatch's parsed input in favor of raw args so unrecognized
+  options pass through to grep"
+  [args]
+  (let [[our-args grep-args] (cli-util/split-leading-opts spec args)
+        opts (:opts (cli/parse-args our-args {:spec spec}))]
+    (run-grep opts grep-args)))
+
 (defn -main [& args]
-  (if (some #{"-h" "--help"} args)
-    (print-help)
-    (let [[our-args grep-args] (cli-util/split-leading-opts spec args)
-          opts (:opts (cli/parse-args our-args {:spec spec}))]
-      (run-grep opts grep-args))))
+  ;; Dispatch is only used for -h and to provide org.babashka.cli/completions
+  (cli/dispatch [{:cmds [] :spec spec :fn (fn [_] (command args))}]
+                args
+                {:prog "logseq-graph-grep" :help true :help-fn (fn [_] (print-help))}))

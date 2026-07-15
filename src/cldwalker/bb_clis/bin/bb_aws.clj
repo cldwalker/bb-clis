@@ -93,8 +93,11 @@
                 "Options:\n"
                 (cli/format-opts {:spec (assoc spec :help {:alias :h :coerce :boolean :desc "Show this help"})}))))
 
-(defn -main [& args]
-  (if (or (empty? args) (some #{"-h" "--help"} args))
+(defn- command
+  "Ignores dispatch's parsed input in favor of raw args so unrecognized
+  options pass through to the aws operation"
+  [args]
+  (if (empty? args)
     (print-help)
     (let [[our-args aws-args] (cli-util/split-leading-opts spec args)
           opts (:opts (cli/parse-args our-args {:spec spec}))
@@ -106,6 +109,12 @@
       (when (:repl opts)
         (def result result_)
         (main/repl)))))
+
+(defn -main [& args]
+  ;; Dispatch is only used for -h and to provide org.babashka.cli/completions
+  (cli/dispatch [{:cmds [] :spec spec :fn (fn [_] (command args))}]
+                args
+                {:prog "bb-aws" :help true :help-fn (fn [_] (print-help))}))
 
 (comment
  (def ^:private s3-client (aws/client {:api :s3 :region "us-east-1"}))

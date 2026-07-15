@@ -58,8 +58,11 @@
                 "Options:\n"
                 (cli/format-opts {:spec (assoc spec :help {:alias :h :coerce :boolean :desc "Show this help"})}))))
 
-(defn -main [& args]
-  (if (or (empty? args) (some #{"-h" "--help"} args))
+(defn- command*
+  "Ignores dispatch's parsed input in favor of raw args so unrecognized
+  options pass through to the tried command"
+  [args]
+  (if (empty? args)
     (print-help)
     (let [[our-args rest-args] (cli-util/split-leading-opts spec args)
           opts (:opts (cli/parse-args our-args {:spec spec}))
@@ -68,3 +71,9 @@
       (if (#{"clj" "clojure"} command)
         (clj-main dependency extra opts)
         (bb-main dependency extra (assoc opts :command command))))))
+
+(defn -main [& args]
+  ;; Dispatch is only used for -h and to provide org.babashka.cli/completions
+  (cli/dispatch [{:cmds [] :spec spec :fn (fn [_] (command* args))}]
+                args
+                {:prog "bb-try" :help true :help-fn (fn [_] (print-help))}))
