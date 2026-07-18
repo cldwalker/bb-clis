@@ -9,10 +9,11 @@
 (require '[babashka.cli :as cli] :reload)
 
 (defn- current-graph []
-  (-> (shell {:out :string :continue true} "zsh" "-ic" "_logseq_current_graph")
-      :out
-      str/trim
-      not-empty))
+  (some->> (shell {:out :string :continue true} "logseq" "graph" "list")
+           :out
+           str/split-lines
+           (some #(when (str/starts-with? % "*") (str/trim (subs % 1))))
+           not-empty))
 
 (def ^:private spec
   {:graph {:alias :g :desc "Graph to grep (default: current graph)"}})
