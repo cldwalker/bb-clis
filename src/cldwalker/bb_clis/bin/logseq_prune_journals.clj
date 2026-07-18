@@ -34,7 +34,7 @@
 
 (defn- empty-journals [graph]
   (let [today-prefix (todays-journal-uuid-prefix)
-        journal-ids (->> (logseq-edn graph "list" "page" "--journal-only" "-e")
+        journal-ids (->> (logseq-edn graph "list" "page" "--journal-only" "--expand")
                          :items
                          (remove #(str/starts-with? (str (:block/uuid %)) today-prefix))
                          (mapv :db/id))]
