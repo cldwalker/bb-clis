@@ -3,7 +3,7 @@
   (:require [babashka.fs :as fs]
             [babashka.process :as process :refer [shell]]
             [clojure.edn :as edn]
-            [clojure.string :as string]))
+            [clojure.string :as str]))
 
 (defn uninstall
   "Uninstall every :bbin/bin entry from current bb.edn"
@@ -49,7 +49,7 @@
             {:keys [out exit]} (shell {:out :string}
                                       cmd "org.babashka.cli/completions"
                                       "snippet" "--shell" "zsh")]
-        (if (and (zero? exit) (string/starts-with? out "#compdef"))
+        (if (and (zero? exit) (str/starts-with? out "#compdef"))
           (do (spit out-file out)
               (println "Wrote" out-file))
           (println "Skipping" cmd "as it doesn't use babashka.cli"))))))
