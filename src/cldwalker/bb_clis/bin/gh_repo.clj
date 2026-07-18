@@ -32,13 +32,17 @@
     git-relative-path))
 
 (defn- open-github-url [{:keys [repository commit tree file]}]
-  (let [url-base (str "https://github.com/" repository)
+  (let [wiki-repository (second (re-matches #"(\S+)\.wiki" repository))
+        url-base (str "https://github.com/" (or wiki-repository repository))
         url (cond
               commit (str url-base "/commit/" commit)
               tree   (str url-base "/tree/" (find-current-branch))
+              (and wiki-repository file)
+              (str url-base "/wiki/"
+                   (str/replace-first (get-relative-git-root-path file) #"\.[^./]+$" ""))
               file   (str url-base "/blob/" (find-current-branch)
                           "/" (get-relative-git-root-path file))
-
+              wiki-repository (str url-base "/wiki")
               :else url-base)]
     (doto url misc/open-url)))
 
