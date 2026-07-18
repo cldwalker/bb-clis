@@ -2,7 +2,7 @@
   "Bookmark a URL by upserting a block with url/description properties and a tag."
   (:require [babashka.cli :as cli]
             [babashka.http-client :as http]
-            [babashka.tasks :refer [shell]]
+            [babashka.process :refer [shell]]
             [clojure.string :as str]))
 
 ;; :reload picks up the newer babashka.cli dep

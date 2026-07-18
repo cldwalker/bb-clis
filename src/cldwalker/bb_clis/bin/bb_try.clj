@@ -1,7 +1,7 @@
 (ns cldwalker.bb-clis.bin.bb-try
   "Try a dependency with bb like lein-try"
   (:require [babashka.cli :as cli]
-            [babashka.tasks :refer [shell]]
+            [babashka.process :refer [shell]]
             [cldwalker.bb-clis.cli :as cli-util]
             [clojure.java.shell :as shell]))
 

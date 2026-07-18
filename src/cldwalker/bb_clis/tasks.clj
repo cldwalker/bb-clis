@@ -1,5 +1,6 @@
 (ns cldwalker.bb-clis.tasks
-  (:require [babashka.tasks :refer [shell run]]
+  (:require [babashka.tasks :refer [run]]
+            [babashka.process :refer [shell]]
             [babashka.fs :as fs]
             [cheshire.core :as json]
             [clojure.edn :as edn]

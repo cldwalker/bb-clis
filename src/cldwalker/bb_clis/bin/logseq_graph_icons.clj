@@ -1,7 +1,7 @@
 (ns cldwalker.bb-clis.bin.logseq-graph-icons
   "Show icon usage stats or list nodes that use a given icon in a Logseq graph."
   (:require [babashka.cli :as cli]
-            [babashka.tasks :refer [shell]]
+            [babashka.process :refer [shell]]
             [cldwalker.bb-clis.cli :as cli-util]
             [clojure.edn :as edn]
             [clojure.pprint :as pprint]))

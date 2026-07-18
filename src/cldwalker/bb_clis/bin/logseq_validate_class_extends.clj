@@ -1,7 +1,7 @@
 (ns cldwalker.bb-clis.bin.logseq-validate-class-extends
   "Fail if any user class does not extend from Thing (directly or transitively)."
   (:require [babashka.cli :as cli]
-            [babashka.tasks :refer [shell]]
+            [babashka.process :refer [shell]]
             [cldwalker.bb-clis.cli :as cli-util]
             [clojure.edn :as edn]
             [clojure.string :as str]))

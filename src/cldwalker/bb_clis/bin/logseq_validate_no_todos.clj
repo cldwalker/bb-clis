@@ -1,7 +1,7 @@
 (ns cldwalker.bb-clis.bin.logseq-validate-no-todos
   "Fail if blocks contain 'td:' outside of incomplete Tasks or their references."
   (:require [babashka.cli :as cli]
-            [babashka.tasks :refer [shell]]
+            [babashka.process :refer [shell]]
             [cldwalker.bb-clis.cli :as cli-util]
             [clojure.edn :as edn]))
 

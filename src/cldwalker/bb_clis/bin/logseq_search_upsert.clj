@@ -1,6 +1,6 @@
 (ns cldwalker.bb-clis.bin.logseq-search-upsert
   "Search blocks via `logseq search block -c`, then `logseq upsert task` chosen ids."
-  (:require [babashka.tasks :refer [shell]]
+  (:require [babashka.process :refer [shell]]
             [cldwalker.bb-clis.util.input :as input]
             [clojure.string :as str]))
 

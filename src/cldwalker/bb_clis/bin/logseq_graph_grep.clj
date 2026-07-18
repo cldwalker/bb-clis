@@ -1,7 +1,7 @@
 (ns cldwalker.bb-clis.bin.logseq-graph-grep
   "Recursively grep a logseq graph directory."
   (:require [babashka.cli :as cli]
-            [babashka.tasks :refer [shell]]
+            [babashka.process :refer [shell]]
             [cldwalker.bb-clis.cli :as cli-util]
             [clojure.string :as str]))
 

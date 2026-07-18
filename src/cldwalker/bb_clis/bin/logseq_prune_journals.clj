@@ -1,7 +1,7 @@
 (ns cldwalker.bb-clis.bin.logseq-prune-journals
   "Find journals with no/blank children and no linked references; pretend or delete them."
   (:require [babashka.cli :as cli]
-            [babashka.tasks :refer [shell]]
+            [babashka.process :refer [shell]]
             [cldwalker.bb-clis.cli :as cli-util]
             [clojure.edn :as edn]
             [clojure.pprint :as pprint]
@@ -15,7 +15,7 @@
 
 (defn- logseq-edn [graph & args]
   (let [{:keys [out]} (apply shell {:out :string} "logseq"
-                              (concat args (graph-args graph) ["-o" "edn"]))
+                             (concat args (graph-args graph) ["-o" "edn"]))
         {:keys [status data]} (edn/read-string out)]
     (when (not= :ok status)
       (cli-util/error "Command failed:" out))

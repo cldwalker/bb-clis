@@ -1,6 +1,6 @@
 (ns cldwalker.bb-clis.tasks.dev
   "Dev tasks for the bb-clis repo."
-  (:require [babashka.tasks :refer [shell]]
+  (:require [babashka.process :refer [shell]]
             [clojure.string :as str]))
 
 (defn bump-git-sha

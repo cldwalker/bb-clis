@@ -2,7 +2,7 @@
   "bbin related tasks"
   (:require [babashka.fs :as fs]
             [babashka.process :as process]
-            [babashka.tasks :refer [shell]]
+            [babashka.process :refer [shell]]
             [clojure.edn :as edn]))
 
 (defn uninstall

@@ -2,7 +2,7 @@
   "Backup one or more logseq graphs by exporting EDN and staging changes in the graph's git repo."
   (:require [babashka.cli :as cli]
             [babashka.fs :as fs]
-            [babashka.tasks :refer [shell]]
+            [babashka.process :refer [shell]]
             [clojure.data :as data]
             [clojure.edn :as edn]
             [clojure.pprint :as pprint]
