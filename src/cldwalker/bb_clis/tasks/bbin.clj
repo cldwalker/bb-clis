@@ -1,8 +1,7 @@
 (ns cldwalker.bb-clis.tasks.bbin
   "bbin related tasks"
   (:require [babashka.fs :as fs]
-            [babashka.process :as process]
-            [babashka.process :refer [shell]]
+            [babashka.process :as process :refer [shell]]
             [clojure.edn :as edn]))
 
 (defn uninstall
@@ -46,9 +45,9 @@
     (fs/create-dirs completions-dir)
     (doseq [cmd completion-cmds]
       (let [out-file (str (fs/path completions-dir (str "_" cmd)))
-            {:keys [out exit]} (process/shell {:out :string}
-                                              cmd "org.babashka.cli/completions"
-                                              "snippet" "--shell" "zsh")]
+            {:keys [out exit]} (shell {:out :string}
+                                      cmd "org.babashka.cli/completions"
+                                      "snippet" "--shell" "zsh")]
         (if (zero? exit)
           (do (spit out-file out)
               (println "Wrote" out-file))

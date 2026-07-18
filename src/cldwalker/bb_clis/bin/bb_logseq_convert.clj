@@ -4,8 +4,7 @@
 
   Setup: npm install -g rdf-dereference"
   (:require [babashka.cli :as cli]
-            [babashka.process :as process]
-            [babashka.process :refer [shell]]
+            [babashka.process :as process :refer [shell]]
             [cheshire.core :as json]
             [cldwalker.bb-clis.cli :as cli-util]
             [cldwalker.bb-clis.cli.logseq :as logseq]
