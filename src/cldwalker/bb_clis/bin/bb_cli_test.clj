@@ -33,7 +33,6 @@
   the string is automatically wrapped in `bash -c`. This is useful for testing
   multiple commands e.g. `cat foo.edn | baz`."
   [cmd-and-args {:keys [test file verbose]}]
-  (assert (and test file) "--test and --file are required options")
   (let [fixture-file (-> file
                          (str/replace-first #"^test/"  "test/resources/")
                          (str/replace-first #"\.clj$" (str "/" test ".edn")))
@@ -81,9 +80,12 @@
     (println "Successfully added test!")))
 
 (def ^:private spec
-  {:file {:alias :f :desc "Test file to add test to"}
+  {:file {:alias :f
+          :desc "Test file to add test to"
+          :require true
+          :validate #(re-find #"^test/.*.clj$" %)}
    :verbose {:alias :v :coerce :boolean :desc "Print verbose output"}
-   :test {:alias :t :desc "Test name"}})
+   :test {:alias :t :desc "Test name" :require true}})
 
 (defn- record-cmd [{:keys [opts args]}]
   (record-test args opts)
