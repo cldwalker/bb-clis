@@ -69,6 +69,13 @@
     (when-not keep
       (shell "logseq" "graph" "remove" "-g" temp-graph))))
 
+(defn- pprint-edn-file
+  "Use clojure.pprint to pretty print instead of OCaml CLI's janky, hand-rolled pretty printer"
+  [file]
+  (let [data (edn/read-string {:default tagged-literal} (slurp file))]
+    (binding [*print-namespace-maps* false]
+      (spit file (with-out-str (pprint/pprint data))))))
+
 (defn- backup-graph [graph {:keys [message roundtrip datoms git-show] :as options}]
   (let [graph-dir (str (System/getenv "HOME") "/logseq/graphs/" graph)
         graph-edn (str graph-dir "/graph.edn")
@@ -76,6 +83,7 @@
     (println "==>" graph)
     (shell "logseq" "graph" "export" "-t" "edn" "-e" export-options "-p" "-g" graph "--file" graph-edn)
     (when roundtrip (roundtrip-graph graph graph-edn export-options options))
+    (pprint-edn-file graph-edn)
     (when message
       (shell {:dir graph-dir} "git" "add" "-u")
       (shell {:dir graph-dir} "git" "add" "mirror")
