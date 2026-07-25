@@ -86,7 +86,10 @@
     (pprint-edn-file graph-edn)
     (when message
       (shell {:dir graph-dir} "git" "add" "-u")
-      (shell {:dir graph-dir} "git" "add" "mirror" "assets")
+      (when (fs/exists? (fs/path graph-dir "mirror"))
+        (shell {:dir graph-dir} "git" "add" "mirror"))
+      (when (fs/exists? (fs/path graph-dir "assets"))
+        (shell {:dir graph-dir} "git" "add" "assets"))
       (shell {:dir graph-dir} "git" "commit" "-m" message))
     (when git-show
       (if message
