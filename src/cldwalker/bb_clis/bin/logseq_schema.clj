@@ -152,14 +152,26 @@
 
       :else {:classes need-classes :properties need-props})))
 
+(defn- error-if-duplicates
+  "Any class or property being added - an explicit arg or a new entity
+pulled into the closure - that collides by title with an existing user
+class or property would create an unusable duplicate on import"
+  [graph check-classes check-props]
+  (let [dup-class-title? (existing-user-class-titles graph (map name check-classes))
+        dup-prop-title? (existing-property-titles graph (map name check-props))
+        dups (concat (filter (comp dup-class-title? name) check-classes)
+                     (filter (comp dup-prop-title? name) check-props))]
+    (when (seq dups)
+      (cli-util/error
+       (str "Cannot add these classes or properties which already exist: "
+            (str/join ", " (map #(str "'" (name %) "'") dups)))))))
+
 (defn- build-add-edn
-  "Builds graph-ontology EDN for the given class and property args. Every class
-  and property that is new is emitted with its full entry from the index.
-  Existing entities are omitted, except the few the import cannot resolve on its
-  own: :url (every entity's :build/properties uses it) and existing classes
-  referenced by an emitted property's :build/property-classes both get minimal
-  anchor entries. Existing classes referenced only via :build/class-extends
-  resolve by ident and are dropped entirely."
+  "Builds graph-ontology EDN for the given class and property args as well as
+  any dependent properties and classes.  Existing entities are omitted, except
+  the few the import cannot resolve on its own: :url (every entity's
+  :build/properties uses it) and existing classes referenced by an emitted
+  property's :build/property-classes both get minimal anchor entries"
   [index graph arg-kws]
   (let [{:keys [classes properties]} index
         class-args (filter #(contains? classes %) arg-kws)
@@ -170,19 +182,9 @@
                                           (map property-ident need-props)))
         new-classes (remove (comp existing class-ident) need-classes)
         new-props (remove (comp existing property-ident) need-props)
-        ;; Any class or property being added - an explicit arg or a new entity
-        ;; pulled into the closure - that collides by title with an existing user
-        ;; class or property would create an unusable duplicate on import.
-        check-classes (distinct (concat class-args new-classes))
-        check-props (distinct (concat prop-args new-props))
-        dup-class-title? (existing-user-class-titles graph (map name check-classes))
-        dup-prop-title? (existing-property-titles graph (map name check-props))
-        dups (concat (filter (comp dup-class-title? name) check-classes)
-                     (filter (comp dup-prop-title? name) check-props))
-        _ (when (seq dups)
-            (cli-util/error
-             (str "Cannot add these classes or properties which already exist: "
-                  (str/join ", " (map #(str "'" (name %) "'") dups)))))
+        _ (error-if-duplicates graph
+                               (distinct (concat class-args new-classes))
+                               (distinct (concat prop-args new-props)))
         ;; Existing classes referenced by an emitted property's :build/property-classes
         ;; must stay in the map (the import can't resolve them by ident otherwise);
         ;; existing classes referenced only via :build/class-extends are dropped.
