@@ -1,4 +1,4 @@
-{:paths ["src"]
+{:paths ["src" "resources"]
  :min-bb-version "1.12.218"
  :deps
   {com.github.cldwalker/bb-dialog
@@ -27,6 +27,7 @@
   logseq-graph-icons            {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-graph-icons"]}
   logseq-graph-stats            {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-graph-stats"]}
   logseq-prune-journals         {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-prune-journals"]}
+  logseq-schema                 {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-schema"]}
   logseq-search-show            {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-search-show"]}
   logseq-search-upsert          {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-search-upsert"]}
   logseq-validate-class-extends {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-validate-class-extends"]}
