@@ -240,6 +240,365 @@ class or property would create an unusable duplicate on import"
     (cli-util/error "Usage: logseq-schema add [& PROPERTY-OR-CLASSES]"))
   (add-schema args opts))
 
+;; ---- migrate ----
+
+(defn- and-join
+  "Joins names in English list form e.g. `a, b and c`"
+  [names]
+  (case (count names)
+    0 ""
+    1 (first names)
+    (str (str/join ", " (butlast names)) " and " (last names))))
+
+(defn- conflicts
+  "User classes and properties whose title matches a schema.org name, returned as
+  `{:classes [{:name :ident :uuid}] :properties [{:name :ident :uuid :type}]}`.
+  Only user entities (no :logseq.property/built-in?) are considered."
+  [graph index]
+  (let [class-names (set (map name (keys (:classes index))))
+        prop-names (set (map name (keys (:properties index))))
+        user-classes (logseq-query graph
+                                    '[:find ?title ?ident ?uuid
+                                      :where
+                                      [?e :block/tags :logseq.class/Tag]
+                                      [?e :block/title ?title] [?e :db/ident ?ident] [?e :block/uuid ?uuid]
+                                      (not [?e :logseq.property/built-in? _])]
+                                    nil)
+        user-props (logseq-query graph
+                                  '[:find ?title ?ident ?uuid ?type
+                                    :where
+                                    [?e :block/tags :logseq.class/Property]
+                                    [?e :block/title ?title] [?e :db/ident ?ident] [?e :block/uuid ?uuid]
+                                    [?e :logseq.property/type ?type]
+                                    (not [?e :logseq.property/built-in? _])]
+                                  nil)]
+    {:classes (->> user-classes
+                   (filter (fn [[t]] (class-names t)))
+                   (map (fn [[t i u]] {:name t :ident i :uuid u}))
+                   (sort-by :name) vec)
+     :properties (->> user-props
+                      (filter (fn [[t]] (prop-names t)))
+                      (map (fn [[t i u ty]] {:name t :ident i :uuid u :type ty}))
+                      (sort-by :name) vec)}))
+
+;; Property value storage by type (see logseq.db.frontend.property.type):
+;; entity refs (:node/:date/:asset) point at a real entity; value-block refs
+;; (:default/:url via :block/title, :number via :logseq.property/value) point at a
+;; value block; everything else (e.g. :checkbox) is a scalar stored on the entity.
+(def ^:private entity-ref-property-types #{:node :date :asset})
+(def ^:private value-block-property-types #{:default :url :number})
+
+(defn- ref-property-type? [type]
+  (or (entity-ref-property-types type) (value-block-property-types type)))
+
+(defn- entity-pull
+  "Pull spec for an associated entity - its structure plus, for a property, the
+  value(s). Value-block/entity-ref properties pull a nested map; scalars pull the
+  value directly."
+  [ident type]
+  (cond-> [:db/id :block/uuid :block/name :block/title {:block/page [:block/uuid]}]
+    (and ident (ref-property-type? type)) (conj {ident [:block/uuid :block/title :logseq.property/value]})
+    (and ident (not (ref-property-type? type))) (conj ident)))
+
+(defn- property-value
+  "Settable value read from one original value. Entity refs reference by uuid,
+  value blocks use :block/title (default/url) or :logseq.property/value (number),
+  scalars are used directly."
+  [type value]
+  (cond
+    (entity-ref-property-types type) [:block/uuid (:block/uuid value)]
+    (value-block-property-types type) (or (:block/title value) (:logseq.property/value value))
+    :else value))
+
+(defn- schema-property-value
+  "Value for a schema property from the original value(s). Uses a set for :many
+  (the sqlite.build form for multi-valued properties) and a bare value otherwise."
+  [index prop-name type raw]
+  (let [values (cond (nil? raw) [] (map? raw) [raw] (coll? raw) (vec raw) :else [raw])
+        settable (map #(property-value type %) values)]
+    (if (= :many (get-in index [:properties (keyword prop-name) :db/cardinality]))
+      (set settable)
+      (first settable))))
+
+(defn- entity-block-info
+  "Structure needed to update an existing block via import edn. Grouping under the
+  block's page plus its uuid+title is enough - the importer updates the existing
+  block in place, so its parent and order are left untouched."
+  [e]
+  {:page-uuid (get-in e [:block/page :block/uuid])
+   :title (:block/title e)})
+
+(defn- collect-migrations
+  "Queries all entities associated with the conflicting classes and properties and
+  returns `{:entities {id ops} :class-counts {name n} :prop-counts {name n}}` where
+  ops is `{:uuid :page? :block :add-tags :remove-tags :add-props :remove-props}`
+  aggregating every change for that entity. Values are read now, before any mutation."
+  [graph index {:keys [classes properties]}]
+  (let [entities (atom {})
+        class-counts (atom {})
+        prop-counts (atom {})
+        update-entity (fn [e f]
+                        (let [page? (nil? (:block/page e))]
+                          (swap! entities update (:db/id e)
+                                 #(-> (or % {:uuid (:block/uuid e) :page? page?
+                                             :add-tags [] :remove-tags [] :add-props {} :remove-props []})
+                                      (cond-> (not page?) (assoc :block (entity-block-info e)))
+                                      f))))]
+    (doseq [{:keys [name ident]} classes]
+      (let [ents (map first (logseq-query graph
+                                          [:find (list 'pull '?e (entity-pull nil nil))
+                                           :where ['?e :block/tags ident]]
+                                          nil))]
+        (swap! class-counts assoc name (count ents))
+        (doseq [e ents]
+          (update-entity e (fn [m] (-> m
+                                       (update :add-tags conj (class-ident (keyword name)))
+                                       (update :remove-tags conj ident)))))))
+    (doseq [{:keys [name ident type]} properties]
+      (let [ents (map first (logseq-query graph
+                                          [:find (list 'pull '?e (entity-pull ident type))
+                                           :where ['?e ident '_]]
+                                          nil))]
+        (swap! prop-counts assoc name (count ents))
+        (doseq [e ents]
+          (let [v (schema-property-value index name type (get e ident))]
+            (update-entity e (fn [m] (-> m
+                                         (update :add-props assoc (property-ident (keyword name)) v)
+                                         (update :remove-props conj ident))))))))
+    {:entities @entities :class-counts @class-counts :prop-counts @prop-counts}))
+
+(defn- print-migrate-pretend [{:keys [classes properties]} entities class-counts prop-counts]
+  (let [pnames (sort (map :name properties))
+        cnames (sort (map :name classes))]
+    (println "Migrate would rename:")
+    (println "-" (count pnames) "properties:" (and-join pnames))
+    (println "-" (count cnames) "classes:" (and-join cnames))
+    (println)
+    (println (count entities) "entities associated"
+             (+ (apply + (vals prop-counts)) (apply + (vals class-counts)))
+             "times to the following properties and classes:")
+    (doseq [n pnames] (println (str "  " n " - " (prop-counts n))))
+    (doseq [n cnames] (println (str "  " n " - " (class-counts n))))))
+
+(defn- rename-originals-edn
+  "EDN that renames each original class/property page to a temp name so its
+  schema.org replacement can take the original name. An empty :build/properties is
+  required: for an existing page the importer takes a \"minimal update\" shortcut
+  that emits only the uuid and timestamps (dropping the new title) UNLESS the page
+  carries :build/properties or :build/tags. The empty map forces the full path
+  without writing any property. (:build/keep-uuid? does NOT work here - it routes
+  to the create-new-page path, which does not rename the existing entity.)"
+  [{:keys [classes properties]}]
+  {:pages-and-blocks
+   (vec (for [{:keys [name uuid]} (concat classes properties)]
+          {:page {:block/uuid uuid
+                  :block/title (str "logseq-schema." name)
+                  :build/properties {}}}))})
+
+(defn- schema-property-declaration
+  "Minimal declaration for a schema property so the import's undeclared-property
+  check passes; type and cardinality match the graph's existing property."
+  [index name]
+  (let [p (get-in index [:properties (keyword name)])]
+    {:block/title name
+     :logseq.property/type (:logseq.property/type p)
+     :db/cardinality (if (= :many (:db/cardinality p)) :db.cardinality/many :db.cardinality/one)}))
+
+(defn- extending-classes
+  "User classes - other than the conflicts themselves - that extend a conflict
+  class, as `{uuid #{schema-class-idents}}` of the schema.org classes they should
+  now extend. The migration adds these so the relationship isn't lost when the
+  originals (and their extends) are removed."
+  [graph {:keys [classes]}]
+  (let [conflict-idents (set (map :ident classes))
+        ident->schema (into {} (map (fn [{:keys [ident name]}] [ident (class-ident (keyword name))])) classes)
+        rows (when (seq conflict-idents)
+               (logseq-query graph
+                             '[:find ?child-ident ?child-uuid ?parent-ident
+                               :in $ [?parent-ident ...]
+                               :where
+                               [?child :logseq.property.class/extends ?p]
+                               [?p :db/ident ?parent-ident]
+                               [?child :db/ident ?child-ident]
+                               [?child :block/uuid ?child-uuid]]
+                             [(vec conflict-idents)]))]
+    (->> rows
+         (remove (fn [[child-ident _ _]] (conflict-idents child-ident)))
+         (group-by second)
+         (into {} (map (fn [[child-uuid child-rows]]
+                         [child-uuid (set (map (fn [[_ _ pident]] (ident->schema pident)) child-rows))]))))))
+
+(defn- conflict-aliases
+  "Map of schema.org replacement :db/ident -> #{alias-target uuids}, read from the
+  original conflict class/property pages so their :block/alias can be moved to the
+  replacements before the originals are removed."
+  [graph {:keys [classes properties]}]
+  (let [ident->schema (into {} (concat
+                                (map (fn [{:keys [ident name]}] [ident (class-ident (keyword name))]) classes)
+                                (map (fn [{:keys [ident name]}] [ident (property-ident (keyword name))]) properties)))
+        rows (when (seq ident->schema)
+               (logseq-query graph
+                             '[:find ?ident ?alias-uuid
+                               :in $ [?ident ...]
+                               :where
+                               [?e :db/ident ?ident]
+                               [?e :block/alias ?a]
+                               [?a :block/uuid ?alias-uuid]]
+                             [(vec (keys ident->schema))]))]
+    (reduce (fn [m [ident auuid]] (update m (ident->schema ident) (fnil conj #{}) auuid)) {} rows)))
+
+(defn- idents->uuids
+  "Maps each :db/ident to its :block/uuid"
+  [graph idents]
+  (if (empty? idents)
+    {}
+    (into {} (logseq-query graph
+                           '[:find ?ident ?uuid :in $ [?ident ...]
+                             :where [?e :db/ident ?ident] [?e :block/uuid ?uuid]]
+                           [(vec idents)]))))
+
+(defn- migrate-add-edn
+  "One import-edn map that adds the schema tags and copied property values onto
+  every associated entity by :block/uuid. Pages are top-level entries; blocks are
+  grouped under their page and keep their parent and order. User classes that
+  extended a conflict class get :logseq.property.class/extends pointed at the
+  schema.org replacement via :build/properties on a page entry - an in-place page
+  update that (unlike a :classes entry) preserves their title, name and created-at.
+  `aliases` (schema replacement uuid -> #{alias-target uuids}) moves the originals'
+  :block/alias onto the replacements."
+  [index {:keys [properties]} entities extends-by-uuid aliases]
+  (let [prop-decls (into {} (map (fn [{:keys [name]}]
+                                   [(property-ident (keyword name)) (schema-property-declaration index name)]))
+                         properties)
+        add (fn [m {:keys [add-tags add-props]}]
+              (cond-> m
+                (seq add-tags) (assoc :build/tags (vec add-tags))
+                (seq add-props) (assoc :build/properties add-props)))
+        with-extends (fn [m uuid]
+                       (cond-> m
+                         (extends-by-uuid uuid)
+                         (assoc-in [:build/properties :logseq.property.class/extends] (extends-by-uuid uuid))))
+        ops (vals entities)
+        page-uuids (set (map :uuid (filter :page? ops)))
+        page-entries (for [{:keys [uuid page?] :as op} ops :when page?]
+                       {:page (-> (add {:block/uuid uuid} op) (with-extends uuid))})
+        ;; extending classes that aren't already updated as page entities above
+        extender-entries (for [uuid (keys extends-by-uuid) :when (not (page-uuids uuid))]
+                           {:page (with-extends {:block/uuid uuid} uuid)})
+        ;; move each original's :block/alias onto its schema replacement (empty
+        ;; :build/properties forces the full page-update path so :block/alias sticks)
+        alias-entries (for [[uuid targets] aliases]
+                        {:page {:block/uuid uuid
+                                :block/alias (set (map (fn [u] [:block/uuid u]) targets))
+                                :build/properties {}}})
+        block-entries (for [[page-uuid page-ops] (group-by #(get-in % [:block :page-uuid])
+                                                           (remove :page? ops))]
+                        {:page {:block/uuid page-uuid}
+                         :blocks (vec (for [{:keys [uuid block] :as op} page-ops]
+                                        (add {:block/uuid uuid :block/title (:title block)} op)))})]
+    (cond-> {:pages-and-blocks (vec (concat page-entries extender-entries alias-entries block-entries))}
+      (seq prop-decls) (assoc :properties prop-decls))))
+
+(defn- remove-user-associations
+  "Removes the original user tags and property values from each entity with one
+  `logseq upsert page|block --remove-tags/--remove-properties` per entity (import
+  edn cannot retract)."
+  [graph entities]
+  (doseq [[id {:keys [page? remove-tags remove-props]}] entities]
+    (let [args (concat ["logseq" "upsert" (if page? "page" "block")]
+                       (graph-args graph)
+                       ["--id" (str id)]
+                       (when (seq remove-tags) ["--remove-tags" (pr-str (vec remove-tags))])
+                       (when (seq remove-props) ["--remove-properties" (pr-str (vec remove-props))]))
+          {:keys [exit out err]} (apply shell {:continue true :out :string :err :string} args)]
+      (when-not (zero? exit)
+        (cli-util/error "Failed to remove user associations from entity" id "-" (str/trim (str out err)))))))
+
+(defn- association-count
+  "Number of entities still associated with an original class (by tag) or property"
+  [graph {:keys [ident type]}]
+  (or (logseq-query graph
+                    (if type
+                      [:find (list 'count '?e) '. :where ['?e ident '_]]
+                      [:find (list 'count '?e) '. :where ['?e :block/tags ident]])
+                    nil)
+      0))
+
+(defn- original-db-ids
+  "Maps each original :db/ident to its current :db/id"
+  [graph idents]
+  (into {}
+        (map (fn [e] [(:db/ident e) (:db/id e)]))
+        (map first (logseq-query graph
+                                 '[:find (pull ?e [:db/id :db/ident]) :in $ [?ident ...]
+                                   :where [?e :db/ident ?ident]]
+                                 [(vec idents)]))))
+
+(defn- remove-originals
+  "Removes the original class and property pages (values already migrated off them)"
+  [graph {:keys [classes properties]}]
+  (let [ids (original-db-ids graph (map :ident (concat classes properties)))
+        remove-page (fn [kind {:keys [ident name]}]
+                      (let [{:keys [exit out err]}
+                            (apply shell {:continue true :out :string :err :string}
+                                   (concat ["logseq" "remove" kind] (graph-args graph)
+                                           ["--id" (str (ids ident))]))]
+                        (when-not (zero? exit)
+                          (cli-util/error "Failed to remove original" name "-" (str/trim (str out err))))))]
+    (doseq [p properties] (remove-page "property" p))
+    (doseq [c classes] (remove-page "tag" c))))
+
+(defn- migrate [{:keys [graph pretend]}]
+  (let [index (read-index)
+        conflicts (conflicts graph index)
+        {:keys [classes properties]} conflicts
+        ;; Step 1
+        {:keys [entities class-counts prop-counts]} (collect-migrations graph index conflicts)]
+    (cond
+      (and (empty? classes) (empty? properties))
+      (println "No user classes or properties found to migrate.")
+
+      pretend
+      (do (print-migrate-pretend conflicts entities class-counts prop-counts)
+          #_(clojure.pprint/pprint (rename-originals-edn conflicts))
+          #_(clojure.pprint/pprint (migrate-add-edn index conflicts entities)))
+
+      :else
+      (do
+        (println "Migrating" (count properties) (pluralize properties "property" "properties")
+                 "and" (count classes) (pluralize classes "class" "classes")
+                 "across" (count entities) (pluralize entities "entity" "entities") "...")
+        (println "Properties:" (and-join (sort (map :name properties))))
+        (println "Classes:" (and-join (sort (map :name classes))))
+
+        ;; Relationships to move onto the replacements, captured before the originals are removed
+        (let [extends-by-uuid (extending-classes graph conflicts)
+              schema-ident->aliases (conflict-aliases graph conflicts)]
+          ;; Step 2: free the original names by renaming the originals
+          (import-edn graph (rename-originals-edn conflicts))
+          ;; Step 3: create the schema.org replacements under the original names
+          (add-schema (mapv :name (concat classes properties)) {:graph graph :pretend false})
+          ;; Step 4: add the schema tags and copied property values onto the entities,
+          ;; re-point extending classes, and move aliases onto the schema.org replacements
+          (let [schema-ident->uuid (idents->uuids graph (keys schema-ident->aliases))
+                aliases (into {} (map (fn [[sident targets]] [(schema-ident->uuid sident) targets]))
+                              schema-ident->aliases)]
+            (import-edn graph (migrate-add-edn index conflicts entities extends-by-uuid aliases))))
+        ;; Step 5: remove the original user tags and property values from the entities
+        (remove-user-associations graph entities)
+        ;; Step 6: confirm nothing is still associated, then remove the originals
+        (let [remaining (->> (concat properties classes)
+                             (map (fn [c] [(:name c) (association-count graph c)]))
+                             (filter (comp pos? second)))]
+          (when (seq remaining)
+            (cli-util/error "Migration incomplete; entities still associated with:"
+                            (pr-str (into {} remaining))))
+          (remove-originals graph conflicts))
+        (println "Migration complete.")))))
+
+(defn- migrate-command [{:keys [opts]}]
+  (migrate opts))
+
 (defn- init-command [{:keys [opts]}]
   (add-schema ["Thing" "url"] opts))
 
@@ -260,7 +619,13 @@ class or property would create an unusable duplicate on import"
    {:cmds ["init"]
     :fn init-command
     :spec add-spec
-    :doc "Add base class and property that schema.org depends on."}])
+    :doc "Add base class and property that schema.org depends on."}
+   {:cmds ["migrate"]
+    :fn migrate-command
+    :spec add-spec
+    :doc "Replace user classes and properties that conflict with schema.org names
+  with their schema.org equivalents, moving tags and property values from the
+  originals onto the replacements. Use --pretend to preview what would change."}])
 
 (defn -main [& args]
   (cli/dispatch table args {:prog "logseq-schema" :help true}))
