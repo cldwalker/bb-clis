@@ -14,10 +14,24 @@
 ;; :reload picks up the newer babashka.cli dep
 (require '[babashka.cli :as cli] :reload)
 
+(def ^:private index
+  "schema-org-index.edn parsed once from the classpath (nil if not found)"
+  (some-> (io/resource "schema-org-index.edn") slurp edn/read-string))
+
 (defn- read-index []
-  (if-let [resource (io/resource "schema-org-index.edn")]
-    (edn/read-string (slurp resource))
-    (cli-util/error "Unable to find schema-org-index.edn on classpath")))
+  (or index (cli-util/error "Unable to find schema-org-index.edn on classpath")))
+
+(def ^:private schema-name-candidates
+  "`add` arg completion candidates in babashka.cli's {:value :description} form -
+  each schema.org class/property name as a symbol :value with its description.
+  Whitespace is collapsed to single spaces so the whole description stays on one
+  line: babashka.cli truncates a description at its first newline, which would
+  otherwise drop the rest from completers that match against the description."
+  (mapv (fn [[k v]]
+          (let [desc (get-in v [:build/properties :logseq.property/description])]
+            (cond-> {:value (symbol (name k))}
+              desc (assoc :description (str/trim (str/replace desc #"\s+" " "))))))
+        (concat (:classes index) (:properties index))))
 
 (defn- class-ident [k] (keyword "schema.class" (name k)))
 (defn- property-ident [k] (keyword "schema.property" (name k)))
@@ -605,12 +619,18 @@ class or property would create an unusable duplicate on import"
    :pretend {:alias :n :coerce :boolean
              :desc "Print the resulting EDN instead of importing it"}})
 
+(def ^:private add-command-spec
+  "add's spec plus the positional :args, whose :complete tab-completes schema.org
+  properties and classes with their descriptions"
+  (assoc add-spec :args {:coerce [:symbol]
+                         :complete schema-name-candidates
+                         :desc "schema.org classes or properties to add"}))
+
 (def ^:private table
   [{:cmds ["add"]
     :fn add-command
-    :spec add-spec
+    :spec add-command-spec
     :args->opts (repeat :args)
-    :coerce {:args []}
     :doc "Import schema.org classes or properties that aren't in the graph.
   Classes include their ancestor classes but not their class properties.
   Imports by default but use --pretend to see what would be imported."}
