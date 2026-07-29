@@ -458,14 +458,9 @@ class or property would create an unusable duplicate on import"
                            [(vec idents)]))))
 
 (defn- migrate-add-edn
-  "One import-edn map that adds the schema tags and copied property values onto
-  every associated entity by :block/uuid. Pages are top-level entries; blocks are
-  grouped under their page and keep their parent and order. User classes that
-  extended a conflict class get :logseq.property.class/extends pointed at the
-  schema.org replacement via :build/properties on a page entry - an in-place page
-  update that (unlike a :classes entry) preserves their title, name and created-at.
-  `aliases` (schema replacement uuid -> #{alias-target uuids}) moves the originals'
-  :block/alias onto the replacements."
+  "Builds one import-edn map that adds tags and properties and copies property values to entities
+   associated with changing properties and tags. Also handles aliases for onto entities
+   and extends for classes"
   [index {:keys [properties]} entities extends-by-uuid aliases]
   (let [prop-decls (into {} (map (fn [{:keys [name]}]
                                    [(property-ident (keyword name)) (schema-property-declaration index name)]))
@@ -548,6 +543,38 @@ class or property would create an unusable duplicate on import"
     (doseq [p properties] (remove-page "property" p))
     (doseq [c classes] (remove-page "tag" c))))
 
+(defn- migrate* [graph index {:keys [properties classes] :as conflicts} entities]
+  (println "Migrating" (count properties) (pluralize properties "property" "properties")
+           "and" (count classes) (pluralize classes "class" "classes")
+           "across" (count entities) (pluralize entities "entity" "entities") "...")
+  (println "Properties:" (and-join (sort (map :name properties))))
+  (println "Classes:" (and-join (sort (map :name classes))))
+
+  ;; Relationships to move onto the replacements, captured before the originals are removed
+  (let [extends-by-uuid (extending-classes graph conflicts)
+        schema-ident->aliases (conflict-aliases graph conflicts)]
+    ;; Step 2: free the original names by renaming the originals
+    (import-edn graph (rename-originals-edn conflicts))
+    ;; Step 3: create the schema.org replacements under the original names
+    (add-schema (mapv :name (concat classes properties)) {:graph graph :pretend false})
+    ;; Step 4: add the schema tags and copied property values onto the entities,
+    ;; re-point extending classes, and move aliases onto the schema.org replacements
+    (let [schema-ident->uuid (idents->uuids graph (keys schema-ident->aliases))
+          aliases (into {} (map (fn [[sident targets]] [(schema-ident->uuid sident) targets]))
+                        schema-ident->aliases)]
+      (import-edn graph (migrate-add-edn index conflicts entities extends-by-uuid aliases))))
+  ;; Step 5: remove the original user tags and property values from the entities
+  (remove-user-associations graph entities)
+  ;; Step 6: confirm nothing is still associated, then remove the originals
+  (let [remaining (->> (concat properties classes)
+                       (map (fn [c] [(:name c) (association-count graph c)]))
+                       (filter (comp pos? second)))]
+    (when (seq remaining)
+      (cli-util/error "Migration incomplete; entities still associated with:"
+                      (pr-str (into {} remaining))))
+    (remove-originals graph conflicts))
+  (println "Migration complete."))
+
 (defn- migrate [{:keys [graph pretend]}]
   (let [index (read-index)
         conflicts (conflicts graph index)
@@ -559,42 +586,13 @@ class or property would create an unusable duplicate on import"
       (println "No user classes or properties found to migrate.")
 
       pretend
+      #_:clj-kondo/ignore
       (do (print-migrate-pretend conflicts entities class-counts prop-counts)
           #_(clojure.pprint/pprint (rename-originals-edn conflicts))
           #_(clojure.pprint/pprint (migrate-add-edn index conflicts entities)))
 
       :else
-      (do
-        (println "Migrating" (count properties) (pluralize properties "property" "properties")
-                 "and" (count classes) (pluralize classes "class" "classes")
-                 "across" (count entities) (pluralize entities "entity" "entities") "...")
-        (println "Properties:" (and-join (sort (map :name properties))))
-        (println "Classes:" (and-join (sort (map :name classes))))
-
-        ;; Relationships to move onto the replacements, captured before the originals are removed
-        (let [extends-by-uuid (extending-classes graph conflicts)
-              schema-ident->aliases (conflict-aliases graph conflicts)]
-          ;; Step 2: free the original names by renaming the originals
-          (import-edn graph (rename-originals-edn conflicts))
-          ;; Step 3: create the schema.org replacements under the original names
-          (add-schema (mapv :name (concat classes properties)) {:graph graph :pretend false})
-          ;; Step 4: add the schema tags and copied property values onto the entities,
-          ;; re-point extending classes, and move aliases onto the schema.org replacements
-          (let [schema-ident->uuid (idents->uuids graph (keys schema-ident->aliases))
-                aliases (into {} (map (fn [[sident targets]] [(schema-ident->uuid sident) targets]))
-                              schema-ident->aliases)]
-            (import-edn graph (migrate-add-edn index conflicts entities extends-by-uuid aliases))))
-        ;; Step 5: remove the original user tags and property values from the entities
-        (remove-user-associations graph entities)
-        ;; Step 6: confirm nothing is still associated, then remove the originals
-        (let [remaining (->> (concat properties classes)
-                             (map (fn [c] [(:name c) (association-count graph c)]))
-                             (filter (comp pos? second)))]
-          (when (seq remaining)
-            (cli-util/error "Migration incomplete; entities still associated with:"
-                            (pr-str (into {} remaining))))
-          (remove-originals graph conflicts))
-        (println "Migration complete.")))))
+      (migrate* graph index conflicts entities))))
 
 (defn- migrate-command [{:keys [opts]}]
   (migrate opts))
