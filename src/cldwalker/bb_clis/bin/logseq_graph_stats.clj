@@ -64,7 +64,7 @@
     {}))
 
 (defn- graph-counts [graph user?]
-  (let [extra (when user? ["--no-include-built-in"])]
+  (let [extra (when user? ["--include-built-in" "false"])]
     (array-map
      :entities (logseq-query graph '[:find (count-distinct ?e) . :where [?e _ _]])
      :pages (apply logseq-list-count graph "page" "--include-hidden" extra)
@@ -99,13 +99,13 @@
                      classes-with-url total-classes (pct classes-with-url total-classes)))))
 
 (defn- command [{:keys [opts]}]
-  (if (:objects opts)
-    (object-counts (:graph opts) opts)
-    (pprint/pprint (graph-counts (:graph opts) (:user opts)))))
+  (println "Object Counts by Class:")
+  (object-counts (:graph opts) opts)
+  (println "\nCounts:")
+  (pprint/pprint (graph-counts (:graph opts) (:user opts))))
 
 (def ^:private spec
   {:graph {:alias :g :desc "Graph name"}
-   :objects {:alias :o :coerce :boolean :desc "Show tag/count breakdown for nodes with :block/tags"}
    :user {:alias :u :coerce :boolean :desc "Exclude built-in pages, classes and properties"}})
 
 (defn -main [& args]
