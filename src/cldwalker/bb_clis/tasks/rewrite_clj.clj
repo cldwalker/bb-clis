@@ -9,6 +9,11 @@
       z/sexpr))
 
 (defn var-sexp
-  [[string-var file]]
+  "For given file, prints var sexp which is usually its value."
+  {:org.babashka/cli {:spec {:var {:desc "Var name" :positional true}
+                             :file {:desc "File to search" :positional true}}
+                      :args->opts [:var :file]
+                      :require [:var :file]}}
+  [{:keys [var file]}]
   (let [zloc (z/of-string (slurp file))]
-    (find-symbol-first-right-sexpr zloc (symbol string-var))))
+    (prn (find-symbol-first-right-sexpr zloc (symbol var)))))

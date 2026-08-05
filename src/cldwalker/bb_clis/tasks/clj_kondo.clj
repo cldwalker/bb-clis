@@ -6,8 +6,11 @@
 (require '[pod.borkdude.clj-kondo :as clj-kondo])
 
 (defn var-sizes
-  [args]
-  (let [paths (or args ["src"])
+  "Print vars with largest LOCs. Defaults to src/ for source-paths."
+  {:org.babashka/cli {:spec {:source-paths {:desc "Source paths" :coerce [] :positional true}}
+                      :args->opts (repeat :source-paths)}}
+  [{:keys [source-paths]}]
+  (let [paths (or (seq source-paths) ["src"])
         {{:keys [var-definitions var-usages]} :analysis}
         (clj-kondo/run!
          {:lint paths
@@ -27,11 +30,14 @@
                              :filename (:filename m)})))
                   (sort-by :loc-size (fn [x y] (compare y x)))
                   (take 10))]
-    vars))
+    (prn vars)))
 
 (defn var-meta
-  [args]
-  (let [paths (or (seq args) ["src"])
+  "Prints var metadata for source-paths. Defaults to src/ for source-paths."
+  {:org.babashka/cli {:spec {:source-paths {:desc "Source paths" :coerce [] :positional true}}
+                      :args->opts (repeat :source-paths)}}
+  [{:keys [source-paths]}]
+  (let [paths (or (seq source-paths) ["src"])
         {{:keys [var-definitions]} :analysis}
         (clj-kondo/run!
          {:lint paths
@@ -41,11 +47,14 @@
                           {:var (str (:ns m) "/" (:name m))
                            :meta (:meta m)}))
                       var-definitions)]
-    matches))
+    (prn matches)))
 
 (defn ns-meta
-  [args]
-  (let [paths (or (seq args) ["src"])
+  "Prints ns metadata for source-paths. Defaults to src/ for source-paths."
+  {:org.babashka/cli {:spec {:source-paths {:desc "Source paths" :coerce [] :positional true}}
+                      :args->opts (repeat :source-paths)}}
+  [{:keys [source-paths]}]
+  (let [paths (or (seq source-paths) ["src"])
         {{:keys [namespace-definitions]} :analysis}
         (clj-kondo/run!
          {:lint paths
@@ -55,4 +64,4 @@
                           {:ns   (:name m)
                            :meta (:meta m)}))
                       namespace-definitions)]
-    matches))
+    (prn matches)))

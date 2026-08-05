@@ -4,7 +4,10 @@
 (defn checkout-pr-branch
   "Check out a contributor's branch with write permissions.
 Copy this from a github PR by looking for the branch after `Add more commits by pushing`"
-  [pr-branch]
+  {:org.babashka/cli {:spec {:pr-branch {:desc "Github branch url" :positional true}}
+                      :args->opts [:pr-branch]
+                      :require [:pr-branch]}}
+  [{:keys [pr-branch]}]
   (let [[_ user repo branch :as matches]
         (re-find #"https://github.com/(\S+)/(\S+)/tree/(.*)$" pr-branch)]
     (assert matches "Branch url with correct format required")

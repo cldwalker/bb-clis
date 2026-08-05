@@ -14,7 +14,7 @@
   "Reads in stdin input from logseq-ast and prints files which have no content"
   ;; Empty is no nodes or one node with blank heading
   ;; Worked for all except one node with a property drawer that wasn't just timestamps
-  []
+  [_options]
   (let [ast-files (edn/read *in*)
         empty-files (filter
                      (fn [{:keys [ast]}]
@@ -35,7 +35,7 @@
 
 (defn pages
   "Reads in stdin input from logseq-ast and prints pages"
-  []
+  [_options]
   ;; ast-in can be a coll of asts by file or just the ast itself
   (let [ast-in (edn/read *in*)
         result-pages (if (and (coll? ast-in) (:file (first ast-in)))
@@ -61,7 +61,7 @@
 
 (defn urls
   "Reads in stdin input from logseq-ast and prints urls"
-  []
+  [_options]
   ;; ast-in can be a coll of asts by file or just the ast itself
   (let [ast-in (edn/read *in*)
         result-urls (if (and (coll? ast-in) (:file (first ast-in)))
@@ -83,7 +83,10 @@
 
 (defn copy-entities
   "Copy mp entities to current graph"
-  [& search-terms]
+  {:org.babashka/cli {:spec {:search-terms {:desc "Search terms" :coerce [] :positional true}}
+                      :args->opts (repeat :search-terms)
+                      :require [:search-terms]}}
+  [{:keys [search-terms]}]
   (doseq [search-term search-terms]
     (if-let [ent (->> (shell {:out :string} "mp show -e" search-term "-r")
                       :out
@@ -109,7 +112,11 @@
 
 (defn copy-files
   "Copy files from one graph to another"
-  [dir & search-terms]
+  {:org.babashka/cli {:spec {:dir {:desc "Graph directory" :positional true}
+                             :search-terms {:desc "Search terms" :coerce [] :positional true}}
+                      :args->opts (cons :dir (repeat :search-terms))
+                      :require [:dir]}}
+  [{:keys [dir search-terms]}]
   (let [files (apply search-graphs dir search-terms)]
     (if (= files [""])
       (println "Error: No files found")
@@ -124,7 +131,11 @@
 
 (defn copy-common-pages
   "Copies chosen common file to other destinations"
-  [dir & search-terms]
+  {:org.babashka/cli {:spec {:dir {:desc "Graph directory" :positional true}
+                             :search-terms {:desc "Search terms" :coerce [] :positional true}}
+                      :args->opts (cons :dir (repeat :search-terms))
+                      :require [:dir]}}
+  [{:keys [dir search-terms]}]
   (let [files (apply search-graphs dir search-terms)]
     (if (= files [""])
       (println "Error: No files found")
@@ -149,7 +160,9 @@
 ;; TODO: Handle case-insensitive common pages like Clojure vs clojure
 (defn validate-common-pages
   "Find common pages across graphs and validate that they are equal"
-  [& dirs]
+  {:org.babashka/cli {:spec {:dirs {:desc "Graph directories" :coerce [] :positional true}}
+                      :args->opts (repeat :dirs)}}
+  [{:keys [dirs]}]
   (let [not-equal (->> (get-graph-files dirs)
                        (map str)
                        (group-by fs/file-name)
@@ -163,7 +176,9 @@
 
 (defn list-common-pages
   "List common pages"
-  [& dirs]
+  {:org.babashka/cli {:spec {:dirs {:desc "Graph directories" :coerce [] :positional true}}
+                      :args->opts (repeat :dirs)}}
+  [{:keys [dirs]}]
   (->> (get-graph-files dirs)
        (map str)
        (group-by fs/file-name)

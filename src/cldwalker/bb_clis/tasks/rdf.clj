@@ -5,7 +5,10 @@
 
 (defn rdf-equal
   "Test if multiple turtle rdf files are equal"
-  [& files]
+  {:org.babashka/cli {:spec {:files {:desc "Turtle rdf files" :coerce [] :positional true}}
+                      :args->opts (repeat :files)
+                      :require [:files]}}
+  [{:keys [files]}]
   (let [write-nt
         (fn [in-file out-file]
           (println "Write" out-file)
@@ -23,7 +26,10 @@
 
 (defn triples-count
   "Count number of triples in a turtle file"
-  [file]
+  {:org.babashka/cli {:spec {:file {:desc "Turtle file" :positional true}}
+                      :args->opts [:file]
+                      :require [:file]}}
+  [{:keys [file]}]
   (println (format "%s triples!"
                    (-> (shell {:out :string} "serdi -i turtle -o ntriples" file)
                        :out

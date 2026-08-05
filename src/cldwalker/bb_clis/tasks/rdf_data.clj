@@ -1,5 +1,6 @@
 (ns cldwalker.bb-clis.tasks.rdf-data
   (:require [babashka.process :as process]
+            [clojure.pprint :as pprint]
             [clojure.string :as str]
             [cheshire.core :as json]))
 
@@ -14,12 +15,16 @@
       (str out-str)
       (str ret))))
 
-(def rdf-data-cli-options
-  [["-a" "--all" "Prints all data, not just schema.org predicates with graph and subject filtered out"]])
-
 (defn rdf-data
-  [args options]
-  (let [rdf-data (process-by-timeout ["rdf-dereference" (first args)] 2500)
+  "Fetches rdf contents of a url using rdf-dereference."
+  {:org.babashka/cli {:spec {:url {:desc "Url to fetch" :positional true}
+                             :all {:alias :a
+                                   :coerce :boolean
+                                   :desc "Prints all data, not just schema.org predicates with graph and subject filtered out"}}
+                      :args->opts [:url]
+                      :require [:url]}}
+  [{:keys [url] :as options}]
+  (let [rdf-data (process-by-timeout ["rdf-dereference" url] 2500)
         filter-fn (if (:all options)
                     (constantly true)
                     (fn [{:keys [predicate]}]
@@ -30,4 +35,4 @@
         map-fn (if (:all options) identity (fn [m] (dissoc m :subject :graph)))
         result (map map-fn
                     (filter filter-fn (json/parse-string rdf-data true)))]
-    result))
+    (pprint/pprint result)))

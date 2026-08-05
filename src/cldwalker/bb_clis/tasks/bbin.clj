@@ -7,7 +7,7 @@
 
 (defn uninstall
   "Uninstall every :bbin/bin entry from current bb.edn"
-  []
+  [_options]
   (let [root (str (fs/cwd))
         entries (:bbin/bin (edn/read-string (slurp (str (fs/path root "bb.edn")))))]
     (when (empty? entries)
@@ -20,7 +20,9 @@
   "Install every :bbin/bin entry from current bb.edn by default.
   Optional commands will only install those commands.
   Installs with `--local/root` so edits to src/ are picked up live without reinstalling."
-  [& cmds]
+  {:org.babashka/cli {:spec {:cmds {:desc "Commands to install" :coerce [] :positional true}}
+                      :args->opts (repeat :cmds)}}
+  [{:keys [cmds]}]
   (let [root (str (fs/cwd))
         entries* (:bbin/bin (edn/read-string (slurp (str (fs/path root "bb.edn")))))
         entries (if (seq cmds) (select-keys entries* (map symbol cmds)) entries*)]
@@ -36,7 +38,9 @@
 (defn build-completions
   "Regenerate zsh completion files from bb for bbin CLI's
   `completion-cmds` by invoking its babashka.cli completions snippet."
-  [& cmds]
+  {:org.babashka/cli {:spec {:cmds {:desc "Commands to build completions for" :coerce [] :positional true}}
+                      :args->opts (repeat :cmds)}}
+  [{:keys [cmds]}]
   (let [completions-dir (str (fs/path (fs/home) ".zsh" "completions"))
         root (str (fs/cwd))
         entries* (:bbin/bin (edn/read-string (slurp (str (fs/path root "bb.edn")))))

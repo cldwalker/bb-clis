@@ -5,7 +5,7 @@ scripts and tasks. scripts strive to be compatible with Clojure.
 
 ## Prerequisites
 
-[Babashka](https://github.com/borkdude/babashka#installation) >= 1.12.218 is required.
+[Babashka](https://github.com/borkdude/babashka#installation) >= 1.13.219 is required.
 
 ## Tasks
 
@@ -19,6 +19,8 @@ function bbg() { BABASHKA_EDN=/path/to/this-repo/bb.edn bb --config
 ```
 
 Run `bbg tasks` to see all the available tasks.
+
+bbg can have task-specific completion thanks to the [built-in bb completion](https://blog.michielborkent.nl/babashka-tasks-cli.html#shell-completions). [Here is my completion](https://github.com/cldwalker/dotfiles/blob/master/.zsh/completions/_bbg) for it but note that it has my paths and would need to be updated to point to your path for this repo.
 
 ## Scripts
 

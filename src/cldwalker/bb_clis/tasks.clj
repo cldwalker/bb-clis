@@ -1,72 +1,87 @@
 (ns cldwalker.bb-clis.tasks
+  "Contains tasks which only depend on built-in namespaces or local ones in src/"
   (:require [babashka.tasks :refer [run]]
+            [babashka.cli :as cli]
             [babashka.process :refer [shell]]
             [babashka.fs :as fs]
             [cheshire.core :as json]
             [clojure.edn :as edn]
             [clojure.data :as data]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [cldwalker.bb-clis.cli :as cli-util]))
 
 (defn brew-search-info
-  [args]
+  "Runs a brew info on all brew search results."
+  {:org.babashka/cli {:spec {:search {:desc "Search terms" :coerce [] :positional true}}
+                      :args->opts (repeat :search)
+                      :require [:search]}}
+  [{:keys [search]}]
   (let [results (-> (shell {:out :string}
                            (str/join " " (into ["brew" "search"]
-                                               args)))
+                                               search)))
                     :out
                     str/split-lines)
         brew-packages (remove (fn [x] (re-find (re-pattern "(Casks|Formulae)$") x)) results)]
     (shell (str "brew info " (str/join " " brew-packages)))))
 
 (defn json=
-  "Useful when diff fails you due to random sort of json files produced differently"
-  [args]
-  (apply = (map (fn [x] (-> x slurp json/parse-string)) args)))
+  "Check equality of given json files.
+  Useful when diff fails you due to random sort of json files produced differently."
+  {:org.babashka/cli {:spec {:file1 {:desc "First json file" :positional true}
+                             :file2 {:desc "Second json file" :positional true}
+                             :files {:desc "Additional json files" :coerce [] :positional true}}
+                      :args->opts (list* :file1 :file2 (repeat :files))
+                      :require [:file1 :file2]}}
+  [{:keys [file1 file2 files]}]
+  (prn (apply = (map (fn [x] (-> x slurp json/parse-string)) (into [file1 file2] files)))))
 
 (defn edn=
-  "Useful when diff fails you due to random sort of edn files produced differently"
-  [& args]
-  (apply = (map (fn [x] (-> x slurp edn/read-string)) args)))
+  "Check equality of given edn files.
+  Useful when diff fails you due to random sort of edn files produced differently."
+  {:org.babashka/cli {:spec {:file1 {:desc "First edn file" :positional true}
+                             :file2 {:desc "Second edn file" :positional true}
+                             :files {:desc "Additional edn files" :coerce [] :positional true}}
+                      :args->opts (list* :file1 :file2 (repeat :files))
+                      :require [:file1 :file2]}}
+  [{:keys [file1 file2 files]}]
+  (prn (apply = (map (fn [x] (-> x slurp edn/read-string)) (into [file1 file2] files)))))
 
 (defn data-diff
-  "Runs data/diff on two edn files"
-  [file1 file2]
+  "Runs data/diff on two edn files."
+  {:org.babashka/cli {:spec {:file1 {:desc "First edn file" :positional true}
+                             :file2 {:desc "Second edn file" :positional true}}
+                      :args->opts [:file1 :file2]
+                      :require [:file1 :file2]}}
+  [{:keys [file1 file2]}]
   (prn (apply data/diff (map (fn [x] (-> x slurp edn/read-string)) [file1 file2]))))
 
-(def every-dir-shell-cli-options
-  [["-d" "--directory DIR" "Directories"
-    :id :directories
-    :default-fn (fn [_x] [(System/getenv "PWD")])
-    :validate [fs/directory? "Must be a directory"]
-    :multi true
-    :update-fn conj]])
+(def ^:api every-dir-shell-cli
+  "babashka.cli options for [[every-dir-shell]]. Referenced as `:cli` in bb.edn."
+  {:spec {:directory {:alias :d
+                      :ref "<dir>"
+                      :coerce []
+                      :desc "Directory to run command in. Defaults to $PWD"}
+          :cmd {:desc "Shell command" :positional true}}
+   :args->opts (repeat :cmd)
+   :coerce {:cmd []}
+   :repeated-opts true})
 
 (defn every-dir-shell
-  [parsed-args]
-  (let [{:keys [options arguments]} parsed-args
-        args (str/join " " arguments)]
-    (doseq [dir (:directories options)]
+  "Run shell command on every dir."
+  [_options]
+  ;; Options are parsed from raw args with split-leading-opts as the trailing
+  ;; shell command can have options of its own e.g. `ls -la`
+  (let [option-spec (dissoc (:spec every-dir-shell-cli) :cmd)
+        [option-args cmd-args] (cli-util/split-leading-opts option-spec *command-line-args*)
+        options (:opts (cli/parse-args option-args
+                                       {:spec option-spec
+                                        :validate {:directory fs/directory?}}))
+        directories (or (:directory options) [(System/getenv "PWD")])
+        cmd (str/join " " cmd-args)]
+    (doseq [dir directories]
       (println "=== Directory -" dir "===")
-      (shell {:dir dir} args)
+      (shell {:dir dir} cmd)
       (println ""))))
-
-(defn help
-  [args]
-   ;; Would rather not dip into explicit env to determine tasks
-  (let [tasks (-> (or (System/getenv "BB_EDN") "bb.edn")
-                         slurp
-                         edn/read-string
-                         :tasks)
-               task (first args)]
-           (if-let [task-map (get tasks (symbol task))]
-             (println (format "%s\n\nUsage: bb %s%s"
-                              (:doc task-map)
-                              task
-                              (if-let [usage (:usage task-map)]
-                                (str " " usage)
-                                "")))
-             (do
-               (println "Error: No such task exists")
-               (System/exit 1)))))
 
 (defn repl
   [args]
@@ -83,28 +98,47 @@
     ((requiring-resolve 'clojure.core.server/repl))))
 
 (defn do-sh
-  "Runs shell command for each element on stdin seq"
-  [& args]
-  (run! #(apply shell (concat args [%])) (edn/read *in*)))
+  "Runs shell command for each element on stdin seq."
+  {:org.babashka/cli {:spec {:cmd {:desc "Shell command" :positional true}}
+                      :args->opts (repeat :cmd)
+                      :coerce {:cmd []}}}
+  [_options]
+  ;; Uses raw args since the shell command can have options of its own
+  (run! #(apply shell (concat *command-line-args* [%])) (edn/read *in*)))
 
 (defn wc-l
-  "Filter files by max loc"
-  [max-loc & args]
-  (let [max-loc_ (Integer/parseInt max-loc)]
-    (->> (apply shell {:out :string} "wc -l" args)
-         :out
-         str/split-lines
-         butlast
-         (map #(let [[_ loc file] (str/split % #"\s+" 4)]
-                 {:loc (Integer/parseInt loc) :file file}))
-         (sort-by :loc)
-         (filter #(<= (:loc %) max-loc_))
-         (map :file)
-         prn)))
+  "Filter files by max loc."
+  {:org.babashka/cli {:spec {:max-loc {:desc "Max lines of code" :coerce :long :positional true}
+                             :files {:desc "Files to filter" :coerce [] :positional true}}
+                      :args->opts (cons :max-loc (repeat :files))
+                      :require [:max-loc]}}
+  [{:keys [max-loc files]}]
+  (->> (apply shell {:out :string} "wc -l" files)
+       :out
+       str/split-lines
+       butlast
+       (map #(let [[_ loc file] (str/split % #"\s+" 4)]
+               {:loc (Integer/parseInt loc) :file file}))
+       (sort-by :loc)
+       (filter #(<= (:loc %) max-loc))
+       (map :file)
+       prn))
+
+(def test-cli
+  "babashka.cli options for the test task. Referenced as `:cli` in bb.edn."
+  {:exec-args {:dirs ["test"]}
+   :coerce {:nses [:symbol]
+            :vars [:symbol]}})
+
+(def http-server-cli
+  "babashka.cli options for the http-server task. Referenced as `:cli` in bb.edn."
+  {:spec {:port {:coerce :long :desc "Port to serve on" :default 8090}
+          :dir {:desc "Directory from which to serve assets" :default "."}
+          :headers {:coerce :edn :desc "Map of headers"}}})
 
 (defn grep-result-frequencies
-  "Takes piped in grep output and prints out frequency by file counts"
-  []
+  "Takes piped in grep output and prints out frequency by file counts."
+  [_options]
   (let [results (->> *in*
                      slurp
                      str/split-lines

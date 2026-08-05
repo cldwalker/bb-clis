@@ -1,10 +1,8 @@
 {:paths ["src" "resources"]
- :min-bb-version "1.12.218"
+ :min-bb-version "1.13.219"
  :deps
-  {com.github.cldwalker/bb-dialog
-   {:git/sha "e10f2d8461b3de4c521c1fcf71552f38c47f33da"}
-   ;; Override built-in for usage and completion features
-   org.babashka/cli {:mvn/version "0.12.76"}}
+ {com.github.cldwalker/bb-dialog
+  {:git/sha "e10f2d8461b3de4c521c1fcf71552f38c47f33da"}}
 
  :bbin/bin
  {bb-aws                        {:main-opts ["-m" "cldwalker.bb-clis.bin.bb-aws"]}
@@ -34,105 +32,57 @@
   logseq-validate-no-todos      {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-validate-no-todos"]}}
 
  :tasks
- {:requires ([cldwalker.bb-clis.tasks.util :as tasks-util])
-
-  :enter (let [task-map (current-task)]
-           (def ^:dynamic *parsed-args*
-             (tasks-util/parse-options task-map))
-           (tasks-util/check-for-required-arguments *parsed-args* task-map))
-
-  help
-  {:doc "Print a task's help"
-   :usage "TASK"
-   :override-builtin true
-   :requires ([cldwalker.bb-clis.tasks :as tasks])
-   :task (tasks/help *command-line-args*)}
-
-  repl
+ {repl
   ;; Couldn't just reference whole task as a map as `bb tasks` failed
   {:doc "Pull up socket repl with #'tasks/result bound to result of given task and args"
-   :usage "TASK [& ARGS]"
    :override-builtin true
    :requires ([cldwalker.bb-clis.tasks :as tasks])
    :task (tasks/repl *command-line-args*)}
 
   every-dir-shell
-  {:doc "Run shell command on every dir"
-   :requires ([cldwalker.bb-clis.tasks :as tasks])
-   :usage "CMD [&ARGS]"
-   :options tasks/every-dir-shell-cli-options
-   :cli-options [:in-order true]
-   :task (tasks/every-dir-shell *parsed-args*)}
+  {:exec-fn cldwalker.bb-clis.tasks/every-dir-shell
+   :cli cldwalker.bb-clis.tasks/every-dir-shell-cli}
 
   json=
-  {:doc "Check equality of given json files"
-   :usage "[& FILES]"
-   :requires ([cldwalker.bb-clis.tasks :as tasks])
-   :task (prn (tasks/json= *command-line-args*))}
+  {:exec-fn cldwalker.bb-clis.tasks/json=}
 
   edn=
-  {:doc "Check equality of given edn files"
-   :usage "[& FILES]"
-   :requires ([cldwalker.bb-clis.tasks :as tasks])
-   :task cldwalker.bb-clis.tasks/edn=}
+  {:exec-fn cldwalker.bb-clis.tasks/edn=}
 
   data-diff
-  cldwalker.bb-clis.tasks/data-diff
+  {:exec-fn cldwalker.bb-clis.tasks/data-diff}
 
   brew-search-info
-  {:doc "Runs a brew info on all brew search results"
-   :usage "SEARCH"
-   :requires ([cldwalker.bb-clis.tasks :as tasks])
-   :task (tasks/brew-search-info *command-line-args*)}
+  {:exec-fn cldwalker.bb-clis.tasks/brew-search-info}
 
   update-gitlib
-  {:doc "Update git library sha in deps.edn"
-   :extra-deps {borkdude/rewrite-edn {:mvn/version "0.1.0"}}
-   :requires ([cldwalker.bb-clis.tasks.rewrite-edn :as rewrite-edn])
-   :usage "GITLIB SHA"
-   :task (rewrite-edn/update-gitlib *command-line-args*)}
+  {:extra-deps {borkdude/rewrite-edn {:mvn/version "0.1.0"}}
+   :exec-fn cldwalker.bb-clis.tasks.rewrite-edn/update-gitlib}
 
   rdf-data
-  {:doc "Fetches rdf contents of a url using rdf-dereference"
-   :usage "URL"
-   :requires ([cldwalker.bb-clis.tasks.rdf-data :as rdf-data]
-              [clojure.pprint :as pprint])
-   :options rdf-data/rdf-data-cli-options
-   :task (pprint/pprint (rdf-data/rdf-data *command-line-args* (:options *parsed-args*)))}
+  {:exec-fn cldwalker.bb-clis.tasks.rdf-data/rdf-data}
 
   clone
-  {:doc "Clone a git url"
-   :usage "URL"
-   :extra-deps {org.clojure/tools.gitlibs {:mvn/version "2.4.172"}}
-   :requires ([cldwalker.bb-clis.tasks.git :as git])
-   :options git/clone-cli-options
-   :task (git/clone *parsed-args*)}
+  {:extra-deps {org.clojure/tools.gitlibs {:mvn/version "2.4.172"}}
+   :exec-fn cldwalker.bb-clis.tasks.git/clone}
 
   var-sizes
-  {:doc "Print vars with largest LOCs"
-   :usage "[& SOURCE-PATHS]"
-   :requires ([cldwalker.bb-clis.tasks.clj-kondo :as clj-kondo])
-   :task (prn (clj-kondo/var-sizes *command-line-args*))}
+  {:exec-fn cldwalker.bb-clis.tasks.clj-kondo/var-sizes}
 
   var-meta
-  {:doc "Prints var metadata for source-paths. Defaults to src/ for source-paths"
-   :usage "[& SOURCE-PATHS]"
-   :requires ([cldwalker.bb-clis.tasks.clj-kondo :as clj-kondo])
-   :task (prn (clj-kondo/var-meta *command-line-args*))}
+  {:exec-fn cldwalker.bb-clis.tasks.clj-kondo/var-meta}
 
   ns-meta
-  {:doc "Prints ns metadata for source-paths. Defaults to src/ for source-paths"
-   :usage "[& SOURCE-PATHS]"
-   :requires ([cldwalker.bb-clis.tasks.clj-kondo :as clj-kondo])
-   :task (prn (clj-kondo/ns-meta *command-line-args*))}
+  {:exec-fn cldwalker.bb-clis.tasks.clj-kondo/ns-meta}
 
   ;; From @borkdude
   http-server
   {:extra-deps {babashka/http-server
                 {:git/url "https://github.com/babashka/http-server"
-                 :git/sha "d1f01b47492dec245f3f6d297849ee038243ee86"}}
+                 :git/sha "c7fefc73480ed82b4cc7401ca6e5b6ef1010d4ae"}}
    :doc "Run a basic http server"
-   :task babashka.http-server/-main}
+   :exec-fn babashka.http-server/exec
+   :cli cldwalker.bb-clis.tasks/http-server-cli}
 
   ;; From https://blog.michielborkent.nl/babashka-test-runner.html
   test
@@ -142,84 +92,71 @@
                  "test/resources"]
    :extra-deps {io.github.cognitect-labs/test-runner
                 {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
-   :task (exec 'cognitect.test-runner.api/test)
-   :exec-args {:dirs ["test"]}
    :doc "Run tests with cognitect test runner"
-   :org.babashka/cli {:coerce {:nses [:symbol]
-                               :vars [:symbol]}}}
+   :exec-fn cognitect.test-runner.api/test
+   :cli cldwalker.bb-clis.tasks/test-cli}
 
   ns-in-dir
   {:extra-deps {org.clojure/tools.namespace {:git/url "https://github.com/babashka/tools.namespace"
                                              :git/sha "3625153ee66dfcec2ba600851b5b2cbdab8fae6c"}}
-   :requires ([clojure.tools.namespace.find :as find]
-              [babashka.fs :as fs])
-   :doc "Prints namespaces in dir"
-   :usage "DIR"
-   :task (prn (apply find/find-namespaces-in-dir (map fs/file *command-line-args*)))}
+   :exec-fn cldwalker.bb-clis.tasks.ns-in-dir/ns-in-dir}
 
   var-sexp
-  {:requires ([cldwalker.bb-clis.tasks.rewrite-clj :as rewrite-clj])
-   :doc "For given file, returns var sexp which is usually its value"
-   :usage "VAR FILE"
-   :task (prn (rewrite-clj/var-sexp *command-line-args*))}
+  {:exec-fn cldwalker.bb-clis.tasks.rewrite-clj/var-sexp}
 
   do-sh
-  cldwalker.bb-clis.tasks/do-sh
+  {:exec-fn cldwalker.bb-clis.tasks/do-sh}
 
   logseq:empty-files
-  cldwalker.bb-clis.tasks.logseq/empty-files
+  {:exec-fn cldwalker.bb-clis.tasks.logseq/empty-files}
 
   logseq:pages
-  cldwalker.bb-clis.tasks.logseq/pages
+  {:exec-fn cldwalker.bb-clis.tasks.logseq/pages}
 
   logseq:urls
-  cldwalker.bb-clis.tasks.logseq/urls
+  {:exec-fn cldwalker.bb-clis.tasks.logseq/urls}
 
   logseq:copy-entities
-  cldwalker.bb-clis.tasks.logseq/copy-entities
+  {:exec-fn cldwalker.bb-clis.tasks.logseq/copy-entities}
 
   logseq:copy-files
-  cldwalker.bb-clis.tasks.logseq/copy-files
+  {:exec-fn cldwalker.bb-clis.tasks.logseq/copy-files}
 
   logseq:copy-common-pages
-  cldwalker.bb-clis.tasks.logseq/copy-common-pages
+  {:exec-fn cldwalker.bb-clis.tasks.logseq/copy-common-pages}
 
   logseq:validate-common-pages
-  cldwalker.bb-clis.tasks.logseq/validate-common-pages
+  {:exec-fn cldwalker.bb-clis.tasks.logseq/validate-common-pages}
 
   logseq:list-common-pages
-  cldwalker.bb-clis.tasks.logseq/list-common-pages
+  {:exec-fn cldwalker.bb-clis.tasks.logseq/list-common-pages}
 
   dev:bump-git-sha
-  {:doc "Bump :git/sha in deps/add-deps in given files to latest HEAD"
-   :usage "[& FILES]"
-   :requires ([cldwalker.bb-clis.tasks.dev :as dev])
-   :task (dev/bump-git-sha *command-line-args*)}
+  {:exec-fn cldwalker.bb-clis.tasks.dev/bump-git-sha}
 
   rdf:rdf-equal
-  cldwalker.bb-clis.tasks.rdf/rdf-equal
+  {:exec-fn cldwalker.bb-clis.tasks.rdf/rdf-equal}
 
   rdf:triples-count
-  cldwalker.bb-clis.tasks.rdf/triples-count
+  {:exec-fn cldwalker.bb-clis.tasks.rdf/triples-count}
 
   wc-l
-  cldwalker.bb-clis.tasks/wc-l
+  {:exec-fn cldwalker.bb-clis.tasks/wc-l}
 
   grep-result-frequencies
-  cldwalker.bb-clis.tasks/grep-result-frequencies
-
-  specter:example
-  {:extra-deps {com.rpl/specter {:mvn/version "1.1.4"}}
-   :task cldwalker.bb-clis.tasks.specter/example}
+  {:exec-fn cldwalker.bb-clis.tasks/grep-result-frequencies}
 
   gh:checkout-pr-branch
-  cldwalker.bb-clis.tasks.github/checkout-pr-branch
+  {:exec-fn cldwalker.bb-clis.tasks.github/checkout-pr-branch}
 
   bbin:install
-  cldwalker.bb-clis.tasks.bbin/install
+  {:exec-fn cldwalker.bb-clis.tasks.bbin/install}
 
   bbin:uninstall
-  cldwalker.bb-clis.tasks.bbin/uninstall
+  {:exec-fn cldwalker.bb-clis.tasks.bbin/uninstall}
 
   bbin:build-completions
-  cldwalker.bb-clis.tasks.bbin/build-completions}}
+  {:exec-fn cldwalker.bb-clis.tasks.bbin/build-completions}
+
+  bb:build-completions
+  {:exec-fn cldwalker.bb-clis.tasks.bb/build-completions}}}

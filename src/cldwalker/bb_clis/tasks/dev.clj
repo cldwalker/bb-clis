@@ -6,7 +6,9 @@
 (defn bump-git-sha
   "For each given file, bumps `:git/sha` in `deps/add-deps` to the latest HEAD
    sha in the bb-clis repo."
-  [files]
+  {:org.babashka/cli {:spec {:files {:desc "Files to bump" :coerce [] :positional true}}
+                      :args->opts (repeat :files)}}
+  [{:keys [files]}]
   (let [sha (-> (shell {:out :string} "git" "rev-parse" "HEAD")
                 :out
                 str/trim)]
