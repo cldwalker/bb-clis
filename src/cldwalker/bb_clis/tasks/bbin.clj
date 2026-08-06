@@ -5,11 +5,25 @@
             [clojure.edn :as edn]
             [clojure.string :as str]))
 
+(defn- config-file
+  "The running task's bb.edn, resolved from the `babashka.config` property so
+  tasks and completions work from any directory e.g. via the bbg fn."
+  []
+  (str (fs/absolutize (System/getProperty "babashka.config"))))
+
+(defn- bbin-entries
+  []
+  (:bbin/bin (edn/read-string (slurp (config-file)))))
+
+(defn- complete-cmds
+  "Completion candidates for `:cmds` args - the `:bbin/bin` entry names."
+  [_m]
+  (sort (map str (keys (bbin-entries)))))
+
 (defn uninstall
   "Uninstall every :bbin/bin entry from current bb.edn"
   [_options]
-  (let [root (str (fs/cwd))
-        entries (:bbin/bin (edn/read-string (slurp (str (fs/path root "bb.edn")))))]
+  (let [entries (bbin-entries)]
     (when (empty? entries)
       (println "No :bbin/bin entries found in bb.edn")
       (System/exit 1))
@@ -20,11 +34,12 @@
   "Install every :bbin/bin entry from current bb.edn by default.
   Optional commands will only install those commands.
   Installs with `--local/root` so edits to src/ are picked up live without reinstalling."
-  {:org.babashka/cli {:spec {:cmds {:desc "Commands to install" :coerce [] :positional true}}
+  {:org.babashka/cli {:spec {:cmds {:desc "Commands to install" :coerce [] :positional true
+                                    :complete-fn complete-cmds}}
                       :args->opts (repeat :cmds)}}
   [{:keys [cmds]}]
-  (let [root (str (fs/cwd))
-        entries* (:bbin/bin (edn/read-string (slurp (str (fs/path root "bb.edn")))))
+  (let [root (str (fs/parent (config-file)))
+        entries* (bbin-entries)
         entries (if (seq cmds) (select-keys entries* (map symbol cmds)) entries*)]
     (when (empty? entries)
       (println "No :bbin/bin entries found in bb.edn")
@@ -38,12 +53,12 @@
 (defn build-completions
   "Regenerate zsh completion files from bb for bbin CLI's
   `completion-cmds` by invoking its babashka.cli completions snippet."
-  {:org.babashka/cli {:spec {:cmds {:desc "Commands to build completions for" :coerce [] :positional true}}
+  {:org.babashka/cli {:spec {:cmds {:desc "Commands to build completions for" :coerce [] :positional true
+                                    :complete-fn complete-cmds}}
                       :args->opts (repeat :cmds)}}
   [{:keys [cmds]}]
   (let [completions-dir (str (fs/path (fs/home) ".zsh" "completions"))
-        root (str (fs/cwd))
-        entries* (:bbin/bin (edn/read-string (slurp (str (fs/path root "bb.edn")))))
+        entries* (bbin-entries)
         completion-cmds (->> (if (seq cmds) (select-keys entries* (map symbol cmds)) entries*)
                              keys
                              (map str))]

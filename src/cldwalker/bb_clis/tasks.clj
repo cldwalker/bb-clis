@@ -124,11 +124,30 @@
        (map :file)
        prn))
 
+(defn- complete-test-nses
+  "Completion candidates for the test task's `--nses` - namespaces found in the
+  `--dirs` values. Relative dirs resolve against this repo so completion works
+  from any directory. tools.namespace comes from the test task's :extra-deps
+  and is only required when completing."
+  [{:keys [opts]}]
+  (let [find-nses (requiring-resolve 'clojure.tools.namespace.find/find-namespaces-in-dir)
+        root (fs/parent (fs/absolutize (System/getProperty "babashka.config")))]
+    (->> (or (seq (:dirs opts)) ["test"])
+         (map #(if (fs/relative? %) (fs/path root %) (fs/path %)))
+         (filter fs/directory?)
+         (mapcat #(find-nses (fs/file (str %))))
+         sort
+         (map str))))
+
 (def test-cli
   "babashka.cli options for the test task. Referenced as `:cli` in bb.edn."
-  {:exec-args {:dirs ["test"]}
-   :coerce {:nses [:symbol]
-            :vars [:symbol]}})
+  {:spec {:dirs {:desc "Directories containing tests" :coerce [] :default ["test"]}
+          :nses {:desc "Namespace symbols to test" :coerce [:symbol]
+                 :complete-fn complete-test-nses :alias :n}
+          :patterns {:desc "Regex strings to match namespaces" :coerce [] :alias :p}
+          :vars {:desc "Fully qualified symbols of test vars to run" :coerce [:symbol]}
+          :includes {:desc "Test metadata keywords to include" :coerce [:keyword] :alias :i}
+          :excludes {:desc "Test metadata keywords to exclude" :coerce [:keyword] :alias :e}}})
 
 (def http-server-cli
   "babashka.cli options for the http-server task. Referenced as `:cli` in bb.edn."
