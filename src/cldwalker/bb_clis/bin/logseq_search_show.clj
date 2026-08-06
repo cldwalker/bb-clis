@@ -6,9 +6,6 @@
             [cldwalker.bb-clis.util.input :as input]
             [clojure.string :as str]))
 
-;; :reload picks up the newer babashka.cli dep
-(require '[babashka.cli :as cli] :reload)
-
 (def ^:private spec
   {:query {:positional true :coerce [:string] :require true
            :desc "Search query"}

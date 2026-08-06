@@ -3,9 +3,6 @@
   (:require [babashka.cli :as cli]
             [babashka.pods :as pods]))
 
-;; :reload picks up the newer babashka.cli dep
-(require '[babashka.cli :as cli] :reload)
-
 (pods/load-pod "clj-kondo")
 (require '[pod.borkdude.clj-kondo :as clj-kondo])
 

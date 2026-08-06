@@ -5,9 +5,6 @@
             [cldwalker.bb-clis.cli :as cli-util]
             [clojure.string :as str]))
 
-;; :reload picks up the newer babashka.cli dep
-(require '[babashka.cli :as cli] :reload)
-
 (defn- current-graph []
   (some->> (shell {:out :string :continue true} "logseq" "graph" "list")
            :out

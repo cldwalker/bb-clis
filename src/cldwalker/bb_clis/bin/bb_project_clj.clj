@@ -4,9 +4,6 @@
             [clojure.pprint :as pprint]
             [clojure.string :as str]))
 
-;; :reload picks up the newer babashka.cli dep
-(require '[babashka.cli :as cli] :reload)
-
 ;; While these are preventing breakages, these may be worth putting
 ;; behind an option if they have unintended consequences
 (defn- modify-project-clj [string]

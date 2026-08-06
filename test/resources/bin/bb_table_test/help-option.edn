@@ -9,8 +9,8 @@ Options:
   -n, --number-rows     Add a :number column with row numbers
   -s, --sort            Sort by column
   -r, --reverse-sort    Reverse sort by column
-  -S, --style           Table style. One of :plain, :org, :unicode or
-                        :github-markdown (default: :plain)
+  -S, --style           Table style (one of: github-markdown, org, plain,
+                        unicode) (default: :plain)
   -h, --help            Show this help
 "
  :exit 0

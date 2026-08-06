@@ -15,9 +15,6 @@
             [clojure.pprint :as pprint]
             [clojure.string :as str]))
 
-;; :reload picks up the newer babashka.cli dep
-(require '[babashka.cli :as cli] :reload)
-
 (pods/load-pod 'org.babashka/aws "0.0.6")
 (require '[pod.babashka.aws :as aws])
 

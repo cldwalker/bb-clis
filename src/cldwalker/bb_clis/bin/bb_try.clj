@@ -5,9 +5,6 @@
             [cldwalker.bb-clis.cli :as cli-util]
             [clojure.java.shell :as shell]))
 
-;; :reload picks up the newer babashka.cli dep
-(require '[babashka.cli :as cli] :reload)
-
 (def ^:private spec
   {:command {:alias :c :desc "Command to run (bb or clojure)"}
    :version {:alias :v :desc "Dependency version"}

@@ -8,9 +8,6 @@
             [clojure.java.io :as io]
             [clojure.string :as str]))
 
-;; :reload picks up the newer babashka.cli dep
-(require '[babashka.cli :as cli] :reload)
-
 (defn- get-replacements
   "Reads replacements from ./bb-replace.edn and ~/.bb-replace.edn.
 A replacement consists of three keys:

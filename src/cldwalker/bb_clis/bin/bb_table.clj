@@ -8,9 +8,6 @@
             [clojure.edn :as edn]
             [clojure.string :as str]))
 
-;; :reload picks up the newer babashka.cli dep
-(require '[babashka.cli :as cli] :reload)
-
 (defn- get-columns
   "Extract columns from rows. Defaults to searching across all rows"
   [rows]
@@ -132,7 +129,7 @@
            :default :plain
            :coerce #(keyword (unalias-choice table-styles %))
            :validate table-styles
-           :desc "Table style. One of :plain, :org, :unicode or :github-markdown"}})
+           :desc "Table style"}})
 
 (defn- command [{:keys [opts]}]
   (if (:file opts)

@@ -15,9 +15,6 @@
   (:import (java.net URL)
            (java.io StringWriter)))
 
-;; :reload picks up the newer babashka.cli dep
-(require '[babashka.cli :as cli] :reload)
-
 ;; Config
 ;; ======
 (def ^:private default-config

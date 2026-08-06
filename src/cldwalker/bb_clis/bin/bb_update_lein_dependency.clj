@@ -6,9 +6,6 @@
             [clojure.java.shell :as shell]
             [clojure.string :as str]))
 
-;; :reload picks up the newer babashka.cli dep
-(require '[babashka.cli :as cli] :reload)
-
 (defn- sh
   "Wrapper around a shell command which fails fast like bash's -e flag.
 Takes following options:

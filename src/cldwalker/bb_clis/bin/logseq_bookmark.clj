@@ -5,9 +5,6 @@
             [babashka.process :refer [shell]]
             [clojure.string :as str]))
 
-;; :reload picks up the newer babashka.cli dep
-(require '[babashka.cli :as cli] :reload)
-
 (defn- fetch-title [url]
   (try
     (let [body (:body (http/get url {:timeout 5000}))

@@ -7,9 +7,6 @@
             [clojure.pprint :as pprint]
             [clojure.string :as str]))
 
-;; :reload picks up the newer babashka.cli dep
-(require '[babashka.cli :as cli] :reload)
-
 (def ^:private default-test-format
     "(deftest %s
   (let [cmd-results (shell/sh %s)

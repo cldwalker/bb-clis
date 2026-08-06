@@ -11,9 +11,6 @@
             [clojure.pprint :as pprint]
             [clojure.string :as str]))
 
-;; :reload picks up the newer babashka.cli dep
-(require '[babashka.cli :as cli] :reload)
-
 (def ^:private index
   "schema-org-index.edn parsed once from the classpath (nil if not found)"
   (some-> (io/resource "schema-org-index.edn") slurp edn/read-string))

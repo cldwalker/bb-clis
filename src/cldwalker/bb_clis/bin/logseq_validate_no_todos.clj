@@ -5,9 +5,6 @@
             [cldwalker.bb-clis.cli :as cli-util]
             [clojure.edn :as edn]))
 
-;; :reload picks up the newer babashka.cli dep
-(require '[babashka.cli :as cli] :reload)
-
 (defn- graph-args [graph]
   (when graph ["-g" graph]))
 

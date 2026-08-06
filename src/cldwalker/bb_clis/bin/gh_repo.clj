@@ -7,9 +7,6 @@
             [clojure.java.shell :as shell]
             [clojure.string :as str]))
 
-;; :reload picks up the newer babashka.cli dep
-(require '[babashka.cli :as cli] :reload)
-
 (defn- find-current-branch []
   (if-let [branch (->> (shell/sh "git" "branch")
                        :out

@@ -6,9 +6,6 @@
             [cldwalker.bb-clis.cli :as cli-util]
             [cldwalker.bb-clis.cli.misc :as misc]))
 
-;; :reload picks up the newer babashka.cli dep
-(require '[babashka.cli :as cli] :reload)
-
 (defn- fetch-response* [commit {:keys [repository token user]}]
   (try
     (curl/get (format "https://api.github.com/repos/%s/commits/%s/pulls"
