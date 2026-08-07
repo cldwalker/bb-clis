@@ -20,6 +20,7 @@
   gh-pr-for-commit              {:main-opts ["-m" "cldwalker.bb-clis.bin.gh-pr-for-commit"]}
   gh-repo                       {:main-opts ["-m" "cldwalker.bb-clis.bin.gh-repo"]}
   logseq-bookmark               {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-bookmark"]}
+  logseq-class-tree             {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-class-tree"]}
   logseq-graph-backup           {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-graph-backup"]}
   logseq-graph-grep             {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-graph-grep"]}
   logseq-graph-icons            {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-graph-icons"]}
