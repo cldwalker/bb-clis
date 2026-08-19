@@ -86,14 +86,14 @@
                   (children ident)))))
 
 (defn- subtree-count
-  "Total object count for a class and all its descendants."
-  [ident seen children counts]
-  (reduce (fn [total child]
-            (cond-> total
-              (not (seen child))
-              (+ (subtree-count child (conj seen ident) children counts))))
-          (get counts ident 0)
-          (children ident)))
+  "Total object count for a class and all its distinct descendants. A class
+  reachable through multiple parents is counted once."
+  [ident children counts]
+  (letfn [(descendants [seen ident]
+            (if (seen ident)
+              seen
+              (reduce descendants (conj seen ident) (children ident))))]
+    (transduce (map #(get counts % 0)) + (descendants #{} ident))))
 
 (defn- count-str
   "Formatted object count suffix for a class, nil when there is none to show."
@@ -102,8 +102,8 @@
     (let [n (get counts ident 0)]
       (if (and parent-counts (some show? (children ident)))
         (if (zero? n)
-          (str " (" (subtree-count ident #{} children counts) "*)")
-          (str " (" n "/" (subtree-count ident #{} children counts) ")"))
+          (str " (" (subtree-count ident children counts) "*)")
+          (str " (" n "/" (subtree-count ident children counts) ")"))
         (when (pos? n) (str " (" n ")"))))))
 
 (defn- command [{:keys [opts]}]
