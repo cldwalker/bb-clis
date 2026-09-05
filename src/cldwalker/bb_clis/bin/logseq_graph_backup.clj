@@ -3,6 +3,7 @@
   (:require [babashka.cli :as cli]
             [babashka.fs :as fs]
             [babashka.process :refer [shell]]
+            [cldwalker.bb-clis.util.logseq :as logseq-util]
             [clojure.data :as data]
             [clojure.edn :as edn]
             [clojure.pprint :as pprint]
@@ -108,7 +109,11 @@
         (backup-graph graph opts)))))
 
 (def ^:private spec
-  {:graphs {:positional true :coerce [:string] :require true :desc "Graphs to backup"}
+  {:graphs {:positional true
+            :coerce [:string]
+            :require true
+            :desc "Graphs to backup"
+            :complete-fn logseq-util/complete-graphs}
    :datoms {:alias :d :coerce :boolean :desc "Export raw datoms (:graph) instead of human-readable EDN (:graph-human)"}
    :diff {:alias :D :coerce :boolean :desc "Diff two graph's edn exports"}
    :roundtrip {:alias :r :coerce :boolean :desc "Roundtrips export by importing, exporting and comparing diff"}

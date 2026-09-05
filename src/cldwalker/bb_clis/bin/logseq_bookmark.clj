@@ -3,6 +3,7 @@
   (:require [babashka.cli :as cli]
             [babashka.http-client :as http]
             [babashka.process :refer [shell]]
+            [cldwalker.bb-clis.util.logseq :as logseq-util]
             [clojure.string :as str]))
 
 (defn- fetch-title [url]
@@ -34,7 +35,10 @@
 
 (def ^:private spec
   {:url {:positional true :coerce :string :desc "URL to bookmark" :require true}
-   :graph {:alias :g :desc "Graph name" :default "personal"}
+   :graph {:alias :g
+           :desc "Graph name"
+           :default "personal"
+           :complete-fn logseq-util/complete-graphs}
    :description {:alias :d :desc "Description for node"}
    :deadline {:alias :D :desc "Deadline for node"}
    :tag {:alias :t :desc "Tag for node" :default "Task"}

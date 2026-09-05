@@ -3,6 +3,7 @@
   (:require [babashka.cli :as cli]
             [babashka.process :refer [shell]]
             [cldwalker.bb-clis.cli :as cli-util]
+            [cldwalker.bb-clis.util.logseq :as logseq-util]
             [clojure.string :as str]))
 
 (defn- current-graph []
@@ -13,7 +14,9 @@
            not-empty))
 
 (def ^:private spec
-  {:graph {:alias :g :desc "Graph to grep (default: current graph)"}})
+  {:graph {:alias :g
+           :desc "Graph to grep (default: current graph)"
+           :complete-fn logseq-util/complete-graphs}})
 
 (defn- run-grep [{:keys [graph]} grep-args]
   (let [graph* (or graph

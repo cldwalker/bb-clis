@@ -3,6 +3,7 @@
   (:require [babashka.cli :as cli]
             [babashka.process :refer [shell]]
             [cldwalker.bb-clis.cli :as cli-util]
+            [cldwalker.bb-clis.util.logseq :as logseq-util]
             [clojure.edn :as edn]
             [clojure.pprint :as pprint]
             [clojure.string :as str]))
@@ -76,7 +77,9 @@
         (println "Recycled" (count rows) "journals")))))
 
 (def ^:private spec
-  {:graph {:alias :g :desc "Graph name"}
+  {:graph {:alias :g
+           :desc "Graph name"
+           :complete-fn logseq-util/complete-graphs}
    :pretend {:alias :n :coerce :boolean :desc "Preview journals that would be deleted"}})
 
 (defn -main [& args]

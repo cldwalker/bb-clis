@@ -3,6 +3,7 @@
   (:require [babashka.cli :as cli]
             [babashka.process :refer [shell]]
             [cldwalker.bb-clis.cli :as cli-util]
+            [cldwalker.bb-clis.util.logseq :as logseq-util]
             [clojure.edn :as edn]
             [clojure.pprint :as pprint]
             [clojure.string :as str]))
@@ -163,7 +164,9 @@
       (pprint/pprint (graph-counts (:graph opts) (:user opts))))))
 
 (def ^:private spec
-  {:graph {:alias :g :desc "Graph name"}
+  {:graph {:alias :g
+           :desc "Graph name"
+           :complete-fn logseq-util/complete-graphs}
    :object-urls {:alias :o :coerce :boolean
                  :desc "Display all objects and their urls, no urls first"}
    :user {:alias :u :coerce :boolean :desc "Exclude built-in pages, classes and properties"}})

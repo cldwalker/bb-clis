@@ -6,6 +6,7 @@
             [babashka.fs :as fs]
             [babashka.process :refer [shell]]
             [cldwalker.bb-clis.cli :as cli-util]
+            [cldwalker.bb-clis.util.logseq :as logseq-util]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.pprint :as pprint]
@@ -612,7 +613,9 @@ class or property would create an unusable duplicate on import"
   (add-schema ["Thing" "url"] opts))
 
 (def ^:private add-spec
-  {:graph {:alias :g :desc "Graph name"}
+  {:graph {:alias :g
+           :desc "Graph name"
+           :complete-fn logseq-util/complete-graphs}
    :pretend {:alias :n :coerce :boolean
              :desc "Print the resulting EDN instead of importing it"}})
 

@@ -3,6 +3,7 @@
   (:require [babashka.cli :as cli]
             [babashka.process :refer [shell]]
             [cldwalker.bb-clis.cli :as cli-util]
+            [cldwalker.bb-clis.util.logseq :as logseq-util]
             [clojure.edn :as edn]
             [clojure.pprint :as pprint]))
 
@@ -66,7 +67,9 @@
     (icon-stats (:graph opts))))
 
 (def ^:private spec
-  {:graph {:alias :g :desc "Graph name"}
+  {:graph {:alias :g
+           :desc "Graph name"
+           :complete-fn logseq-util/complete-graphs}
    :query {:alias :q :desc "Show nodes that use the given icon id (e.g. 'exclamation')"}})
 
 (defn -main [& args]
