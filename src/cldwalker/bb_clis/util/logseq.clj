@@ -3,7 +3,7 @@
   (:require [babashka.process :refer [shell]]
             [clojure.edn :as edn]))
 
-(defn graphs
+(defn- graphs
   "Returns a vector of graph names from `logseq graph list -o edn`."
   []
   (try
