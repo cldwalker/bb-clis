@@ -58,7 +58,7 @@
     ;; temp graph from a prior failed run would cause every block to duplicate.
     (when (fs/exists? temp-graph-dir)
       (shell "logseq" "graph" "remove" "-g" temp-graph))
-    (shell "logseq" "graph" "import" "-t" "edn" "--timeout-ms" "120000" "--input" graph-edn "-g" temp-graph)
+    (shell "logseq" "graph" "import" "-t" "edn" "--timeout-ms" "150000" "--input" graph-edn "-g" temp-graph)
     (shell "logseq" "graph" "validate" "-g" temp-graph)
     (shell "logseq" "graph" "export" "-t" "edn" "-e" export-options "-p" "-g" temp-graph "--file" temp-edn)
     ;; Don't care about diffing datoms
