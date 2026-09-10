@@ -51,8 +51,6 @@
 (defn- get-sort-key [rows query]
   (let [columns (get-columns rows)]
     (or (first (selected-columns-str columns query))
-        ;; Since no matches, auto-try keyword
-        (first (selected-columns-str columns (keyword query)))
         query)))
 
 (defn- possibly-sort-rows [rows sort reverse-sort]

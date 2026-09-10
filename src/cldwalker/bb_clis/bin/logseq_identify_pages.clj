@@ -116,10 +116,10 @@
     (println "Failed to identify:" (str/join ", " failures))))
 
 (defn- command [{:keys [opts]}]
-  (let [{:keys [graph args]} opts]
-    (let [{:keys [successes failures]} (resolve-urls (args->name->id graph args))]
-      (select-and-save! graph successes)
-      (print-failures failures))))
+  (let [{:keys [graph args]} opts
+        {:keys [successes failures]} (resolve-urls (args->name->id graph args))]
+    (select-and-save! graph successes)
+    (print-failures failures)))
 
 (def ^:private spec
   {:graph {:alias :g :desc "Graph name" :complete-fn logseq-util/complete-graphs}
