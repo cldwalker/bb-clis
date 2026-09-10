@@ -122,7 +122,7 @@
                      objects-with-own-url total-objects (pct objects-with-own-url total-objects)))))
 
 (defn- object-urls-table
-  "Print all objects with their own url, no urls first."
+  "Print all objects with their own url, no urls last."
   [graph {:keys [user]}]
   (let [ident (url-property-ident graph)
         objects (logseq-query graph '[:find ?e ?title ?class
@@ -146,7 +146,7 @@
                   (map (fn [[e title _class]] [e title]))
                   distinct
                   (map (fn [[e title]] {"Title" (truncate title 50) "Url" (truncate (get e->url e) 50)}))
-                  (sort-by (juxt #(if (nil? (get % "Url")) 0 1)
+                  (sort-by (juxt #(if (nil? (get % "Url")) 1 0)
                                  #(get % "Title"))))]
     (pprint/print-table ["Title" "Url"] rows)
     (println "Objects with url:"
