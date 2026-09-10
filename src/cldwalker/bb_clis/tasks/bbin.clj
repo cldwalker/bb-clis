@@ -21,9 +21,13 @@
   (sort (map str (keys (bbin-entries)))))
 
 (defn uninstall
-  "Uninstall every :bbin/bin entry from current bb.edn"
-  [_options]
-  (let [entries (bbin-entries)]
+  "Uninstall given commands or default to uninstalling every :bbin/bin entry from current bb.edn"
+  {:org.babashka/cli {:spec {:cmds {:desc "Commands to uninstall" :coerce [] :positional true
+                                    :complete-fn complete-cmds}}
+                      :args->opts (repeat :cmds)}}
+  [{:keys [cmds]}]
+  (let [entries* (bbin-entries)
+        entries (if (seq cmds) (select-keys entries* (map symbol cmds)) entries*)]
     (when (empty? entries)
       (println "No :bbin/bin entries found in bb.edn")
       (System/exit 1))
