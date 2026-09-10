@@ -145,10 +145,10 @@
         rows (->> objects'
                   (map (fn [[e title _class]] [e title]))
                   distinct
-                  (map (fn [[e title]] {"Title" (truncate title 50) "Url" (truncate (get e->url e) 50)}))
+                  (map (fn [[e title]] {"Db/id" e "Title" (truncate title 40) "Url" (truncate (get e->url e) 40)}))
                   (sort-by (juxt #(if (nil? (get % "Url")) 1 0)
                                  #(get % "Title"))))]
-    (pprint/print-table ["Title" "Url"] rows)
+    (pprint/print-table ["Db/id" "Title" "Url"] rows)
     (println "Objects with url:"
              (format "%d/%d = %s"
                      (count (filter #(get % "Url") rows)) (count rows)

@@ -21,3 +21,10 @@
            (map str/trim)
            (remove str/blank?)
            (mapcat expand-part)))))
+
+(defn parse-single-select
+  "Parses a 1-indexed single-select input string against a list of `n` items,
+   returning the selected index, or nil if the input is blank or out of range."
+  [input n]
+  (when-let [i (parse-long (str/trim input))]
+    (when (<= 1 i n) i)))

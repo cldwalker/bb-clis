@@ -4,6 +4,7 @@
   (:require [babashka.cli :as cli]
             [babashka.http-client :as http]
             [babashka.process :refer [shell]]
+            [cheshire.core :as json]
             [cldwalker.bb-clis.cli :as cli-util]
             [cldwalker.bb-clis.util.input :as input]
             [cldwalker.bb-clis.util.logseq :as logseq-util]
@@ -67,26 +68,57 @@
         names (remove parse-long args)]
     (merge (names->ids graph names) (ids->names graph ids))))
 
+(defn- opensearch-page-urls
+  "Returns up to 5 Wikipedia page urls found by `page-name`'s opensearch
+  results, used to disambiguate a \"may refer to\" search result."
+  [page-name]
+  (let [search-url (str "https://en.wikipedia.org/w/api.php?action=opensearch&search="
+                        (URLEncoder/encode page-name "UTF-8") "&format=json")
+        body (:body (http/get search-url {:timeout 5000}))
+        urls (last (json/parse-string body))]
+    (into [] (comp (filter #(str/starts-with? % "https://en.wikipedia.org/wiki/"))
+                   (take 5))
+          urls)))
+
 (defn- wikipedia-url
-  "Resolves `page-name` against Wikipedia search, following the redirect. Returns
-  the resolved url, or nil if identification failed (still on the search page)."
+  "Resolves `page-name` against Wikipedia search, following the redirect.
+  Returns the resolved url, a vector of candidate urls if the result is a
+  disambiguation page (\"may refer to\"), or nil if identification failed
+  (still on the search page)."
   [page-name]
   (try
     (let [search-url (str "http://en.wikipedia.org/wiki/Special:Search?search="
                           (URLEncoder/encode page-name "UTF-8"))
-          url (str (:uri (http/get search-url {:timeout 5000})))]
-      (when-not (str/includes? url "/wiki/Special:Search")
-        url))
+          {:keys [uri body]} (http/get search-url {:timeout 5000})
+          url (str uri)]
+      (cond
+        (str/includes? url "/wiki/Special:Search") nil
+        (str/includes? body "may refer to") (not-empty (opensearch-page-urls page-name))
+        :else url))
     (catch Exception _ nil)))
+
+(defn- select-candidate-url
+  "Prompts the user to choose one of `urls` for `name`, returning the chosen
+  url, or nil if no valid choice was given."
+  [name urls]
+  (println (str "Multiple results found for " name ":"))
+  (doseq [[i url] (map-indexed vector urls)]
+    (printf "%d. %s%n" (inc i) url))
+  (print "Select one: ")
+  (flush)
+  (when-let [i (input/parse-single-select (or (read-line) "") (count urls))]
+    (nth urls (dec i))))
 
 (defn- resolve-urls
   "Resolves each name's Wikipedia url, returning
   `{:successes [{:name :id :url}] :failures [name]}`."
   [name->id]
   (reduce (fn [acc [name id]]
-            (if-let [url (wikipedia-url name)]
-              (update acc :successes conj {:name name :id id :url url})
-              (update acc :failures conj name)))
+            (let [result (wikipedia-url name)
+                  url (if (vector? result) (select-candidate-url name result) result)]
+              (if url
+                (update acc :successes conj {:name name :id id :url url})
+                (update acc :failures conj name))))
           {:successes [] :failures []}
           name->id))
 
