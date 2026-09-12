@@ -103,6 +103,16 @@
   {:extra-deps {org.clojure/tools.namespace {:mvn/version "1.5.1"}}
    :exec-fn cldwalker.bb-clis.tasks.ns-in-dir/ns-in-dir}
 
+  clj:sym-to-file
+  {:extra-deps {org.clojure/tools.namespace {:mvn/version "1.5.1"}}
+   :exec-fn cldwalker.bb-clis.tasks.clj/sym-to-file
+   :cli cldwalker.bb-clis.tasks.clj/sym-to-file-cli}
+
+  clj:file-to-sym
+  {:extra-deps {org.clojure/tools.namespace {:mvn/version "1.5.1"}}
+   :exec-fn cldwalker.bb-clis.tasks.clj/file-to-sym
+   :cli cldwalker.bb-clis.tasks.clj/file-to-sym-cli}
+
   var-sexp
   {:exec-fn cldwalker.bb-clis.tasks.rewrite-clj/var-sexp}
 
