@@ -18,7 +18,7 @@ jobs:
       - name: Install project CLIs via bbin
         run: bb bbin:install bb-replace bb-table
       - name: Run bb tests
-        run: bb test
+        run: bb clj:test
   lint:
     runs-on: ubuntu-latest
     steps:

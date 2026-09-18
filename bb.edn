@@ -34,51 +34,41 @@
   logseq-validate-no-todos      {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-validate-no-todos"]}}
 
  :tasks
- {repl
-  ;; Couldn't just reference whole task as a map as `bb tasks` failed
-  {:doc "Pull up socket repl with #'tasks/result bound to result of given task and args"
-   :override-builtin true
-   :requires ([cldwalker.bb-clis.tasks :as tasks])
-   :task (tasks/repl *command-line-args*)}
-
-  every-dir-shell
+ {sh:every-dir-shell
   {:exec-fn cldwalker.bb-clis.tasks/every-dir-shell
    :cli cldwalker.bb-clis.tasks/every-dir-shell-cli}
 
-  json=
+  sh:json=
   {:exec-fn cldwalker.bb-clis.tasks/json=}
 
-  edn=
+  sh:edn=
   {:exec-fn cldwalker.bb-clis.tasks/edn=}
 
-  data-diff
+  sh:data-diff
   {:exec-fn cldwalker.bb-clis.tasks/data-diff}
 
-  brew-search-info
+  sh:brew-search-info
   {:exec-fn cldwalker.bb-clis.tasks/brew-search-info}
 
-  update-gitlib
+  sh:update-gitlib
   {:extra-deps {borkdude/rewrite-edn {:mvn/version "0.1.0"}}
    :exec-fn cldwalker.bb-clis.tasks.rewrite-edn/update-gitlib}
 
-  rdf-data
-  {:exec-fn cldwalker.bb-clis.tasks.rdf-data/rdf-data}
-
-  clone
+  sh:clone
   {:extra-deps {org.clojure/tools.gitlibs {:mvn/version "2.4.172"}}
    :exec-fn cldwalker.bb-clis.tasks.git/clone}
 
-  var-sizes
-  {:exec-fn cldwalker.bb-clis.tasks.clj-kondo/var-sizes}
+  sh:wc-l
+  {:exec-fn cldwalker.bb-clis.tasks/wc-l}
 
-  var-meta
-  {:exec-fn cldwalker.bb-clis.tasks.clj-kondo/var-meta}
+  sh:grep-result-frequencies
+  {:exec-fn cldwalker.bb-clis.tasks/grep-result-frequencies}
 
-  ns-meta
-  {:exec-fn cldwalker.bb-clis.tasks.clj-kondo/ns-meta}
+  sh:do-sh
+  {:exec-fn cldwalker.bb-clis.tasks/do-sh}
 
   ;; From @borkdude
-  http-server
+  sh:http-server
   {:extra-deps {babashka/http-server
                 {:git/url "https://github.com/babashka/http-server"
                  :git/sha "c7fefc73480ed82b4cc7401ca6e5b6ef1010d4ae"}}
@@ -87,7 +77,7 @@
    :cli cldwalker.bb-clis.tasks/http-server-cli}
 
   ;; From https://blog.michielborkent.nl/babashka-test-runner.html
-  test
+  clj:test
   {:extra-paths ["test"
                  ;; This is specific to bb-clis but this task can still be
                  ;; used for any bb repo
@@ -99,7 +89,16 @@
    :exec-fn cognitect.test-runner.api/test
    :cli cldwalker.bb-clis.tasks/test-cli}
 
-  ns-in-dir
+  clj:var-sizes
+  {:exec-fn cldwalker.bb-clis.tasks.clj-kondo/var-sizes}
+
+  clj:var-meta
+  {:exec-fn cldwalker.bb-clis.tasks.clj-kondo/var-meta}
+
+  clj:ns-meta
+  {:exec-fn cldwalker.bb-clis.tasks.clj-kondo/ns-meta}
+
+  clj:ns-in-dir
   {:extra-deps {org.clojure/tools.namespace {:mvn/version "1.5.1"}}
    :exec-fn cldwalker.bb-clis.tasks.ns-in-dir/ns-in-dir}
 
@@ -113,11 +112,14 @@
    :exec-fn cldwalker.bb-clis.tasks.clj/file-to-sym
    :cli cldwalker.bb-clis.tasks.clj/file-to-sym-cli}
 
-  var-sexp
+  clj:var-sexp
   {:exec-fn cldwalker.bb-clis.tasks.rewrite-clj/var-sexp}
 
-  do-sh
-  {:exec-fn cldwalker.bb-clis.tasks/do-sh}
+  clj:repl
+  ;; Couldn't just reference whole task as a map as `bb tasks` failed
+  {:doc "Pull up socket repl with #'tasks/result bound to result of given task and args"
+   :requires ([cldwalker.bb-clis.tasks :as tasks])
+   :task (tasks/repl *command-line-args*)}
 
   logseq:empty-files
   {:exec-fn cldwalker.bb-clis.tasks.logseq/empty-files}
@@ -152,11 +154,8 @@
   rdf:triples-count
   {:exec-fn cldwalker.bb-clis.tasks.rdf/triples-count}
 
-  wc-l
-  {:exec-fn cldwalker.bb-clis.tasks/wc-l}
-
-  grep-result-frequencies
-  {:exec-fn cldwalker.bb-clis.tasks/grep-result-frequencies}
+  rdf:rdf-data
+  {:exec-fn cldwalker.bb-clis.tasks.rdf-data/rdf-data}
 
   gh:checkout-pr-branch
   {:exec-fn cldwalker.bb-clis.tasks.github/checkout-pr-branch}
