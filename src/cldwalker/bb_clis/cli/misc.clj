@@ -38,6 +38,12 @@ Takes following options:
 
 ;; Github
 ;; ======
+(defn gh-cli-token
+  "Returns an auth token from an already logged in gh cli, if available"
+  []
+  (let [{:keys [out exit]} (shell/sh "gh" "auth" "token")]
+    (when (zero? exit) (str/trim out))))
+
 (defn find-current-user-repo
   "Returns github user/repository of current directory"
   [opts]

@@ -12,7 +12,8 @@
                       repository commit)
               ;; Check https://developer.github.com/v3/repos/commits/#list-pull-requests-associated-with-commit to see if this is still in preview
               (cond-> {:headers {"Accept" "application/vnd.github.groot-preview+json"}}
-                      (and user token) (assoc :basic-auth [user token])))
+                      (and user token) (assoc :basic-auth [user token])
+                      (and token (not user)) (assoc-in [:headers "Authorization"] (str "token " token))))
     (catch clojure.lang.ExceptionInfo e
       (cli-util/error "Failed to fetch github information" (pr-str {:error (ex-message e)})))))
 
@@ -47,8 +48,8 @@
           :default-desc "$GITHUB_USER"
           :desc "Github user"}
    :token {:alias :t
-           :default (System/getenv "GITHUB_OAUTH_TOKEN")
-           :default-desc "$GITHUB_OAUTH_TOKEN"
+           :default (or (System/getenv "GITHUB_OAUTH_TOKEN") (misc/gh-cli-token))
+           :default-desc "$GITHUB_OAUTH_TOKEN or `gh auth token`"
            :desc "Github OAuth token"}})
 
 (defn -main [& args]
