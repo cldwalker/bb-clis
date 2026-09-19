@@ -41,6 +41,14 @@
          (map :block/title)
          set)))
 
+(defn- user-class-titles [graph]
+  (let [{:keys [out]} (apply shell {:out :string} "logseq" "list" "tag"
+                             (concat (graph-args graph) ["-o" "edn" "--include-built-in" "false"]))
+        {:keys [status data]} (edn/read-string out)]
+    (when (not= :ok status)
+      (cli-util/error "list tag failed:" out))
+    (map :block/title (:items data))))
+
 (defn- url-property-ident [graph]
   (let [{:keys [out]} (apply shell {:out :string} "logseq" "search" "property"
                              (concat (graph-args graph) ["-c" "url" "-o" "edn"]))
@@ -54,7 +62,7 @@
     (->> (logseq-query graph
                        [:find '?title '?url
                         :where
-                        ['?e :block/tags '?t]
+                        ['?t :block/tags :logseq.class/Tag]
                         ['?t :block/title '?title]
                         ['?t ident '?url-ref]
                         ['?url-ref :block/title '?url]])
@@ -94,7 +102,10 @@
         remove-builtins (fn [pairs]
                           (cond->> pairs
                             user (remove #(builtins (first %)))))
-        pairs' (remove-builtins pairs)
+        zero-count-classes (->> (user-class-titles graph)
+                                (remove (set (map first pairs)))
+                                (map #(vector % 0)))
+        pairs' (remove-builtins (concat pairs zero-count-classes))
         ident (url-property-ident graph)
         urls (tag->url graph ident)
         rows (->> pairs'

@@ -13,4 +13,4 @@ For changes with more than 10 lines, the other two bb linters from `.github/work
 
 - `bb --config dev-bb.edn lint:ns-docstrings`
 - `bb --config dev-bb.edn lint:minimize-public-vars`
-- `bb test`
+- `bb clj:test`
