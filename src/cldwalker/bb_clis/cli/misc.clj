@@ -47,9 +47,10 @@ Takes following options:
     opts
     (let [{:keys [out exit err]} (shell/sh "git" "config" "remote.origin.url")]
       (if (zero? exit)
-        ;; Can handle gh:atom/atom, https://github.com/atom/atom.git or git@github.com:atom/atom.git.
+        ;; Can handle gh:atom/atom, https://github.com/atom/atom.git, git@github-logseq:logseq/logseq.git or git@github.com:atom/atom.git
+        ;; Should expand first capture in regex to handle all gitconfig url aliases
         ;; Wiki repositories e.g. git@github.com:atom/atom.wiki.git keep their .wiki suffix
-        (if-let [user-repo (second (re-find #"(?:gh|github.com)(?::|/)([^/]+/[^/.\s]+(?:\.wiki)?)" out))]
+        (if-let [user-repo (second (re-find #"(?:gh|github.com|github-logseq)(?::|/)([^/]+/[^/.\s]+(?:\.wiki)?)" out))]
           user-repo
           (cli-util/error "Failed to determine current directory's repository" (pr-str {:out out})))
         (cli-util/error "Failed to determine current directory's repository" (pr-str {:error err :out out}))))))
