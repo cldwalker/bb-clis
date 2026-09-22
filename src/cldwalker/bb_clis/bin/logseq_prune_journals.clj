@@ -71,8 +71,7 @@
       (do
         (doseq [{:keys [id title]} rows]
           (println "Removing" title)
-          ;; TODO: Permanently delete pages when it's possible
-          (apply shell "logseq" "remove" "page"
+          (apply shell "logseq" "remove" "page" "--force"
                  (concat (graph-args graph) ["--id" (str id)])))
         (println "Recycled" (count rows) "journals")))))
 
