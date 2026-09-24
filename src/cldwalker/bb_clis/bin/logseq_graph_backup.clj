@@ -95,6 +95,14 @@
         ;; only graph.edn since mirror is incomplete without git actions
         (shell {:dir graph-dir} "git" "diff" "graph.edn")))))
 
+(defn- setup-graph [graph]
+  (let [graph-dir (str (System/getenv "HOME") "/logseq/graphs/" graph)]
+    (shell {:dir graph-dir} "git" "init")
+    (shell {:dir graph-dir} "cp" "../personal/.gitignore" ".")
+    (shell {:dir graph-dir} "git" "add" "-A")
+    (shell {:dir graph-dir} "git" "commit" "-m" "init")
+    (println "Graph" graph "is setup!")))
+
 (defn- diff-files [[graph temp-edn*]]
   (let [graph-edn (str (System/getenv "HOME") "/logseq/graphs/" graph "/graph.edn")
         temp-edn (if (str/includes? (str temp-edn*) "/") temp-edn*
@@ -103,10 +111,11 @@
 
 (defn- command [{:keys [opts]}]
   (let [graphs (:graphs opts)]
-    (if (:diff opts)
-      (diff-files graphs)
-      (doseq [graph graphs]
-        (backup-graph graph opts)))))
+    (cond
+      (:diff opts) (diff-files graphs)
+      (:setup opts) (doseq [graph graphs] (setup-graph graph))
+      :else (doseq [graph graphs]
+              (backup-graph graph opts)))))
 
 (def ^:private spec
   {:graphs {:positional true
@@ -116,6 +125,7 @@
             :complete-fn logseq-util/complete-graphs}
    :datoms {:alias :d :coerce :boolean :desc "Export raw datoms (:graph) instead of human-readable EDN (:graph-human)"}
    :diff {:alias :D :coerce :boolean :desc "Diff two graph's edn exports"}
+   :setup {:alias :s :coerce :boolean :desc "Setup a graph's directory for use with git"}
    :roundtrip {:alias :r :coerce :boolean :desc "Roundtrips export by importing, exporting and comparing diff"}
    :keep {:coerce :boolean :desc "Doesn't delete temporary roundtrip graph"}
    :message {:alias :m :desc "Git add and commit with message"}
