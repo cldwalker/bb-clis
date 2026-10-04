@@ -8,6 +8,7 @@
             [clojure.edn :as edn]
             [clojure.data :as data]
             [clojure.string :as str]
+            [clojure.walk :as walk]
             [cldwalker.bb-clis.cli :as cli-util]))
 
 (defn brew-search-info
@@ -46,14 +47,27 @@
   [{:keys [file1 file2 files]}]
   (prn (apply = (map (fn [x] (-> x slurp edn/read-string)) (into [file1 file2] files)))))
 
+(defn- normalize-order
+  "Recursively sorts every vector in data by its printed form, so two data
+  structures that only differ in vector ordering (e.g. from a non-deterministic
+  producer) diff as equal. Map entries are vectors too but aren't reordered -
+  postwalk already recurses into their key and value independently"
+  [data]
+  (walk/postwalk #(cond-> % (and (vector? %) (not (map-entry? %))) (->> (sort-by pr-str) vec)) data))
+
 (defn data-diff
   "Runs data/diff on two edn files."
   {:org.babashka/cli {:spec {:file1 {:desc "First edn file" :positional true}
-                             :file2 {:desc "Second edn file" :positional true}}
+                             :file2 {:desc "Second edn file" :positional true}
+                             :ignore-order {:alias :i :coerce :boolean
+                                           :desc "Sort vectors recursively before diffing to ignore ordering differences"}}
                       :args->opts [:file1 :file2]
                       :require [:file1 :file2]}}
-  [{:keys [file1 file2]}]
-  (prn (apply data/diff (map (fn [x] (-> x slurp edn/read-string)) [file1 file2]))))
+  [{:keys [file1 file2 ignore-order]}]
+  (let [read-edn (fn [f]
+                   (cond-> (-> f slurp edn/read-string)
+                     ignore-order normalize-order))]
+    (prn (data/diff (read-edn file1) (read-edn file2)))))
 
 (def ^:api every-dir-shell-cli
   "babashka.cli options for [[every-dir-shell]]. Referenced as `:cli` in bb.edn."

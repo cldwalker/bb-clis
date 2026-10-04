@@ -47,9 +47,6 @@
   sh:edn=
   {:exec-fn cldwalker.bb-clis.tasks/edn=}
 
-  sh:data-diff
-  {:exec-fn cldwalker.bb-clis.tasks/data-diff}
-
   sh:brew-search-info
   {:exec-fn cldwalker.bb-clis.tasks/brew-search-info}
 
@@ -78,6 +75,9 @@
    :doc "Run a basic http server"
    :exec-fn babashka.http-server/exec
    :cli cldwalker.bb-clis.tasks/http-server-cli}
+
+  clj:data-diff
+  {:exec-fn cldwalker.bb-clis.tasks/data-diff}
 
   ;; From https://blog.michielborkent.nl/babashka-test-runner.html
   clj:test
