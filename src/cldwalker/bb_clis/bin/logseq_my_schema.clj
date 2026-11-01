@@ -10,7 +10,8 @@
 
   `add` imports classes and properties from tagaholic-me-index.edn into a
   graph, like [[cldwalker.bb-clis.bin.logseq-schema]] `add` does for
-  schema.org."
+  schema.org. `update` applies my-schema-org-index.edn's aliases and meta
+  notes to the schema.org classes and properties already in a graph."
   (:require [babashka.cli :as cli]
             [babashka.fs :as fs]
             [cldwalker.bb-clis.cli :as cli-util]
@@ -100,7 +101,7 @@
 
 (defn- property-entry [page-name props]
   (let [range-includes (or (get props "rangeIncludes")
-                            (cli-util/error page-name "is missing a required rangeIncludes key"))]
+                           (cli-util/error page-name "is missing a required rangeIncludes key"))]
     (cond-> {:block/title page-name
              :logseq.property/type (get range-includes->type range-includes :default)
              :build/properties (build-properties page-name props)}
@@ -409,6 +410,145 @@
           :complete my-name-candidates
           :desc "tagaholic-me-index.edn classes or properties to add"}})
 
+;; ---- update ----
+
+(def ^:private my-schema-org-index
+  (some-> (io/resource "my-schema-org-index.edn") slurp edn/read-string))
+
+(defn- read-my-schema-org-index []
+  (or my-schema-org-index (cli-util/error "Unable to find my-schema-org-index.edn on classpath")))
+
+(def ^:private update-type->index-key {"class" :classes "property" :properties})
+
+(defn- schema-org-ident
+  "Returns the graph ident of my-schema-org-index.edn key `k` under `index-key`.
+  A qualified `k`, e.g. `:logseq.property/description`, is already an ident"
+  [index-key k]
+  (cond (qualified-keyword? k) k
+        (= :classes index-key) (schema-class-ident k)
+        :else (schema-property-ident k)))
+
+(defn- index-meta [entry] (get-in entry [:build/properties :tagaholic.me/meta]))
+
+(def ^:private update-name-candidates
+  "Completion candidates for `update` args, described by their aliases or meta"
+  (mapv (fn [[k v]]
+          (let [desc (or (some->> (seq (:build/alias v)) (map name) (str/join ", ") (str "alias: "))
+                         (index-meta v))]
+            (cond-> {:value (symbol (name k))}
+              desc (assoc :description desc))))
+        (concat (:classes my-schema-org-index) (:properties my-schema-org-index))))
+
+(defn- update-graph-state
+  "Fetches the uuids, alias titles and meta values of `idents` in `graph`.
+  `:uuids` also has the meta property's uuid when it exists"
+  [graph idents]
+  (let [inputs [(vec idents)]]
+    {:uuids (logseq-util/idents->uuids graph (conj (set idents) (my-property-ident :meta)))
+     :aliases (reduce (fn [m [ident title]] (update m ident (fnil conj #{}) title))
+                      {}
+                      (logseq-util/logseq-query graph
+                                                '[:find ?ident ?title :in $ [?ident ...]
+                                                  :where [?e :db/ident ?ident] [?e :block/alias ?a] [?a :block/title ?title]]
+                                                inputs))
+     :metas (into {} (logseq-util/logseq-query graph
+                                               '[:find ?ident ?meta :in $ [?ident ...]
+                                                 :where [?e :db/ident ?ident]
+                                                 [?e :tagaholic.me.property/meta ?m] [?m :block/title ?meta]]
+                                               inputs))}))
+
+(defn- entity-update
+  "Returns the `:pages` updating `ident` with the `entry` aliases and meta that
+  differ from `state`, or nil when none do. Aliases are only added since an
+  import can't remove them"
+  [state ident entry]
+  (let [current (set (map str/lower-case (get-in state [:aliases ident])))
+        aliases (vec (remove #(current (str/lower-case %)) (map name (:build/alias entry))))
+        meta (index-meta entry)
+        meta? (and (some? meta) (not= meta (get-in state [:metas ident])))
+        alias-uuids (vec (repeatedly (count aliases) random-uuid))]
+    (when (or (seq aliases) meta?)
+      {:meta? meta?
+       :pages (conj (mapv (fn [uuid title] {:page {:block/title title :block/uuid uuid :build/keep-uuid? true}})
+                          alias-uuids aliases)
+                    ;; empty :build/properties forces the full page-update path so :block/alias sticks
+                    {:page (cond-> {:block/uuid (get-in state [:uuids ident])
+                                    :build/properties (cond-> {} meta? (assoc (my-property-ident :meta) meta))}
+                             (seq aliases) (assoc :block/alias (set (map #(vector :block/uuid %) alias-uuids))))})})))
+
+(defn- meta-declarations
+  "Returns `:properties` declaring the meta property, which the import requires
+  whenever it's used. A meta property not in the graph gets its full entry"
+  [my-index meta-exists?]
+  (if meta-exists?
+    {(my-property-ident :meta) (anchor-entry (get-in my-index [:properties :meta]) "meta")}
+    {(my-property-ident :meta) (full-property-entry my-index :meta)
+     (schema-property-ident :url) (anchor-entry (:url schema-org-properties) "url")}))
+
+(defn- build-update-edn
+  "Builds import EDN updating `entries`, a my-schema-org-index.edn `index-key`
+  map, whose aliases or meta differ from `state` (see [[update-graph-state]]).
+  Returns entry keys grouped as `:updated`, `:current` and `:missing`, plus
+  `:new-props` and `:edn`"
+  [my-index index-key entries state]
+  (let [results (for [[k entry] (sort-by key entries)
+                      :let [ident (schema-org-ident index-key k)
+                            exists? (contains? (:uuids state) ident)
+                            change (when exists? (entity-update state ident entry))]]
+                  {:k k :change change
+                   :status (cond (not exists?) :missing change :updated :else :current)})
+        status-ks (fn [status] (mapv :k (filter #(= status (:status %)) results)))
+        changes (keep :change results)
+        meta? (boolean (some :meta? changes))
+        meta-exists? (contains? (:uuids state) (my-property-ident :meta))]
+    {:updated (status-ks :updated)
+     :current (status-ks :current)
+     :missing (status-ks :missing)
+     :new-props (if (and meta? (not meta-exists?)) [:meta] [])
+     :edn (cond-> {}
+            (seq changes) (assoc :pages-and-blocks (vec (mapcat :pages changes)))
+            meta? (assoc :properties (meta-declarations my-index meta-exists?)))}))
+
+(defn- select-update-entries
+  "Returns the `index-key` entries of my-schema-org-index.edn named by `args`,
+  or all of them when there are no `args`"
+  [index-key args]
+  (let [entries (get (read-my-schema-org-index) index-key)
+        name->k (into {} (map (juxt name identity)) (keys entries))
+        unknown (remove name->k (map str args))]
+    (when (seq unknown)
+      (cli-util/error (str "These are not " (name index-key) " in my-schema-org-index.edn:")
+                      (pr-str (vec unknown))))
+    (if (seq args) (select-keys entries (map (comp name->k str) args)) entries)))
+
+(defn- update-schema
+  "Updates the `:update-type` entities named by `args`, or all of them, in
+  `:graph`, or prints their EDN when `:pretend` is set. Ends with a summary
+  of how many were updated, already current or missing from the graph"
+  [args {:keys [graph pretend update-type]}]
+  (let [index-key (update-type->index-key update-type)
+        entries (select-update-entries index-key args)
+        state (update-graph-state graph (map #(schema-org-ident index-key %) (keys entries)))
+        {:keys [updated current missing new-props edn]} (build-update-edn (read-my-index) index-key entries state)]
+    (error-if-duplicates graph [] new-props)
+    (cond
+      pretend (pprint/pprint edn)
+      (seq updated) (logseq-util/import-edn graph edn))
+    (println (count updated) "to update," (count current) "exist and" (count missing) "don't exist")))
+
+(defn- update-command [{{:keys [args] :as opts} :opts}]
+  (update-schema args opts))
+
+(def ^:private update-spec
+  {:graph (:graph add-spec)
+   :pretend {:alias :n :coerce :boolean
+             :desc "Print the EDN to import and a summary instead of importing it"}
+   :update-type {:alias :u :enum ["class" "property"] :default "class"
+                 :desc "Type of schema.org entities to update"}
+   :args {:coerce [:symbol]
+          :complete update-name-candidates
+          :desc "my-schema-org-index.edn classes or properties to update"}})
+
 (def ^:private table
   [{:cmds ["build-index"]
     :fn build-index-command
@@ -423,7 +563,14 @@
     :args->opts (repeat :args)
     :doc "Import classes or properties from tagaholic-me-index.edn that aren't
   in the graph yet. A class's local ancestors are included too; schema.org
-  ancestors must already be in the graph (see logseq-schema add)."}])
+  ancestors must already be in the graph (see logseq-schema add)."}
+   {:cmds ["update"]
+    :fn update-command
+    :spec update-spec
+    :args->opts (repeat :args)
+    :doc "Update the schema.org classes or properties in the graph whose aliases
+  or meta differ from my-schema-org-index.edn. Updates all of --update-type's
+  entities unless given names. Aliases are only added, never removed."}])
 
 (defn -main [& args]
   (cli/dispatch table args {:prog "logseq-my-schema" :help true}))

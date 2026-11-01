@@ -395,16 +395,6 @@ class or property would create an unusable duplicate on import"
                                          [(vec (keys ident->schema))]))]
     (reduce (fn [m [ident auuid]] (update m (ident->schema ident) (fnil conj #{}) auuid)) {} rows)))
 
-(defn- idents->uuids
-  "Maps each :db/ident to its :block/uuid"
-  [graph idents]
-  (if (empty? idents)
-    {}
-    (into {} (logseq-util/logseq-query graph
-                                       '[:find ?ident ?uuid :in $ [?ident ...]
-                                         :where [?e :db/ident ?ident] [?e :block/uuid ?uuid]]
-                                       [(vec idents)]))))
-
 (defn- migrate-add-edn
   "Builds one import-edn map that adds tags and properties and copies property values to entities
    associated with changing properties and tags. Also handles aliases for onto entities
@@ -507,7 +497,7 @@ class or property would create an unusable duplicate on import"
     (add-schema (mapv :name (concat classes properties)) {:graph graph :pretend false})
     ;; Step 4: add the schema tags and copied property values onto the entities,
     ;; re-point extending classes, and move aliases onto the schema.org replacements
-    (let [schema-ident->uuid (idents->uuids graph (keys schema-ident->aliases))
+    (let [schema-ident->uuid (logseq-util/idents->uuids graph (keys schema-ident->aliases))
           aliases (into {} (map (fn [[sident targets]] [(schema-ident->uuid sident) targets]))
                         schema-ident->aliases)]
       (logseq-util/import-edn graph (migrate-add-edn index conflicts entities extends-by-uuid aliases))))

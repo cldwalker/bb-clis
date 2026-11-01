@@ -86,3 +86,55 @@
 (deftest build-add-edn-existing-property
   (is (thrown-with-msg? clojure.lang.ExceptionInfo #"already exist: 'forApp'"
                         (build-add-edn [:forApp] :graph-props [:forApp]))))
+
+(def ^:private update-entries
+  {:SoftwareSourceCode {:build/alias [:Repository :Repo]}
+   :Service {:build/properties {:tagaholic.me/meta "New note"}}
+   :Text {:build/alias [:String] :build/properties {:tagaholic.me/meta "Same note"}}
+   :Brand {:build/alias [:Make]}})
+
+(def ^:private code-uuid #uuid "00000000-0000-0000-0000-000000000001")
+(def ^:private service-uuid #uuid "00000000-0000-0000-0000-000000000002")
+
+(defn- build-update-edn
+  "Runs build-update-edn on [[update-entries]] against a graph without Brand
+  whose other classes have some of their aliases and meta"
+  [& {:keys [meta-exists?]}]
+  (#'my-schema/build-update-edn
+   index :classes update-entries
+   {:uuids (cond-> {:schema.class/SoftwareSourceCode code-uuid
+                    :schema.class/Service service-uuid
+                    :schema.class/Text #uuid "00000000-0000-0000-0000-000000000003"}
+             meta-exists? (assoc :tagaholic.me.property/meta #uuid "00000000-0000-0000-0000-000000000004"))
+    :aliases {:schema.class/SoftwareSourceCode #{"repo"} :schema.class/Text #{"String"}}
+    :metas {:schema.class/Service "Old note" :schema.class/Text "Same note"}}))
+
+(deftest build-update-edn-aliases-and-meta
+  (let [{:keys [edn] :as result} (build-update-edn :meta-exists? true)
+        repository-uuid (some #(when (= "Repository" (get-in % [:page :block/title])) (get-in % [:page :block/uuid]))
+                              (:pages-and-blocks edn))]
+    (testing "only entities whose aliases or meta differ are updated"
+      (is (= {:updated [:Service :SoftwareSourceCode] :current [:Text] :missing [:Brand] :new-props []}
+             (dissoc result :edn))))
+    (testing "adds only missing aliases, case-insensitively, and changed meta"
+      (is (= {:pages-and-blocks
+              [{:page {:block/uuid service-uuid
+                       :build/properties {:tagaholic.me.property/meta "New note"}}}
+               {:page {:block/title "Repository" :block/uuid repository-uuid :build/keep-uuid? true}}
+               {:page {:block/uuid code-uuid
+                       :build/properties {}
+                       :block/alias #{[:block/uuid repository-uuid]}}}]
+              :properties {:tagaholic.me.property/meta
+                           {:block/title "meta" :logseq.property/type :default :db/cardinality :db.cardinality/one}}}
+             edn)))))
+
+(deftest build-update-edn-meta-not-in-graph
+  (let [{:keys [new-props edn]} (build-update-edn)]
+    (is (= [:meta] new-props))
+    (is (= {:tagaholic.me.property/meta
+            {:block/title "meta"
+             :logseq.property/type :default
+             :db/cardinality :db.cardinality/one
+             :build/properties {:schema.property/url "https://tagaholic.me/schema/meta.html"}}
+            :schema.property/url url-anchor}
+           (:properties edn)))))

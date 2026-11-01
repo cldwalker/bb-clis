@@ -79,6 +79,16 @@
                          (not [?e :logseq.property/built-in? _])]
                        [(vec titles)]))))
 
+(defn idents->uuids
+  "Maps each of the given `idents` that exist in `graph` to its `:block/uuid`"
+  [graph idents]
+  (if (empty? idents)
+    {}
+    (into {} (logseq-query graph
+                           '[:find ?ident ?uuid :in $ [?ident ...]
+                             :where [?e :db/ident ?ident] [?e :block/uuid ?uuid]]
+                           [(vec idents)]))))
+
 (defn import-edn
   "Imports EDN-MAP (graph-ontology export format) into GRAPH via `logseq graph
   import`."
