@@ -1,12 +1,13 @@
 (ns cldwalker.bb-clis.bin.logseq-my-schema
-  "Manages a personal graph-ontology index for a Logseq graph.
+  "Manages a personal graph-ontology index for Logseq graphs.
 
-  `build-index` reads a graph's Property and Class pages into sqlite.build
-  EDN. Pages unique to the graph go to resources/tagaholic-me-index.edn, in
-  the same shape as schema-org-index.edn. Pages whose `url::` matches a
-  schema.org class or property go to resources/my-schema-org-index.edn as a
-  minimal entry under the schema.org name, so `add` never duplicates a
-  schema.org concept under a local name.
+  `build-index` reads the Property and Class pages of every markdown graph in
+  a directory into sqlite.build EDN, merging the graphs' results. Pages unique
+  to the graphs go to resources/tagaholic-me-index.edn, in the same shape as
+  schema-org-index.edn. Pages whose `url::` matches a schema.org class or
+  property go to resources/my-schema-org-index.edn as a minimal entry under
+  the schema.org name, so `add` never duplicates a schema.org concept under a
+  local name.
 
   `add` imports classes and properties from tagaholic-me-index.edn into a
   graph, like [[cldwalker.bb-clis.bin.logseq-schema]] `add` does for
@@ -202,11 +203,61 @@
 (def ^:private index-path "resources/tagaholic-me-index.edn")
 (def ^:private my-schema-org-index-path "resources/my-schema-org-index.edn")
 
+(defn- graph-dirs
+  "Returns the markdown graph directories in `dir`: `dir` itself when it has a
+  pages directory, else its children that do"
+  [dir]
+  (if (fs/directory? (fs/path dir "pages"))
+    [dir]
+    (sort (map fs/parent (filter fs/directory? (fs/glob dir "*/pages"))))))
+
+(defn- index-conflicts
+  "Returns a conflict for each `:classes` or `:properties` key whose value
+  differs across `graph->index`, a seq of `[graph index]` pairs"
+  [index-name graph->index]
+  (for [section [:classes :properties]
+        [k graph-values] (group-by first (for [[graph index] graph->index
+                                               [k v] (get index section)]
+                                           [k graph v]))
+        :when (< 1 (count (set (map last graph-values))))]
+    {:index index-name :section section :key k
+     :values (into (sorted-map) (map (fn [[_ graph v]] [graph v])) graph-values)}))
+
+(defn- merge-index [indexes]
+  (reduce (fn [acc index]
+            (-> acc
+                (update :classes merge (:classes index))
+                (update :properties merge (:properties index))))
+          indexes))
+
+(defn- merge-graph-indexes
+  "Merges each graph's [[build-index]] result in `graph->index`, a seq of
+  `[graph result]` pairs. Errors listing every class and property whose value
+  differs across graphs"
+  [graph->index]
+  (let [index-of (fn [k] (map (fn [[graph result]] [graph (k result)]) graph->index))
+        conflicts (concat (index-conflicts index-path (index-of :tagaholic))
+                          (index-conflicts my-schema-org-index-path (index-of :my-schema-org)))]
+    (when (seq conflicts)
+      (cli-util/error
+       (str/join "\n"
+                 (cons "These classes and properties differ across graphs:"
+                       (for [{:keys [index section key values]} conflicts]
+                         (str/join "\n" (cons (str index " " section " " key)
+                                              (map (fn [[graph v]]
+                                                     (str "  " graph ": " (binding [*print-namespace-maps* false] (pr-str v))))
+                                                   values))))))))
+    {:tagaholic (merge-index (map second (index-of :tagaholic)))
+     :my-schema-org (merge-index (map second (index-of :my-schema-org)))}))
+
 (defn- build-index-command [{:keys [opts]}]
-  (let [dir (fs/expand-home (:graph-directory opts))]
-    (when-not (fs/directory? dir)
-      (cli-util/error "Graph directory not found:" (str dir)))
-    (let [{:keys [tagaholic my-schema-org]} (build-index dir)]
+  (let [dir (fs/expand-home (:directory opts))
+        dirs (when (fs/directory? dir) (graph-dirs dir))]
+    (when (empty? dirs)
+      (cli-util/error "No graph directories found in" (str dir)))
+    (println "Reading" (count dirs) "graphs:" (str/join ", " (map fs/file-name dirs)))
+    (let [{:keys [tagaholic my-schema-org]}
+          (merge-graph-indexes (map (fn [d] [(str (fs/file-name d)) (build-index d)]) dirs))]
       (spit index-path (with-out-str (pprint/pprint tagaholic)))
       (spit my-schema-org-index-path (with-out-str (pprint/pprint my-schema-org)))
       (println "Wrote" (count (:classes tagaholic)) "classes and"
@@ -552,11 +603,11 @@
 (def ^:private table
   [{:cmds ["build-index"]
     :fn build-index-command
-    :spec {:graph-directory {:alias :g
-                             :default "~/code/priv/public-notes"
-                             :desc "Logseq graph directory to read Property/Class pages from"}}
+    :spec {:directory {:alias :d
+                       :default "~/code/priv"
+                       :desc "Directory of Logseq markdown graphs, or a single graph, to read Property/Class pages from"}}
     :doc (str "Build " index-path " and " my-schema-org-index-path
-              " from the graph's Property and Class pages.")}
+              " from the Property and Class pages of each graph in --directory.")}
    {:cmds ["add"]
     :fn add-command
     :spec add-spec

@@ -8,6 +8,8 @@
   :VideoObject #:build{:alias [:Video]},
   :DigitalDocument #:build{:alias [:Doc]},
   :WebSite #:build{:alias [:Site]},
+  :Invoice #:build{:alias [:Bill]},
+  :BusinessEvent #:build{:alias [:Meeting]},
   :Brand
   #:build{:properties
           #:tagaholic.me{:meta
@@ -27,7 +29,12 @@
           #:tagaholic.me{:meta
                          "Does not have the same date format as schema.org"}},
   :SoftwareApplication #:build{:alias [:App]},
+  :Time
+  #:build{:properties
+          #:tagaholic.me{:meta
+                         "Almost has the same format as seconds are optional"}},
   :CollegeOrUniversity #:build{:alias [:University]},
+  :Question #:build{:alias [:q]},
   :URL
   #:build{:alias [:Uri],
           :properties
@@ -41,4 +48,5 @@
                          "Almost seems same as [rdfs:Datatype](https://www.w3.org/TR/rdf12-schema/#ch_datatype) but not quite because it inherits differently than schema version"}}},
  :properties
  {:logseq.property/description #:build{:alias [:desc]},
+  :actionStatus #:build{:alias [:status]},
   :programmingLanguage #:build{:alias [:plang]}}}

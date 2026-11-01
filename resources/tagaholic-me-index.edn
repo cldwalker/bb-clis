@@ -25,11 +25,22 @@
    {:url "https://tagaholic.me/schema/PersonalRepo.html"},
    :build/alias [:PRepo],
    :build/class-extends [:schema.class/SoftwareSourceCode]},
+  :LogseqConcept
+  {:block/title "LogseqConcept",
+   :build/properties
+   {:url "https://tagaholic.me/schema/LogseqConcept.html"},
+   :build/class-extends [:HumanConcept]},
   :ComputerScientist
   {:block/title "ComputerScientist",
    :build/properties
    {:url "https://en.wikipedia.org/wiki/Computer_scientist"},
    :build/class-extends [:schema.class/Person]},
+  :Feature
+  {:block/title "Feature",
+   :build/properties
+   {:url "https://tagaholic.me/schema/Feature.html",
+    :logseq.property/description "Feature of a lib, product or app"},
+   :build/class-extends [:HumanConcept]},
   :Egame
   {:block/title "Egame",
    :build/properties {:url "https://tagaholic.me/schema/Egame.html"},
@@ -43,6 +54,18 @@
     :meta
     "Purposely didn't use https://en.wikipedia.org/wiki/Knowledge_base as the term seems dated and more specific to older computer systems"},
    :build/class-extends [:ComputerConcept]},
+  :TimeEstimate
+  {:block/title "TimeEstimate",
+   :build/properties
+   {:url "https://tagaholic.me/schema/TimeEstimate.html",
+    :logseq.property/description
+    "Estimate time span in hours, minutes and seconds with shorthand"},
+   :build/class-extends [:schema.class/DataType]},
+  :VSCodeExtension
+  {:block/title "VSCodeExtension",
+   :build/properties
+   {:url "https://tagaholic.me/schema/VSCodeExtension.html"},
+   :build/class-extends [:schema.class/SoftwareSourceCode]},
   :Programmer
   {:block/title "Programmer",
    :build/properties {:url "https://en.wikipedia.org/wiki/Programmer"},
@@ -53,6 +76,24 @@
    {:url "https://tagaholic.me/schema/CmdExample.html",
     :logseq.property/description "Example of a shell command"},
    :build/class-extends [:schema.class/Comment]},
+  :WorkTask
+  {:block/title "WorkTask",
+   :build/properties
+   {:url "https://tagaholic.me/schema/WorkTask.html",
+    :logseq.property/description "Issue, task, card for work"},
+   :build/class-extends [:HumanConcept]},
+  :WorkCategory
+  {:block/title "WorkCategory",
+   :build/properties
+   {:url "https://tagaholic.me/schema/WorkCategory.html"},
+   :build/class-extends [:HumanConcept]},
+  :GitSha
+  {:block/title "GitSha",
+   :build/properties
+   {:url "https://tagaholic.me/schema/GitSha.html",
+    :logseq.property/description
+    "Estimate time span in hours, minutes and seconds with shorthand"},
+   :build/class-extends [:schema.class/DataType]},
   :VideoChannel
   {:block/title "VideoChannel",
    :build/properties
@@ -68,6 +109,11 @@
    {:url "https://tagaholic.me/schema/BbSnippet.html",
     :logseq.property/description "Snippets just for [[babashka]]"},
    :build/class-extends [:Snippet]},
+  :HomeCategory
+  {:block/title "HomeCategory",
+   :build/properties
+   {:url "https://tagaholic.me/schema/HomeCategory.html"},
+   :build/class-extends [:HumanConcept]},
   :Database
   {:block/title "Database",
    :build/properties {:url "https://en.wikipedia.org/wiki/Database"},
@@ -80,6 +126,11 @@
     :logseq.property/description
     "Could also be https://schema.org/sport"},
    :build/class-extends [:HumanConcept]},
+  :VirtualMachine
+  {:block/title "VirtualMachine",
+   :build/properties
+   {:url "https://en.wikipedia.org/wiki/Virtual_machine"},
+   :build/class-extends [:ComputerConcept]},
   :Keybinding
   {:block/title "Keybinding",
    :build/properties
@@ -92,12 +143,23 @@
     :logseq.property/description
     "Reusable chunk of code with an interface to be invoked by higher level programs"},
    :build/class-extends [:schema.class/SoftwareSourceCode]},
+  :WorkRepository
+  {:block/title "WorkRepository",
+   :build/properties
+   {:url "https://tagaholic.me/schema/WorkRepository.html"},
+   :build/alias [:WRepo],
+   :build/class-extends [:schema.class/SoftwareSourceCode]},
   :Song
   {:block/title "Song",
    :build/properties
    {:url "https://en.wikipedia.org/wiki/Song",
     :logseq.property/description "music composition with vocals"},
    :build/class-extends [:schema.class/MusicComposition]},
+  :Priority
+  {:block/title "Priority",
+   :build/properties
+   {:url "https://tagaholic.me/schema/Priority.html"},
+   :build/class-extends [:HumanConcept]},
   :Extension
   {:block/title "Extension",
    :build/properties
@@ -118,6 +180,13 @@
     :logseq.property/description
     "Someone primarily known through their user presence on a site"},
    :build/class-extends [:schema.class/Person]},
+  :Exception
+  {:block/title "Exception",
+   :build/properties
+   {:url "https://tagaholic.me/schema/Exception.html",
+    :logseq.property/description
+    "Errors that have occurred during development. Some have a solution property"},
+   :build/class-extends [:ComputerConcept]},
   :Actor
   {:block/title "Actor",
    :build/properties
@@ -138,6 +207,12 @@
   {:block/title "Diagram",
    :build/properties {:url "https://en.wikipedia.org/wiki/Diagram"},
    :build/class-extends [:HumanConcept]},
+  :TaskCategory
+  {:block/title "TaskCategory",
+   :build/properties
+   {:url "https://tagaholic.me/schema/TaskCategory.html",
+    :logseq.property/description "Categories used just for tasks"},
+   :build/class-extends [:HumanConcept]},
   :Plugin
   {:block/title "Plugin",
    :build/properties
@@ -145,6 +220,17 @@
     :logseq.property/description
     "From page \"a software component that adds a specific feature to an existing computer program\". Can go by other names too like package, extension and addon."},
    :build/class-extends [:schema.class/SoftwareSourceCode]},
+  :Platform
+  {:block/title "Platform",
+   :build/properties
+   {:url "https://tagaholic.me/schema/Platform.html"},
+   :build/class-extends [:ComputerConcept]},
+  :PluginTag
+  {:block/title "PluginTag",
+   :build/properties
+   {:url "https://tagaholic.me/schema/PluginTag.html",
+    :logseq.property/description "Used as a tag by plugins"},
+   :build/class-extends [:LogseqConcept]},
   :WebBrowser
   {:block/title "WebBrowser",
    :build/properties
@@ -159,6 +245,12 @@
    :build/properties
    {:url "https://en.wikipedia.org/wiki/Text_editor"},
    :build/class-extends [:schema.class/SoftwareApplication]},
+  :DateRef
+  {:block/title "DateRef",
+   :build/properties
+   {:url "https://tagaholic.me/schema/DateRef.html",
+    :logseq.property/description "Date as a page ref"},
+   :build/class-extends [:schema.class/DataType]},
   :Ebook
   {:block/title "Ebook",
    :build/properties {:url "https://tagaholic.me/schema/Ebook.html"},
@@ -177,6 +269,11 @@
     :logseq.property/description
     "Defines user defined classes/types in this graph"},
    :build/class-extends [:schema.class/Thing]},
+  :OperatingSystem
+  {:block/title "OperatingSystem",
+   :build/properties
+   {:url "https://en.wikipedia.org/wiki/Operating_system"},
+   :build/class-extends [:ComputerConcept]},
   :MyConcept
   {:block/title "MyConcept",
    :build/properties
@@ -210,6 +307,13 @@
     :logseq.property/description
     "Umbrella class for any computer concepts"},
    :build/class-extends [:schema.class/Intangible]},
+  :Decision
+  {:block/title "Decision",
+   :build/properties
+   {:url "https://tagaholic.me/schema/Decision.html",
+    :logseq.property/description
+    "A decision about something. One of the few classes that is marked as a tag"},
+   :build/class-extends [:HumanConcept]},
   :Newsletter
   {:block/title "Newsletter",
    :build/properties
@@ -223,6 +327,11 @@
     "As a property, tempted to use 'usesStandard' but most properties aren't verbs",
     :meta "May need to split off spec(ification) from this"},
    :build/class-extends [:schema.class/Intangible]},
+  :LogseqPlugin
+  {:block/title "LogseqPlugin",
+   :build/properties
+   {:url "https://tagaholic.me/schema/LogseqPlugin.html"},
+   :build/class-extends [:schema.class/SoftwareSourceCode]},
   :StringWithRefs
   {:block/title "StringWithRefs",
    :build/properties
@@ -234,6 +343,17 @@
   {:block/title "PKM App",
    :build/properties {:url "https://tagaholic.me/schema/PKM App.html"},
    :build/class-extends [:schema.class/SoftwareApplication]},
+  :Startup
+  {:block/title "Startup",
+   :build/properties
+   {:url "https://en.wikipedia.org/wiki/Startup_company"},
+   :build/class-extends [:schema.class/Organization]},
+  :Idea
+  {:block/title "Idea",
+   :build/properties
+   {:url "https://tagaholic.me/schema/Idea.html",
+    :logseq.property/description "Used as a tag"},
+   :build/class-extends [:HumanConcept]},
   :MusicGenre
   {:block/title "MusicGenre",
    :build/properties
@@ -245,6 +365,13 @@
    {:url "https://en.wikipedia.org/wiki/Command_(computing)",
     :logseq.property/description "Shell cmd"},
    :build/class-extends [:schema.class/SoftwareSourceCode]},
+  :IntegerEstimate
+  {:block/title "IntegerEstimate",
+   :build/properties
+   {:url "https://tagaholic.me/schema/IntegerEstimate.html",
+    :logseq.property/description
+    "Can be an integer or a rough approximation e.g. `~3k`"},
+   :build/class-extends [:schema.class/DataType]},
   :LargeLanguageModel
   {:block/title "LargeLanguageModel",
    :build/properties
@@ -258,7 +385,14 @@
     "Wasn't ready to introduce enum members liket https://schema.org/PublicHolidays"},
    :build/class-extends [:HumanConcept]}},
  :properties
- {:unique
+ {:conclusion
+  {:block/title "conclusion",
+   :logseq.property/type :default,
+   :build/properties
+   {:url "https://tagaholic.me/schema/conclusion.html",
+    :logseq.property/description
+    "Conclusion drawn from a spike/task"}},
+  :unique
   {:block/title "unique",
    :logseq.property/type :checkbox,
    :build/properties {:url "https://tagaholic.me/schema/unique.html"}},
@@ -266,6 +400,11 @@
   {:block/title "forCmd",
    :logseq.property/type :default,
    :build/properties {:url "https://tagaholic.me/schema/forCmd.html"}},
+  :export-to
+  {:block/title "export-to",
+   :logseq.property/type :default,
+   :build/properties
+   {:url "https://tagaholic.me/schema/export-to.html"}},
   :done-at
   {:block/title "done-at",
    :logseq.property/type :date,
@@ -278,6 +417,17 @@
    {:url "https://tagaholic.me/schema/meta.html",
     :logseq.property/description
     "Meta description field which usually discusses organizing thing instead of thing itself"}},
+  :applied
+  {:block/title "applied",
+   :logseq.property/type :default,
+   :build/properties
+   {:url "https://tagaholic.me/schema/applied.html",
+    :logseq.property/description "Date applied to contract/job"}},
+  :siblings
+  {:block/title "siblings",
+   :logseq.property/type :default,
+   :build/properties
+   {:url "https://tagaholic.me/schema/siblings.html"}},
   :key
   {:block/title "key",
    :logseq.property/type :default,
@@ -294,6 +444,19 @@
    {:url "https://tagaholic.me/schema/rangeIncludes.html",
     :logseq.property/description
     "A more useful version of rdfs:range as it can be one of multiple values"}},
+  :sort-order
+  {:block/title "sort-order",
+   :logseq.property/type :default,
+   :build/properties
+   {:url "https://tagaholic.me/schema/sort-order.html",
+    :logseq.property/description
+    "Controls sort order of blocks in a query table"}},
+  :started-at
+  {:block/title "started-at",
+   :logseq.property/type :default,
+   :build/properties
+   {:url "https://tagaholic.me/schema/started-at.html",
+    :logseq.property/description "Time a block started at"}},
   :via
   {:block/title "via",
    :logseq.property/type :default,
@@ -301,11 +464,54 @@
    {:url "https://tagaholic.me/schema/via.html",
     :logseq.property/description
     "Source or from whom entity was obtained"}},
+  :fidelity
+  {:block/title "fidelity",
+   :logseq.property/type :default,
+   :build/properties
+   {:url "https://tagaholic.me/schema/fidelity.html"}},
+  :mother
+  {:block/title "mother",
+   :logseq.property/type :default,
+   :build/properties {:url "https://tagaholic.me/schema/mother.html"}},
   :type
   {:block/title "type",
    :logseq.property/type :default,
    :build/properties
    {:url "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"}},
+  :duration
+  {:block/title "duration",
+   :logseq.property/type :default,
+   :build/properties
+   {:url "https://tagaholic.me/schema/duration.html"}},
+  :source-url
+  {:block/title "source-url",
+   :logseq.property/type :url,
+   :build/properties
+   {:url "https://tagaholic.me/schema/source-url.html"}},
+  :total
+  {:block/title "total",
+   :logseq.property/type :default,
+   :build/properties
+   {:url "https://tagaholic.me/schema/total.html",
+    :meta
+    "Like https://schema.org/totalPaymentDue but range is different"}},
+  :done-reason
+  {:block/title "done-reason",
+   :logseq.property/type :default,
+   :build/properties
+   {:url "https://tagaholic.me/schema/done-reason.html",
+    :logseq.property/description
+    "Explain why a task was marked done immediately"}},
+  :timebox
+  {:block/title "timebox",
+   :logseq.property/type :default,
+   :build/properties
+   {:url "https://tagaholic.me/schema/timebox.html",
+    :logseq.property/description "Amount of time allotted to task"}},
+  :father
+  {:block/title "father",
+   :logseq.property/type :default,
+   :build/properties {:url "https://tagaholic.me/schema/father.html"}},
   :sameAs
   {:block/title "sameAs",
    :logseq.property/type :url,
@@ -313,6 +519,32 @@
    {:url "https://www.w3.org/2002/07/owl#sameAs",
     :logseq.property/description
     "Indicates that two URIs are equivalent"}},
+  :answer
+  {:block/title "answer",
+   :logseq.property/type :default,
+   :build/properties
+   {:url "https://tagaholic.me/schema/answer.html",
+    :logseq.property/description "Answer for question",
+    :meta
+    "Haven't found need yet for an answer type like https://schema.org/Answer"}},
+  :git-sha
+  {:block/title "git-sha",
+   :logseq.property/type :default,
+   :build/properties
+   {:url "https://tagaholic.me/schema/git-sha.html",
+    :logseq.property/description
+    "Provide specific version of code to reproduce a condition about it. Usually related to a bug or investigation"}},
+  :ended-at
+  {:block/title "ended-at",
+   :logseq.property/type :default,
+   :build/properties
+   {:url "https://tagaholic.me/schema/ended-at.html",
+    :logseq.property/description "Time a block ended at"}},
+  :built-by
+  {:block/title "built-by",
+   :logseq.property/type :url,
+   :build/properties
+   {:url "https://tagaholic.me/schema/built-by.html"}},
   :domainIncludes
   {:block/title "domainIncludes",
    :logseq.property/type :default,
@@ -320,6 +552,44 @@
    {:url "https://tagaholic.me/schema/domainIncludes.html",
     :logseq.property/description
     "A more useful version of rdfs:domain as it can be one of multiple values"}},
+  :blocked
+  {:block/title "blocked",
+   :logseq.property/type :default,
+   :build/properties
+   {:url "https://tagaholic.me/schema/blocked.html",
+    :logseq.property/description
+    "Explain why current task is blocked. Usually other task(s) or a description of the blocker"}},
+  :actual
+  {:block/title "actual",
+   :logseq.property/type :default,
+   :build/properties
+   {:url "https://tagaholic.me/schema/actual.html",
+    :logseq.property/description "Time actually spent on a task"}},
+  :solution
+  {:block/title "solution",
+   :logseq.property/type :default,
+   :build/properties
+   {:url "https://tagaholic.me/schema/solution.html",
+    :logseq.property/description "How an exception was solved"}},
+  :publish-url
+  {:block/title "publish-url",
+   :logseq.property/type :url,
+   :build/properties
+   {:url "https://tagaholic.me/schema/publish-url.html"}},
+  :owner
+  {:block/title "owner",
+   :logseq.property/type :default,
+   :build/properties
+   {:url "https://tagaholic.me/schema/owner.html",
+    :logseq.property/description
+    "Owns completion of task or thing to do",
+    :meta
+    "https://schema.org/agent is the closes thing but not the same"}},
+  :grandfather
+  {:block/title "grandfather",
+   :logseq.property/type :default,
+   :build/properties
+   {:url "https://tagaholic.me/schema/grandfather.html"}},
   :rating
   {:block/title "rating",
    :logseq.property/type :Number,
