@@ -1,5 +1,6 @@
 /.cpcache
 /.clj-kondo/.cache
+/.clj-kondo/imports
 /later
 /.claude
 /.lsp

@@ -3,7 +3,6 @@
   sqlite.build EDN from the classpath resource `schema-org-index.edn` and
   builds graph-ontology EDN that `logseq graph import --type edn` accepts."
   (:require [babashka.cli :as cli]
-            [babashka.fs :as fs]
             [babashka.process :refer [shell]]
             [cldwalker.bb-clis.cli :as cli-util]
             [cldwalker.bb-clis.util.logseq :as logseq-util]
@@ -33,59 +32,6 @@
 
 (defn- class-ident [k] (keyword "schema.class" (name k)))
 (defn- property-ident [k] (keyword "schema.property" (name k)))
-
-(defn- graph-args [graph]
-  (when graph ["-g" graph]))
-
-(defn- logseq-query [graph query inputs]
-  (let [{:keys [out]} (apply shell {:out :string :continue true} "logseq" "query"
-                             (concat (graph-args graph)
-                                     ["-o" "edn" "--query" (pr-str query)]
-                                     (when inputs ["--inputs" (pr-str inputs)])))
-        {:keys [status data error]} (edn/read-string out)]
-    (when (not= :ok status)
-      (cli-util/error "Query failed:" (or (:message error) (pr-str error) out)))
-    (:result data)))
-
-(defn- existing-idents
-  "Returns the subset of the given idents that exist in the graph"
-  [graph idents]
-  (if (empty? idents)
-    #{}
-    (set (logseq-query graph
-                       '[:find [?ident ...] :in $ [?ident ...] :where [?e :db/ident ?ident]]
-                       [(vec idents)]))))
-
-(defn- existing-property-titles
-  "Returns the subset of the given titles that already exist as a property in the
-  graph. Checks by title, not :db/ident, since importing a property whose title
-  matches an existing one under a different ident creates an unusable duplicate."
-  [graph titles]
-  (if (empty? titles)
-    #{}
-    (set (logseq-query graph
-                       '[:find [?title ...] :in $ [?title ...]
-                         :where
-                         [?e :block/title ?title]
-                         [?e :block/tags :logseq.class/Property]]
-                       [(vec titles)]))))
-
-(defn- existing-user-class-titles
-  "Returns the subset of the given titles that already exist as a user class in
-  the graph. Only considers user classes (no :logseq.property/built-in?) so that
-  schema.org classes can coexist with same-named built-ins e.g. Comment. Checks
-  by title since importing a class whose title matches an existing user class
-  under a different ident creates an unusable duplicate."
-  [graph titles]
-  (if (empty? titles)
-    #{}
-    (set (logseq-query graph
-                       '[:find [?title ...] :in $ [?title ...]
-                         :where
-                         [?e :block/title ?title]
-                         [?e :block/tags :logseq.class/Tag]
-                         (not [?e :logseq.property/built-in? _])]
-                       [(vec titles)]))))
 
 (defn- qualify-build-properties
   "Qualifies shorthand schema.org property keys used in :build/properties"
@@ -169,8 +115,8 @@
 pulled into the closure - that collides by title with an existing user
 class or property would create an unusable duplicate on import"
   [graph check-classes check-props]
-  (let [dup-class-title? (existing-user-class-titles graph (map name check-classes))
-        dup-prop-title? (existing-property-titles graph (map name check-props))
+  (let [dup-class-title? (logseq-util/existing-user-class-titles graph (map name check-classes))
+        dup-prop-title? (logseq-util/existing-property-titles graph (map name check-props))
         dups (concat (filter (comp dup-class-title? name) check-classes)
                      (filter (comp dup-prop-title? name) check-props))]
     (when (seq dups)
@@ -189,9 +135,9 @@ class or property would create an unusable duplicate on import"
         class-args (filter #(contains? classes %) arg-kws)
         prop-args (filter #(contains? properties %) arg-kws)
         {need-classes :classes need-props :properties} (closure index class-args prop-args)
-        existing (existing-idents graph
-                                  (concat (map class-ident need-classes)
-                                          (map property-ident need-props)))
+        existing (logseq-util/existing-idents graph
+                                              (concat (map class-ident need-classes)
+                                                      (map property-ident need-props)))
         new-classes (remove (comp existing class-ident) need-classes)
         new-props (remove (comp existing property-ident) need-props)
         _ (error-if-duplicates graph
@@ -216,16 +162,6 @@ class or property would create an unusable duplicate on import"
             (seq classes-map) (assoc :classes classes-map)
             (seq props-map) (assoc :properties props-map))}))
 
-(defn- import-edn [graph edn-map]
-  (let [temp-file (fs/create-temp-file {:prefix "logseq-schema" :suffix ".edn"})]
-    (try
-      (spit (fs/file temp-file) (pr-str edn-map))
-      (let [{:keys [exit]} (apply shell {:continue true} "logseq" "graph" "import"
-                                  (concat (graph-args graph) ["--type" "edn" "--input" (str temp-file)]))]
-        (when-not (zero? exit)
-          (cli-util/error "Import failed with exit code" exit)))
-      (finally (fs/delete-if-exists temp-file)))))
-
 (defn- pluralize [coll singular plural]
   (if (= (count coll) 1) singular plural))
 
@@ -245,7 +181,7 @@ class or property would create an unusable duplicate on import"
              (into (vec new-classes) new-props))
     (if pretend
       (pprint/pprint edn)
-      (import-edn graph edn))))
+      (logseq-util/import-edn graph edn))))
 
 (defn- add-command [{{:keys [args] :as opts} :opts}]
   (when (empty? args)
@@ -269,21 +205,21 @@ class or property would create an unusable duplicate on import"
   [graph index]
   (let [class-names (set (map name (keys (:classes index))))
         prop-names (set (map name (keys (:properties index))))
-        user-classes (logseq-query graph
-                                    '[:find ?title ?ident ?uuid
-                                      :where
-                                      [?e :block/tags :logseq.class/Tag]
-                                      [?e :block/title ?title] [?e :db/ident ?ident] [?e :block/uuid ?uuid]
-                                      (not [?e :logseq.property/built-in? _])]
-                                    nil)
-        user-props (logseq-query graph
-                                  '[:find ?title ?ident ?uuid ?type
-                                    :where
-                                    [?e :block/tags :logseq.class/Property]
-                                    [?e :block/title ?title] [?e :db/ident ?ident] [?e :block/uuid ?uuid]
-                                    [?e :logseq.property/type ?type]
-                                    (not [?e :logseq.property/built-in? _])]
-                                  nil)]
+        user-classes (logseq-util/logseq-query graph
+                                               '[:find ?title ?ident ?uuid
+                                                 :where
+                                                 [?e :block/tags :logseq.class/Tag]
+                                                 [?e :block/title ?title] [?e :db/ident ?ident] [?e :block/uuid ?uuid]
+                                                 (not [?e :logseq.property/built-in? _])]
+                                               nil)
+        user-props (logseq-util/logseq-query graph
+                                             '[:find ?title ?ident ?uuid ?type
+                                               :where
+                                               [?e :block/tags :logseq.class/Property]
+                                               [?e :block/title ?title] [?e :db/ident ?ident] [?e :block/uuid ?uuid]
+                                               [?e :logseq.property/type ?type]
+                                               (not [?e :logseq.property/built-in? _])]
+                                             nil)]
     {:classes (->> user-classes
                    (filter (fn [[t]] (class-names t)))
                    (map (fn [[t i u]] {:name t :ident i :uuid u}))
@@ -357,20 +293,20 @@ class or property would create an unusable duplicate on import"
                                       (cond-> (not page?) (assoc :block (entity-block-info e)))
                                       f))))]
     (doseq [{:keys [name ident]} classes]
-      (let [ents (map first (logseq-query graph
-                                          [:find (list 'pull '?e (entity-pull nil nil))
-                                           :where ['?e :block/tags ident]]
-                                          nil))]
+      (let [ents (map first (logseq-util/logseq-query graph
+                                                       [:find (list 'pull '?e (entity-pull nil nil))
+                                                        :where ['?e :block/tags ident]]
+                                                       nil))]
         (swap! class-counts assoc name (count ents))
         (doseq [e ents]
           (update-entity e (fn [m] (-> m
                                        (update :add-tags conj (class-ident (keyword name)))
                                        (update :remove-tags conj ident)))))))
     (doseq [{:keys [name ident type]} properties]
-      (let [ents (map first (logseq-query graph
-                                          [:find (list 'pull '?e (entity-pull ident type))
-                                           :where ['?e ident '_]]
-                                          nil))]
+      (let [ents (map first (logseq-util/logseq-query graph
+                                                       [:find (list 'pull '?e (entity-pull ident type))
+                                                        :where ['?e ident '_]]
+                                                       nil))]
         (swap! prop-counts assoc name (count ents))
         (doseq [e ents]
           (let [v (schema-property-value index name type (get e ident))]
@@ -425,15 +361,15 @@ class or property would create an unusable duplicate on import"
   (let [conflict-idents (set (map :ident classes))
         ident->schema (into {} (map (fn [{:keys [ident name]}] [ident (class-ident (keyword name))])) classes)
         rows (when (seq conflict-idents)
-               (logseq-query graph
-                             '[:find ?child-ident ?child-uuid ?parent-ident
-                               :in $ [?parent-ident ...]
-                               :where
-                               [?child :logseq.property.class/extends ?p]
-                               [?p :db/ident ?parent-ident]
-                               [?child :db/ident ?child-ident]
-                               [?child :block/uuid ?child-uuid]]
-                             [(vec conflict-idents)]))]
+               (logseq-util/logseq-query graph
+                                         '[:find ?child-ident ?child-uuid ?parent-ident
+                                           :in $ [?parent-ident ...]
+                                           :where
+                                           [?child :logseq.property.class/extends ?p]
+                                           [?p :db/ident ?parent-ident]
+                                           [?child :db/ident ?child-ident]
+                                           [?child :block/uuid ?child-uuid]]
+                                         [(vec conflict-idents)]))]
     (->> rows
          (remove (fn [[child-ident _ _]] (conflict-idents child-ident)))
          (group-by second)
@@ -449,14 +385,14 @@ class or property would create an unusable duplicate on import"
                                 (map (fn [{:keys [ident name]}] [ident (class-ident (keyword name))]) classes)
                                 (map (fn [{:keys [ident name]}] [ident (property-ident (keyword name))]) properties)))
         rows (when (seq ident->schema)
-               (logseq-query graph
-                             '[:find ?ident ?alias-uuid
-                               :in $ [?ident ...]
-                               :where
-                               [?e :db/ident ?ident]
-                               [?e :block/alias ?a]
-                               [?a :block/uuid ?alias-uuid]]
-                             [(vec (keys ident->schema))]))]
+               (logseq-util/logseq-query graph
+                                         '[:find ?ident ?alias-uuid
+                                           :in $ [?ident ...]
+                                           :where
+                                           [?e :db/ident ?ident]
+                                           [?e :block/alias ?a]
+                                           [?a :block/uuid ?alias-uuid]]
+                                         [(vec (keys ident->schema))]))]
     (reduce (fn [m [ident auuid]] (update m (ident->schema ident) (fnil conj #{}) auuid)) {} rows)))
 
 (defn- idents->uuids
@@ -464,10 +400,10 @@ class or property would create an unusable duplicate on import"
   [graph idents]
   (if (empty? idents)
     {}
-    (into {} (logseq-query graph
-                           '[:find ?ident ?uuid :in $ [?ident ...]
-                             :where [?e :db/ident ?ident] [?e :block/uuid ?uuid]]
-                           [(vec idents)]))))
+    (into {} (logseq-util/logseq-query graph
+                                       '[:find ?ident ?uuid :in $ [?ident ...]
+                                         :where [?e :db/ident ?ident] [?e :block/uuid ?uuid]]
+                                       [(vec idents)]))))
 
 (defn- migrate-add-edn
   "Builds one import-edn map that adds tags and properties and copies property values to entities
@@ -513,7 +449,7 @@ class or property would create an unusable duplicate on import"
   [graph entities]
   (doseq [[id {:keys [page? remove-tags remove-props]}] entities]
     (let [args (concat ["logseq" "upsert" (if page? "page" "block")]
-                       (graph-args graph)
+                       (logseq-util/graph-args graph)
                        ["--id" (str id)]
                        (when (seq remove-tags) ["--remove-tags" (pr-str (vec remove-tags))])
                        (when (seq remove-props) ["--remove-properties" (pr-str (vec remove-props))]))
@@ -524,11 +460,11 @@ class or property would create an unusable duplicate on import"
 (defn- association-count
   "Number of entities still associated with an original class (by tag) or property"
   [graph {:keys [ident type]}]
-  (or (logseq-query graph
-                    (if type
-                      [:find (list 'count '?e) '. :where ['?e ident '_]]
-                      [:find (list 'count '?e) '. :where ['?e :block/tags ident]])
-                    nil)
+  (or (logseq-util/logseq-query graph
+                                (if type
+                                  [:find (list 'count '?e) '. :where ['?e ident '_]]
+                                  [:find (list 'count '?e) '. :where ['?e :block/tags ident]])
+                                nil)
       0))
 
 (defn- original-db-ids
@@ -536,10 +472,10 @@ class or property would create an unusable duplicate on import"
   [graph idents]
   (into {}
         (map (fn [e] [(:db/ident e) (:db/id e)]))
-        (map first (logseq-query graph
-                                 '[:find (pull ?e [:db/id :db/ident]) :in $ [?ident ...]
-                                   :where [?e :db/ident ?ident]]
-                                 [(vec idents)]))))
+        (map first (logseq-util/logseq-query graph
+                                             '[:find (pull ?e [:db/id :db/ident]) :in $ [?ident ...]
+                                               :where [?e :db/ident ?ident]]
+                                             [(vec idents)]))))
 
 (defn- remove-originals
   "Removes the original class and property pages (values already migrated off them)"
@@ -548,7 +484,7 @@ class or property would create an unusable duplicate on import"
         remove-page (fn [kind {:keys [ident name]}]
                       (let [{:keys [exit out err]}
                             (apply shell {:continue true :out :string :err :string}
-                                   (concat ["logseq" "remove" kind] (graph-args graph)
+                                   (concat ["logseq" "remove" kind] (logseq-util/graph-args graph)
                                            ["--id" (str (ids ident))]))]
                         (when-not (zero? exit)
                           (cli-util/error "Failed to remove original" name "-" (str/trim (str out err))))))]
@@ -566,7 +502,7 @@ class or property would create an unusable duplicate on import"
   (let [extends-by-uuid (extending-classes graph conflicts)
         schema-ident->aliases (conflict-aliases graph conflicts)]
     ;; Step 2: free the original names by renaming the originals
-    (import-edn graph (rename-originals-edn conflicts))
+    (logseq-util/import-edn graph (rename-originals-edn conflicts))
     ;; Step 3: create the schema.org replacements under the original names
     (add-schema (mapv :name (concat classes properties)) {:graph graph :pretend false})
     ;; Step 4: add the schema tags and copied property values onto the entities,
@@ -574,7 +510,7 @@ class or property would create an unusable duplicate on import"
     (let [schema-ident->uuid (idents->uuids graph (keys schema-ident->aliases))
           aliases (into {} (map (fn [[sident targets]] [(schema-ident->uuid sident) targets]))
                         schema-ident->aliases)]
-      (import-edn graph (migrate-add-edn index conflicts entities extends-by-uuid aliases))))
+      (logseq-util/import-edn graph (migrate-add-edn index conflicts entities extends-by-uuid aliases))))
   ;; Step 5: remove the original user tags and property values from the entities
   (remove-user-associations graph entities)
   ;; Step 6: confirm nothing is still associated, then remove the originals

@@ -7,22 +7,24 @@
     :logseq.property/description
     "First property I've added. Could also be https://schema.org/genre"},
    :build/class-extends [:HumanConcept]},
-  :Doc
-  {:block/title "Doc",
+  :Property
+  {:block/title "Property",
    :build/properties
-   {:url "https://schema.org/DigitalDocument",
-    :logseq.property/description "\"Electronic file or document.\""},
-   :build/class-extends [:schema.class/CreativeWork]},
+   {:url "https://tagaholic.me/schema/Property.html",
+    :logseq.property/description
+    "Defines user defined properties in this graph"},
+   :build/class-extends [:schema.class/Thing]},
   :Shell
   {:block/title "Shell",
    :build/properties
    {:url "https://en.wikipedia.org/wiki/Shell_(computing)"},
-   :build/class-extends [:Repo]},
+   :build/class-extends [:schema.class/SoftwareSourceCode]},
   :PersonalRepo
   {:block/title "PersonalRepo",
    :build/properties
    {:url "https://tagaholic.me/schema/PersonalRepo.html"},
-   :build/class-extends [:Repo]},
+   :build/alias [:PRepo],
+   :build/class-extends [:schema.class/SoftwareSourceCode]},
   :ComputerScientist
   {:block/title "ComputerScientist",
    :build/properties
@@ -37,7 +39,9 @@
    :build/properties
    {:url "https://tagaholic.me/schema/KnowledgeGraph.html",
     :logseq.property/description
-    "From https://en.wikipedia.org/wiki/Ontology_(information_science), \"a collection of interlinked descriptions of entities\" or \"any knowledge base that is represented as a graph\""},
+    "From https://en.wikipedia.org/wiki/Ontology_(information_science), \"a collection of interlinked descriptions of entities\" or \"any knowledge base that is represented as a graph\"",
+    :meta
+    "Purposely didn't use https://en.wikipedia.org/wiki/Knowledge_base as the term seems dated and more specific to older computer systems"},
    :build/class-extends [:ComputerConcept]},
   :Programmer
   {:block/title "Programmer",
@@ -49,24 +53,14 @@
    {:url "https://tagaholic.me/schema/CmdExample.html",
     :logseq.property/description "Example of a shell command"},
    :build/class-extends [:schema.class/Comment]},
-  :WebApp
-  {:block/title "WebApp",
-   :build/properties {:url "https://schema.org/WebApplication"},
-   :build/class-extends [:App]},
-  :Video
-  {:block/title "Video",
-   :build/properties {:url "https://schema.org/VideoObject"},
-   :build/class-extends [:schema.class/MediaObject]},
-  :Podcast
-  {:block/title "Podcast",
-   :build/properties {:url "https://schema.org/PodcastSeries"},
-   :build/class-extends [:schema.class/CreativeWorkSeries]},
   :VideoChannel
   {:block/title "VideoChannel",
    :build/properties
    {:url "https://tagaholic.me/schema/VideoChannel.html",
     :logseq.property/description
-    "Similar to a tv-channel but for online channels like youtube"},
+    "Similar to a tv-channel but for online channels like youtube",
+    :meta
+    "Also thought of putting this under broadcast-service or service-channel. broadcast-channel fits for now"},
    :build/class-extends [:schema.class/BroadcastChannel]},
   :BbSnippet
   {:block/title "BbSnippet",
@@ -77,7 +71,8 @@
   :Database
   {:block/title "Database",
    :build/properties {:url "https://en.wikipedia.org/wiki/Database"},
-   :build/class-extends [:Repo]},
+   :build/alias [:Db],
+   :build/class-extends [:schema.class/SoftwareSourceCode]},
   :Sport
   {:block/title "Sport",
    :build/properties
@@ -85,15 +80,18 @@
     :logseq.property/description
     "Could also be https://schema.org/sport"},
    :build/class-extends [:HumanConcept]},
-  :Quote
-  {:block/title "Quote",
-   :build/properties {:url "https://schema.org/Quotation"},
-   :build/class-extends [:schema.class/CreativeWork]},
   :Keybinding
   {:block/title "Keybinding",
    :build/properties
    {:url "https://tagaholic.me/schema/Keybinding.html"},
    :build/class-extends [:ComputerConcept]},
+  :Library
+  {:block/title "Library",
+   :build/properties
+   {:url "https://en.wikipedia.org/wiki/Library_(computing)",
+    :logseq.property/description
+    "Reusable chunk of code with an interface to be invoked by higher level programs"},
+   :build/class-extends [:schema.class/SoftwareSourceCode]},
   :Song
   {:block/title "Song",
    :build/properties
@@ -112,7 +110,7 @@
    {:url "https://tagaholic.me/schema/OntologyEditor.html",
     :logseq.property/description
     "Apps for creating and manipulation ontologies, often represented as owl. Can be web, desktop app or something else"},
-   :build/class-extends [:App]},
+   :build/class-extends [:schema.class/SoftwareApplication]},
   :User
   {:block/title "User",
    :build/properties
@@ -120,20 +118,21 @@
     :logseq.property/description
     "Someone primarily known through their user presence on a site"},
    :build/class-extends [:schema.class/Person]},
-  :MobileApp
-  {:block/title "MobileApp",
-   :build/properties {:url "https://schema.org/MobileApplication"},
-   :build/class-extends [:App]},
   :Actor
   {:block/title "Actor",
-   :build/properties {:url "https://en.wikipedia.org/wiki/Actor"},
+   :build/properties
+   {:url "https://en.wikipedia.org/wiki/Actor",
+    :meta
+    "Using wikipedia instead of schema's https://schema.org/actor b/c it's info is more relevant than schema's property info"},
    :build/class-extends [:schema.class/Person]},
   :Musician
   {:block/title "Musician",
    :build/properties
    {:url "https://en.wikipedia.org/wiki/Musician",
     :logseq.property/description
-    "Generally refers to any musical artist, singing or not."},
+    "Generally refers to any musical artist, singing or not.",
+    :meta
+    "May eventually be put under person.artist or https://schema.org/MusicGroup"},
    :build/class-extends [:schema.class/Person]},
   :Diagram
   {:block/title "Diagram",
@@ -145,12 +144,12 @@
    {:url "https://en.wikipedia.org/wiki/Plug-in_(computing)",
     :logseq.property/description
     "From page \"a software component that adds a specific feature to an existing computer program\". Can go by other names too like package, extension and addon."},
-   :build/class-extends [:Repo]},
+   :build/class-extends [:schema.class/SoftwareSourceCode]},
   :WebBrowser
   {:block/title "WebBrowser",
    :build/properties
    {:url "https://en.wikipedia.org/wiki/Web_browser"},
-   :build/class-extends [:App]},
+   :build/class-extends [:schema.class/SoftwareApplication]},
   :Subcmd
   {:block/title "Subcmd",
    :build/properties {:url "https://tagaholic.me/schema/Subcmd.html"},
@@ -159,7 +158,7 @@
   {:block/title "TextEditor",
    :build/properties
    {:url "https://en.wikipedia.org/wiki/Text_editor"},
-   :build/class-extends [:App]},
+   :build/class-extends [:schema.class/SoftwareApplication]},
   :Ebook
   {:block/title "Ebook",
    :build/properties {:url "https://tagaholic.me/schema/Ebook.html"},
@@ -170,11 +169,14 @@
    {:url "https://en.wikipedia.org/wiki/Social_news_website",
     :logseq.property/description
     "Couldn't find a type for news aggregator. NewsMediaOrg and newspaper weren't quite right"},
-   :build/class-extends [:Site]},
-  :Uri
-  {:block/title "Uri",
-   :build/properties {:url "https://schema.org/URL"},
-   :build/class-extends [:schema.class/DataType]},
+   :build/class-extends [:schema.class/WebSite]},
+  :Class
+  {:block/title "Class",
+   :build/properties
+   {:url "https://tagaholic.me/schema/Class.html",
+    :logseq.property/description
+    "Defines user defined classes/types in this graph"},
+   :build/class-extends [:schema.class/Thing]},
   :MyConcept
   {:block/title "MyConcept",
    :build/properties
@@ -193,13 +195,7 @@
    {:url "https://en.wikipedia.org/wiki/Snippet_(programming)",
     :logseq.property/description
     "Code snippet. Could be a software-source-code with code-sample-type set to snippet. Prefer a separate type for this"},
-   :build/class-extends [:Repo]},
-  :Paper
-  {:block/title "Paper",
-   :build/properties
-   {:url "https://schema.org/ScholarlyArticle",
-    :logseq.property/description "A research paper"},
-   :build/class-extends [:schema.class/Article]},
+   :build/class-extends [:schema.class/SoftwareSourceCode]},
   :HumanConcept
   {:block/title "HumanConcept",
    :build/properties
@@ -207,13 +203,6 @@
     :logseq.property/description
     "Concept which primarily applies to human(s)"},
    :build/class-extends [:schema.class/Intangible]},
-  :University
-  {:block/title "University",
-   :build/properties
-   {:url "https://schema.org/CollegeOrUniversity",
-    :logseq.property/description
-    "\"A college, university, or other third-level educational institution\""},
-   :build/class-extends [:schema.class/EducationalOrganization]},
   :ComputerConcept
   {:block/title "ComputerConcept",
    :build/properties
@@ -221,10 +210,6 @@
     :logseq.property/description
     "Umbrella class for any computer concepts"},
    :build/class-extends [:schema.class/Intangible]},
-  :Repository
-  {:block/title "Repository",
-   :build/properties {:url "https://schema.org/SoftwareSourceCode"},
-   :build/class-extends [:schema.class/CreativeWork]},
   :Newsletter
   {:block/title "Newsletter",
    :build/properties
@@ -235,7 +220,8 @@
    :build/properties
    {:url "https://en.wikipedia.org/wiki/Technical_standard",
     :logseq.property/description
-    "As a property, tempted to use 'usesStandard' but most properties aren't verbs"},
+    "As a property, tempted to use 'usesStandard' but most properties aren't verbs",
+    :meta "May need to split off spec(ification) from this"},
    :build/class-extends [:schema.class/Intangible]},
   :StringWithRefs
   {:block/title "StringWithRefs",
@@ -244,43 +230,21 @@
     :logseq.property/description
     "String that can have page references"},
    :build/class-extends [:schema.class/DataType]},
-  :App
-  {:block/title "App",
-   :build/properties
-   {:url "https://schema.org/SoftwareApplication",
-    :logseq.property/description
-    "For now being used as a generic app. May need to distinguish desktop vs generic app"},
-   :build/class-extends [:schema.class/CreativeWork]},
   :PKMApp
   {:block/title "PKM App",
    :build/properties {:url "https://tagaholic.me/schema/PKM App.html"},
-   :build/class-extends [:App]},
-  :Site
-  {:block/title "Site",
-   :build/properties
-   {:url "https://schema.org/WebSite",
-    :logseq.property/description
-    "\"A WebSite is a set of related web pages and other items typically served from a single web domain and accessible via URLs\""},
-   :build/class-extends [:schema.class/CreativeWork]},
+   :build/class-extends [:schema.class/SoftwareApplication]},
   :MusicGenre
   {:block/title "MusicGenre",
    :build/properties
    {:url "https://tagaholic.me/schema/MusicGenre.html"},
    :build/class-extends [:Genre]},
-  :ProgrammingLanguage
-  {:block/title "ProgrammingLanguage",
-   :build/properties {:url "https://schema.org/ComputerLanguage"},
-   :build/class-extends [:schema.class/Intangible]},
   :Cmd
   {:block/title "Cmd",
    :build/properties
    {:url "https://en.wikipedia.org/wiki/Command_(computing)",
     :logseq.property/description "Shell cmd"},
-   :build/class-extends [:Repo]},
-  :String
-  {:block/title "String",
-   :build/properties {:url "https://schema.org/Text"},
-   :build/class-extends [:schema.class/DataType]},
+   :build/class-extends [:schema.class/SoftwareSourceCode]},
   :LargeLanguageModel
   {:block/title "LargeLanguageModel",
    :build/properties
@@ -288,7 +252,10 @@
    :build/class-extends [:ComputerConcept]},
   :Holiday
   {:block/title "Holiday",
-   :build/properties {:url "https://tagaholic.me/schema/Holiday.html"},
+   :build/properties
+   {:url "https://tagaholic.me/schema/Holiday.html",
+    :meta
+    "Wasn't ready to introduce enum members liket https://schema.org/PublicHolidays"},
    :build/class-extends [:HumanConcept]}},
  :properties
  {:unique
@@ -311,14 +278,22 @@
    {:url "https://tagaholic.me/schema/meta.html",
     :logseq.property/description
     "Meta description field which usually discusses organizing thing instead of thing itself"}},
-  :desc
-  {:block/title "desc",
-   :logseq.property/type :default,
-   :build/properties {:url "https://schema.org/description"}},
   :key
   {:block/title "key",
    :logseq.property/type :default,
    :build/properties {:url "https://tagaholic.me/schema/key.html"}},
+  :parent
+  {:block/title "parent",
+   :logseq.property/type :default,
+   :build/properties
+   {:url "https://www.w3.org/2000/01/rdf-schema#subClassOf"}},
+  :rangeIncludes
+  {:block/title "rangeIncludes",
+   :logseq.property/type :default,
+   :build/properties
+   {:url "https://tagaholic.me/schema/rangeIncludes.html",
+    :logseq.property/description
+    "A more useful version of rdfs:range as it can be one of multiple values"}},
   :via
   {:block/title "via",
    :logseq.property/type :default,
@@ -331,17 +306,28 @@
    :logseq.property/type :default,
    :build/properties
    {:url "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"}},
-  :plang
-  {:block/title "plang",
+  :sameAs
+  {:block/title "sameAs",
+   :logseq.property/type :url,
+   :build/properties
+   {:url "https://www.w3.org/2002/07/owl#sameAs",
+    :logseq.property/description
+    "Indicates that two URIs are equivalent"}},
+  :domainIncludes
+  {:block/title "domainIncludes",
    :logseq.property/type :default,
-   :build/properties {:url "https://schema.org/programmingLanguage"}},
+   :build/properties
+   {:url "https://tagaholic.me/schema/domainIncludes.html",
+    :logseq.property/description
+    "A more useful version of rdfs:domain as it can be one of multiple values"}},
   :rating
   {:block/title "rating",
    :logseq.property/type :Number,
    :build/properties
    {:url "https://tagaholic.me/schema/rating.html",
     :logseq.property/description
-    "Usually a shortcut for creative-work.review.reviewRating or possibly creative-work.aggregateRating.ratingValue"}},
+    "Usually a shortcut for creative-work.review.reviewRating or possibly creative-work.aggregateRating.ratingValue",
+    :meta "Not to be confused with https://schema.org/Rating"}},
   :forApp
   {:block/title "forApp",
    :logseq.property/type :default,

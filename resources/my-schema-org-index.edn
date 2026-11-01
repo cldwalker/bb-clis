@@ -1,0 +1,44 @@
+{:graph-namespace :schema,
+ :classes
+ {:Service
+  #:build{:properties
+          #:tagaholic.me{:meta
+                         "Haven't fully defined why most web-apps don't fall under this"}},
+  :PodcastSeries #:build{:alias [:Podcast]},
+  :VideoObject #:build{:alias [:Video]},
+  :DigitalDocument #:build{:alias [:Doc]},
+  :WebSite #:build{:alias [:Site]},
+  :Brand
+  #:build{:properties
+          #:tagaholic.me{:meta
+                         "I'll probably mostly use it as a product group. Torn about using this vs product for some cases"}},
+  :SoftwareSourceCode #:build{:alias [:Repository :Repo]},
+  :ScholarlyArticle #:build{:alias [:Paper]},
+  :SocialMediaPosting #:build{:alias [:Comment]},
+  :Quotation #:build{:alias [:Quote]},
+  :WebApplication #:build{:alias [:WebApp]},
+  :Text
+  #:build{:alias [:String],
+          :properties
+          #:tagaholic.me{:meta
+                         "Prefer the name string over text as it maps with xsd:string"}},
+  :Date
+  #:build{:properties
+          #:tagaholic.me{:meta
+                         "Does not have the same date format as schema.org"}},
+  :SoftwareApplication #:build{:alias [:App]},
+  :CollegeOrUniversity #:build{:alias [:University]},
+  :URL
+  #:build{:alias [:Uri],
+          :properties
+          #:tagaholic.me{:meta
+                         "Couldn't use URL since we're case insensitive and url is already taken"}},
+  :ComputerLanguage #:build{:alias [:ProgrammingLanguage]},
+  :MobileApplication #:build{:alias [:MobileApp]},
+  :DataType
+  #:build{:properties
+          #:tagaholic.me{:meta
+                         "Almost seems same as [rdfs:Datatype](https://www.w3.org/TR/rdf12-schema/#ch_datatype) but not quite because it inherits differently than schema version"}}},
+ :properties
+ {:logseq.property/description #:build{:alias [:desc]},
+  :programmingLanguage #:build{:alias [:plang]}}}
