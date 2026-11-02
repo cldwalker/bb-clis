@@ -383,11 +383,55 @@
                     (pr-str (vec missing))
                     (str "\nRun 'logseq-schema add " (str/join " " (map name missing)) "' first"))))
 
+(defn- alias-pages
+  "Returns `:pages` creating each of `alias-names` plus the `:alias` refs to
+  them. The import reuses an existing page with the same title instead"
+  [alias-names]
+  (let [uuids (vec (repeatedly (count alias-names) random-uuid))]
+    {:pages (mapv (fn [uuid title] {:page {:block/title title :block/uuid uuid :build/keep-uuid? true}})
+                  uuids alias-names)
+     :alias (set (map #(vector :block/uuid %) uuids))}))
+
+(defn- aliased-entities
+  "Builds `{ident entry}` for keys `ks` of `index-entries`, adding `:block/alias`
+  to entries with a `:build/alias`. Returns them as `:entities` with the alias
+  `:pages` to create"
+  [index-entries ks ident-fn entry-fn]
+  (reduce (fn [acc k]
+            (let [{:keys [pages alias]} (some->> (seq (get-in index-entries [k :build/alias]))
+                                                 (map name)
+                                                 alias-pages)]
+              (-> acc
+                  (assoc-in [:entities (ident-fn k)] (cond-> (entry-fn k) alias (assoc :block/alias alias)))
+                  (update :pages into pages))))
+          {:entities {} :pages []}
+          ks))
+
+(defn- add-edn
+  "Assembles the import EDN for `new-classes` and `new-props` plus the alias
+  pages they need. Declares schema.org's url, and the existing meta property
+  when `meta-anchor?`, since the import requires every used property declared"
+  [index new-classes new-props meta-anchor?]
+  (let [{classes-map :entities class-pages :pages}
+        (aliased-entities (:classes index) new-classes my-class-ident #(full-class-entry index %))
+        {props-map :entities prop-pages :pages}
+        (aliased-entities (:properties index) new-props my-property-ident #(full-property-entry index %))
+        props-map (cond-> props-map
+                    (or (seq classes-map) (seq props-map))
+                    (assoc (schema-property-ident :url) (anchor-entry (:url schema-org-properties) "url"))
+                    meta-anchor?
+                    (assoc (my-property-ident :meta) (anchor-entry (get-in index [:properties :meta]) "meta")))
+        pages (into class-pages prop-pages)]
+    (cond-> {}
+      (seq classes-map) (assoc :classes classes-map)
+      (seq props-map) (assoc :properties props-map)
+      (seq pages) (assoc :pages-and-blocks pages))))
+
 (defn- build-add-edn
   "Builds import EDN for `arg-kws` plus their local ancestor classes not yet
   in `graph`, erroring if an arg already exists or a new class's schema.org
-  parent doesn't. The meta property is added too when an entry uses it.
-  Returns a map of `:new-classes`, `:new-props` and `:edn`"
+  parent doesn't. The meta property and alias pages are added too when an
+  entry uses them. Returns a map of `:new-classes`, `:new-props` and `:edn`"
   [index graph arg-kws]
   (let [{:keys [classes properties]} index
         class-args (filter #(contains? classes %) arg-kws)
@@ -409,19 +453,10 @@
                                (distinct (concat prop-args new-props)))
         _ (when-not (existing schema-url)
             (cli-util/error ":schema.property/url not found in graph. Run 'logseq-schema init' first"))
-        _ (error-if-missing-schema-org-parents existing (schema-org-parents index new-classes))
-        classes-map (into {} (map (fn [k] [(my-class-ident k) (full-class-entry index k)])) new-classes)
-        props-map (into {} (map (fn [k] [(my-property-ident k) (full-property-entry index k)])) new-props)
-        props-map (cond-> props-map
-                    (or (seq classes-map) (seq props-map))
-                    (assoc schema-url (anchor-entry (:url schema-org-properties) "url"))
-                    (and meta? (existing meta-ident))
-                    (assoc meta-ident (anchor-entry (get-in index [:properties :meta]) "meta")))]
+        _ (error-if-missing-schema-org-parents existing (schema-org-parents index new-classes))]
     {:new-classes new-classes
      :new-props new-props
-     :edn (cond-> {}
-            (seq classes-map) (assoc :classes classes-map)
-            (seq props-map) (assoc :properties props-map))}))
+     :edn (add-edn index new-classes new-props (and meta? (existing meta-ident)))}))
 
 (defn- pluralize [coll singular plural]
   (if (= (count coll) 1) singular plural))
@@ -514,18 +549,17 @@
   import can't remove them"
   [state ident entry]
   (let [current (set (map str/lower-case (get-in state [:aliases ident])))
-        aliases (vec (remove #(current (str/lower-case %)) (map name (:build/alias entry))))
+        aliases (remove #(current (str/lower-case %)) (map name (:build/alias entry)))
         meta (index-meta entry)
         meta? (and (some? meta) (not= meta (get-in state [:metas ident])))
-        alias-uuids (vec (repeatedly (count aliases) random-uuid))]
+        {:keys [pages alias]} (alias-pages aliases)]
     (when (or (seq aliases) meta?)
       {:meta? meta?
-       :pages (conj (mapv (fn [uuid title] {:page {:block/title title :block/uuid uuid :build/keep-uuid? true}})
-                          alias-uuids aliases)
+       :pages (conj pages
                     ;; empty :build/properties forces the full page-update path so :block/alias sticks
                     {:page (cond-> {:block/uuid (get-in state [:uuids ident])
                                     :build/properties (cond-> {} meta? (assoc (my-property-ident :meta) meta))}
-                             (seq aliases) (assoc :block/alias (set (map #(vector :block/uuid %) alias-uuids))))})})))
+                             (seq aliases) (assoc :block/alias alias))})})))
 
 (defn- meta-declarations
   "Returns `:properties` declaring the meta property, which the import requires

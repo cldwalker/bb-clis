@@ -374,6 +374,7 @@
    :build/class-extends [:schema.class/DataType]},
   :LargeLanguageModel
   {:block/title "LargeLanguageModel",
+   :build/alias [:LLM],
    :build/properties
    {:url "https://en.wikipedia.org/wiki/Large_language_model"},
    :build/class-extends [:ComputerConcept]},

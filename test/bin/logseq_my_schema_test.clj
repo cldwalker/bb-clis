@@ -17,17 +17,33 @@
    :properties {:forApp {:logseq.property/type :node
                          :db/cardinality :many
                          :build/properties {:url "https://tagaholic.me/schema/forApp.html"
-                                            :meta "A note"}}
+                                            :meta "A note"}
+                         :build/alias [:app]}
                 :meta {:logseq.property/type :default
                        :build/properties {:url "https://tagaholic.me/schema/meta.html"}}}})
 
 (def ^:private url-anchor
   {:block/title "url" :logseq.property/type :url :db/cardinality :db.cardinality/one})
 
-(def ^:private child-entry
-  {:block/title "Child"
-   :build/properties {:schema.property/url "https://tagaholic.me/schema/Child.html"}
-   :build/class-extends #{:tagaholic.me.class/Parent}})
+(defn- alias-uuid
+  "Returns the uuid of the alias page titled `title` in `edn`"
+  [edn title]
+  (some #(when (= title (get-in % [:page :block/title])) (get-in % [:page :block/uuid]))
+        (:pages-and-blocks edn)))
+
+(defn- kid-uuid [edn] (alias-uuid edn "Kid"))
+
+(defn- child-edn
+  "Returns the expected EDN for adding Child, aliased to a new Kid page
+  with uuid `kid`"
+  [kid]
+  {:classes {:tagaholic.me.class/Child
+             {:block/title "Child"
+              :build/properties {:schema.property/url "https://tagaholic.me/schema/Child.html"}
+              :build/class-extends #{:tagaholic.me.class/Parent}
+              :block/alias #{[:block/uuid kid]}}}
+   :properties {:schema.property/url url-anchor}
+   :pages-and-blocks [{:page {:block/title "Kid" :block/uuid kid :build/keep-uuid? true}}]})
 
 (defn- build-add-edn
   "Runs build-add-edn on `args` against a fake graph that already has
@@ -44,42 +60,47 @@
       (#'my-schema/build-add-edn index "graph" args))))
 
 (deftest build-add-edn-new-class
-  (testing "adds the class and its local ancestors with qualified idents"
-    (is (= {:new-classes #{:Child :Parent}
-            :edn {:classes {:tagaholic.me.class/Child child-entry
-                            :tagaholic.me.class/Parent
-                            {:block/title "Parent"
-                             :build/properties {:schema.property/url "https://tagaholic.me/schema/Parent.html"}
-                             :build/class-extends #{:schema.class/Thing}}}
-                  :properties {:schema.property/url url-anchor}}}
-           (-> (build-add-edn [:Child])
-               (update :new-classes set)
-               (dissoc :new-props))))))
+  (testing "adds the class, aliased to new pages, and its local ancestors with qualified idents"
+    (let [{:keys [edn] :as result} (build-add-edn [:Child])]
+      (is (some? (kid-uuid edn)))
+      (is (= {:new-classes #{:Child :Parent}
+              :edn (assoc-in (child-edn (kid-uuid edn))
+                             [:classes :tagaholic.me.class/Parent]
+                             {:block/title "Parent"
+                              :build/properties {:schema.property/url "https://tagaholic.me/schema/Parent.html"}
+                              :build/class-extends #{:schema.class/Thing}})}
+             (-> result
+                 (update :new-classes set)
+                 (dissoc :new-props)))))))
 
 (deftest build-add-edn-new-property
-  (is (= {:new-classes []
-          :new-props [:forApp :meta]
-          :edn {:properties {:tagaholic.me.property/forApp
-                             {:block/title "forApp"
-                              :logseq.property/type :node
-                              :db/cardinality :db.cardinality/many
-                              :build/properties {:schema.property/url "https://tagaholic.me/schema/forApp.html"
-                                                 :tagaholic.me.property/meta "A note"}}
-                             :tagaholic.me.property/meta
-                             {:block/title "meta"
-                              :logseq.property/type :default
-                              :db/cardinality :db.cardinality/one
-                              :build/properties {:schema.property/url "https://tagaholic.me/schema/meta.html"}}
-                             :schema.property/url url-anchor}}}
-         (build-add-edn [:forApp]))))
+  (testing "adds the property, aliased to new pages, and the meta property it uses"
+    (let [{:keys [edn] :as result} (build-add-edn [:forApp])
+          app (alias-uuid edn "app")]
+      (is (some? app))
+      (is (= {:new-classes []
+              :new-props [:forApp :meta]
+              :edn {:properties {:tagaholic.me.property/forApp
+                                 {:block/title "forApp"
+                                  :logseq.property/type :node
+                                  :db/cardinality :db.cardinality/many
+                                  :build/properties {:schema.property/url "https://tagaholic.me/schema/forApp.html"
+                                                     :tagaholic.me.property/meta "A note"}
+                                  :block/alias #{[:block/uuid app]}}
+                                 :tagaholic.me.property/meta
+                                 {:block/title "meta"
+                                  :logseq.property/type :default
+                                  :db/cardinality :db.cardinality/one
+                                  :build/properties {:schema.property/url "https://tagaholic.me/schema/meta.html"}}
+                                 :schema.property/url url-anchor}
+                    :pages-and-blocks [{:page {:block/title "app" :block/uuid app :build/keep-uuid? true}}]}}
+             result)))))
 
 (deftest build-add-edn-existing-class
   (testing "skips an ancestor already in the graph"
-    (is (= {:new-classes [:Child]
-            :new-props []
-            :edn {:classes {:tagaholic.me.class/Child child-entry}
-                  :properties {:schema.property/url url-anchor}}}
-           (build-add-edn [:Child] :graph-classes [:Parent]))))
+    (let [{:keys [edn] :as result} (build-add-edn [:Child] :graph-classes [:Parent])]
+      (is (= {:new-classes [:Child] :new-props [] :edn (child-edn (kid-uuid edn))}
+             result))))
   (testing "errors when the class arg itself is in the graph"
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"already exist: 'Child'"
                           (build-add-edn [:Child] :graph-classes [:Child :Parent])))))
