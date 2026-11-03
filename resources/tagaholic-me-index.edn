@@ -374,10 +374,10 @@
    :build/class-extends [:schema.class/DataType]},
   :LargeLanguageModel
   {:block/title "LargeLanguageModel",
-   :build/alias [:LLM],
    :build/properties
    {:url "https://en.wikipedia.org/wiki/Large_language_model"},
-   :build/class-extends [:ComputerConcept]},
+   :build/class-extends [:ComputerConcept],
+   :build/alias [:LLM]},
   :Holiday
   {:block/title "Holiday",
    :build/properties
@@ -484,6 +484,14 @@
    :logseq.property/type :default,
    :build/properties
    {:url "https://tagaholic.me/schema/duration.html"}},
+  :referrerURL
+  {:block/title "referrerURL",
+   :logseq.property/type :default,
+   :build/alias [:via],
+   :build/properties
+   {:url "https://tagaholic.me/schema/referrerURL.html",
+    :logseq.property/description
+    "Url or description for where this node came from"}},
   :source-url
   {:block/title "source-url",
    :logseq.property/type :url,

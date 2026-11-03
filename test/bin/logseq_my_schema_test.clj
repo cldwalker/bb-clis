@@ -179,13 +179,22 @@
       (is (= {:tagaholic {:graph-namespace :tagaholic.me :classes {:A {:block/title "A"} :B {:block/title "B"}} :properties {}}
               :my-schema-org {:graph-namespace :schema :classes {} :properties {:p {:build/alias [:q]}}}}
              (#'my-schema/merge-graph-indexes
+              nil
               [["g1" (graph-result {:A {:block/title "A"}} {:p {:build/alias [:q]}})]
                ["g2" (graph-result {:A {:block/title "A"} :B {:block/title "B"}} {})]]))))
     (testing "errors listing every differing entry in either index"
       (let [msg (try (#'my-schema/merge-graph-indexes
+                      nil
                       [["g1" (graph-result {:A {:block/title "A"} :B {}} {:p {:build/alias [:q]}})]
                        ["g2" (graph-result {:A {:block/title "A2"} :B {}} {:p {:build/alias [:r]}})]])
                      (catch clojure.lang.ExceptionInfo e (ex-message e)))]
         (is (str/includes? msg "tagaholic-me-index.edn :classes :A\n  g1: {:block/title \"A\"}\n  g2: {:block/title \"A2\"}"))
         (is (str/includes? msg "my-schema-org-index.edn :properties :p"))
-        (is (not (str/includes? msg ":B")))))))
+        (is (not (str/includes? msg ":B")))))
+    (testing "overrides replace their keys without conflicting, and add entries missing from graphs"
+      (is (= {:A {:block/title "A" :build/alias [:Z]} :C {:build/alias [:Y]}}
+             (get-in (#'my-schema/merge-graph-indexes
+                      {:tagaholic {:classes {:A {:build/alias [:Z]} :C {:build/alias [:Y]}}}}
+                      [["g1" (graph-result {:A {:block/title "A" :build/alias [:X]}} {})]
+                       ["g2" (graph-result {:A {:block/title "A"}} {})]])
+                     [:tagaholic :classes]))))))

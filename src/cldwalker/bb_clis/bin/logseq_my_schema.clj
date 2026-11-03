@@ -203,6 +203,22 @@
 (def ^:private index-path "resources/tagaholic-me-index.edn")
 (def ^:private my-schema-org-index-path "resources/my-schema-org-index.edn")
 
+(def ^:private index-overrides
+  "Entries merged over the merged graphs' indexes, keyed like a [[build-index]]
+  result. An override's keys replace an entry's, so [[index-conflicts]] skips
+  them and an override can add an entry missing from some or all graphs"
+  {:tagaholic
+   {:classes {:LargeLanguageModel
+              {:build/alias [:LLM]}}
+    :properties {:referrerURL
+                 {:block/title "referrerURL",
+                  :logseq.property/type :default,
+                  :build/alias [:via]
+                  :build/properties
+                  {:url "https://tagaholic.me/schema/referrerURL.html",
+                   :logseq.property/description
+                   "Url or description for where this node came from"}}}}})
+
 (defn- graph-dirs
   "Returns the markdown graph directories in `dir`: `dir` itself when it has a
   pages directory, else its children that do"
@@ -213,31 +229,36 @@
 
 (defn- index-conflicts
   "Returns a conflict for each `:classes` or `:properties` key whose value
-  differs across `graph->index`, a seq of `[graph index]` pairs"
-  [index-name graph->index]
+  differs across `graph->index`, a seq of `[graph index]` pairs. Keys set by
+  the entry's `overrides` aren't compared"
+  [index-name overrides graph->index]
   (for [section [:classes :properties]
         [k graph-values] (group-by first (for [[graph index] graph->index
                                                [k v] (get index section)]
-                                           [k graph v]))
+                                           [k graph (apply dissoc v (keys (get-in overrides [section k])))]))
         :when (< 1 (count (set (map last graph-values))))]
     {:index index-name :section section :key k
      :values (into (sorted-map) (map (fn [[_ graph v]] [graph v])) graph-values)}))
 
-(defn- merge-index [indexes]
-  (reduce (fn [acc index]
-            (-> acc
-                (update :classes merge (:classes index))
-                (update :properties merge (:properties index))))
-          indexes))
+(defn- merge-index [overrides indexes]
+  (let [merged (reduce (fn [acc index]
+                         (-> acc
+                             (update :classes merge (:classes index))
+                             (update :properties merge (:properties index))))
+                       indexes)]
+    (-> merged
+        (update :classes #(merge-with merge % (:classes overrides)))
+        (update :properties #(merge-with merge % (:properties overrides))))))
 
 (defn- merge-graph-indexes
   "Merges each graph's [[build-index]] result in `graph->index`, a seq of
-  `[graph result]` pairs. Errors listing every class and property whose value
-  differs across graphs"
-  [graph->index]
+  `[graph result]` pairs, then applies `overrides`, shaped like a result.
+  Errors listing every class and property whose value differs across graphs,
+  ignoring overridden keys"
+  [overrides graph->index]
   (let [index-of (fn [k] (map (fn [[graph result]] [graph (k result)]) graph->index))
-        conflicts (concat (index-conflicts index-path (index-of :tagaholic))
-                          (index-conflicts my-schema-org-index-path (index-of :my-schema-org)))]
+        conflicts (concat (index-conflicts index-path (:tagaholic overrides) (index-of :tagaholic))
+                          (index-conflicts my-schema-org-index-path (:my-schema-org overrides) (index-of :my-schema-org)))]
     (when (seq conflicts)
       (cli-util/error
        (str/join "\n"
@@ -247,8 +268,8 @@
                                               (map (fn [[graph v]]
                                                      (str "  " graph ": " (binding [*print-namespace-maps* false] (pr-str v))))
                                                    values))))))))
-    {:tagaholic (merge-index (map second (index-of :tagaholic)))
-     :my-schema-org (merge-index (map second (index-of :my-schema-org)))}))
+    {:tagaholic (merge-index (:tagaholic overrides) (map second (index-of :tagaholic)))
+     :my-schema-org (merge-index (:my-schema-org overrides) (map second (index-of :my-schema-org)))}))
 
 (defn- build-index-command [{:keys [opts]}]
   (let [dir (fs/expand-home (:directory opts))
@@ -257,7 +278,7 @@
       (cli-util/error "No graph directories found in" (str dir)))
     (println "Reading" (count dirs) "graphs:" (str/join ", " (map fs/file-name dirs)))
     (let [{:keys [tagaholic my-schema-org]}
-          (merge-graph-indexes (map (fn [d] [(str (fs/file-name d)) (build-index d)]) dirs))]
+          (merge-graph-indexes index-overrides (map (fn [d] [(str (fs/file-name d)) (build-index d)]) dirs))]
       (spit index-path (with-out-str (pprint/pprint tagaholic)))
       (spit my-schema-org-index-path (with-out-str (pprint/pprint my-schema-org)))
       (println "Wrote" (count (:classes tagaholic)) "classes and"
