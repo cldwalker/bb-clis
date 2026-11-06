@@ -486,7 +486,7 @@
    {:url "https://tagaholic.me/schema/duration.html"}},
   :referrerURL
   {:block/title "referrerURL",
-   :logseq.property/type :default,
+   :logseq.property/type :url,
    :build/alias [:via],
    :build/properties
    {:url "https://tagaholic.me/schema/referrerURL.html",

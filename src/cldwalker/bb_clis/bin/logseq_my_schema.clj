@@ -12,11 +12,15 @@
   `add` imports classes and properties from tagaholic-me-index.edn into a
   graph, like [[cldwalker.bb-clis.bin.logseq-schema]] `add` does for
   schema.org. `update` applies my-schema-org-index.edn's aliases and meta
-  notes to the schema.org classes and properties already in a graph."
+  notes to the schema.org classes and properties already in a graph.
+  `migrate` replaces user classes and properties named in
+  tagaholic-me-index.edn with their tagaholic.me equivalents, like
+  [[cldwalker.bb-clis.bin.logseq-schema]] `migrate` does for schema.org."
   (:require [babashka.cli :as cli]
             [babashka.fs :as fs]
             [cldwalker.bb-clis.cli :as cli-util]
             [cldwalker.bb-clis.util.logseq :as logseq-util]
+            [cldwalker.bb-clis.util.logseq-migrate :as logseq-migrate]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.pprint :as pprint]
@@ -212,7 +216,7 @@
               {:build/alias [:LLM]}}
     :properties {:referrerURL
                  {:block/title "referrerURL",
-                  :logseq.property/type :default,
+                  :logseq.property/type :url,
                   :build/alias [:via]
                   :build/properties
                   {:url "https://tagaholic.me/schema/referrerURL.html",
@@ -479,9 +483,6 @@
      :new-props new-props
      :edn (add-edn index new-classes new-props (and meta? (existing meta-ident)))}))
 
-(defn- pluralize [coll singular plural]
-  (if (= (count coll) 1) singular plural))
-
 (defn- add-schema
   "Adds class and property `args` to `:graph`, or prints their EDN when
   `:pretend` is set"
@@ -495,8 +496,8 @@
             (cli-util/error "These are not classes or properties in tagaholic-me-index.edn:"
                             (pr-str (vec unknown))))
         {:keys [new-classes new-props edn]} (build-add-edn index graph arg-kws)]
-    (println "Adding" (count new-classes) (pluralize new-classes "class" "classes") "and"
-             (count new-props) (pluralize new-props "property" "properties") "-"
+    (println "Adding" (count new-classes) (logseq-migrate/pluralize new-classes "class" "classes") "and"
+             (count new-props) (logseq-migrate/pluralize new-props "property" "properties") "-"
              (into (vec new-classes) new-props))
     (if pretend
       (pprint/pprint edn)
@@ -655,6 +656,24 @@
           :complete update-name-candidates
           :desc "my-schema-org-index.edn classes or properties to update"}})
 
+;; ---- migrate ----
+
+(defn- migrate [opts]
+  (logseq-migrate/migrate opts {:index (read-my-index)
+                                :class-ident my-class-ident
+                                :property-ident my-property-ident
+                                :add-schema add-schema
+                                :rename-prefix "logseq-my-schema."}))
+
+(defn- migrate-command [{:keys [opts]}]
+  (migrate opts))
+
+(def ^:private migrate-spec
+  (merge {:graph (:graph add-spec)
+          :pretend {:alias :n :coerce :boolean
+                    :desc "Print what would migrate instead of migrating"}}
+         logseq-migrate/options))
+
 (def ^:private table
   [{:cmds ["build-index"]
     :fn build-index-command
@@ -676,7 +695,15 @@
     :args->opts (repeat :args)
     :doc "Update the schema.org classes or properties in the graph whose aliases
   or meta differ from my-schema-org-index.edn. Updates all of --update-type's
-  entities unless given names. Aliases are only added, never removed."}])
+  entities unless given names. Aliases are only added, never removed."}
+   {:cmds ["migrate"]
+    :fn migrate-command
+    :spec migrate-spec
+    :doc "Replace user classes and properties whose names are in
+  tagaholic-me-index.edn with their tagaholic.me equivalents, moving tags,
+  property values and aliases from the originals onto the replacements. The
+  originals are kept, renamed, unless --delete-existing is set. Use --pretend
+  to preview what would change."}])
 
 (defn -main [& args]
   (cli/dispatch table args {:prog "logseq-my-schema" :help true}))

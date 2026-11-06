@@ -1,5 +1,6 @@
 (ns bin.logseq-my-schema-test
   (:require [babashka.fs :as fs]
+            [bin.logseq-migrate-fake :as fake]
             [cldwalker.bb-clis.bin.logseq-my-schema :as my-schema]
             [cldwalker.bb-clis.cli :as cli-util]
             [cldwalker.bb-clis.util.logseq :as logseq-util]
@@ -198,3 +199,52 @@
                       [["g1" (graph-result {:A {:block/title "A" :build/alias [:X]}} {})]
                        ["g2" (graph-result {:A {:block/title "A"}} {})]])
                      [:tagaholic :classes]))))))
+
+(def ^:private migrate-graph
+  "A graph with a user referrerURL property plus a tagaholic.me class and a
+  schema.org property whose names are also in tagaholic-me-index.edn"
+  {:classes [["LargeLanguageModel" :tagaholic.me.class/LargeLanguageModel fake/person-uuid]]
+   :properties [["referrerURL" :user.property/referrerURL-x fake/alt-uuid :url]
+                ["parent" :schema.property/parent fake/kid-uuid :node]]
+   :valued {:user.property/referrerURL-x [(assoc fake/block-entity :user.property/referrerURL-x {:block/title "https://x.com"})]}
+   :aliases [[:user.property/referrerURL-x fake/alias-uuid]]
+   :db-ids {:user.property/referrerURL-x 11}
+   :existing #{:schema.property/url}
+   :uuids {:tagaholic.me.property/referrerURL fake/new-person-uuid}})
+
+(deftest migrate-pretend
+  (testing "only user classes and properties are previewed"
+    (let [{:keys [out imports shells]} (fake/run migrate-graph #(#'my-schema/migrate {:graph "g" :pretend true}))]
+      (is (= [] imports shells))
+      (is (str/includes? out "- 1 properties: referrerURL\n- 0 classes: \n"))
+      (is (str/includes? out "  referrerURL - 1\n"))))
+  (testing "with --verbose, an alias moves onto a replacement not yet in the graph by its ident"
+    (let [{:keys [out]} (fake/run (assoc migrate-graph :uuids {})
+                                  #(#'my-schema/migrate {:graph "g" :pretend true :verbose true}))]
+      (is (str/includes? out ":block/uuid :tagaholic.me.property/referrerURL")))))
+
+(deftest migrate-user-property
+  (let [{:keys [imports shells error]} (fake/run migrate-graph #(#'my-schema/migrate {:graph "g"}))
+        [rename add copy] imports]
+    (is (nil? error))
+    (testing "renames the original and adds its tagaholic.me replacement"
+      (is (= {:pages-and-blocks [{:page {:block/uuid fake/alt-uuid :block/title "logseq-my-schema.referrerURL" :build/properties {}}}]}
+             rename))
+      (is (contains? (:properties add) :tagaholic.me.property/referrerURL)))
+    (testing "moves the value and alias onto the replacement, declared with the index's type"
+      (is (= {:properties {:tagaholic.me.property/referrerURL
+                           {:block/title "referrerURL"
+                            :logseq.property/type (get-in (#'my-schema/read-my-index) [:properties :referrerURL :logseq.property/type])
+                            :db/cardinality :db.cardinality/one}}
+              :pages-and-blocks
+              [{:page {:block/uuid fake/new-person-uuid :block/alias #{[:block/uuid fake/alias-uuid]} :build/properties {}}}
+               {:page {:block/uuid fake/page-uuid}
+                :blocks [{:block/uuid fake/block-uuid :block/title "b"
+                          :build/properties {:tagaholic.me.property/referrerURL "https://x.com"}}]}]}
+             copy)))
+    (testing "keeps the original by default"
+      (is (= [] shells))))
+  (testing "removes the original's value and then the original with --delete-existing"
+    (is (= [["logseq" "upsert" "block" "-g" "g" "--id" "21" "--remove-properties" "[:user.property/referrerURL-x]"]
+            ["logseq" "remove" "property" "-g" "g" "--id" "11"]]
+           (:shells (fake/run migrate-graph #(#'my-schema/migrate {:graph "g" :delete-existing true})))))))
