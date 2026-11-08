@@ -7,6 +7,7 @@
   :PodcastSeries #:build{:alias [:Podcast]},
   :VideoObject #:build{:alias [:Video]},
   :DigitalDocument #:build{:alias [:Doc]},
+  :IndividualProduct #:build{:alias [:IProduct]},
   :WebSite #:build{:alias [:Site]},
   :Invoice #:build{:alias [:Bill]},
   :BusinessEvent #:build{:alias [:Meeting]},
@@ -29,12 +30,13 @@
           #:tagaholic.me{:meta
                          "Does not have the same date format as schema.org"}},
   :SoftwareApplication #:build{:alias [:App]},
+  :Corporation #:build{:alias [:Company]},
   :Time
   #:build{:properties
           #:tagaholic.me{:meta
                          "Almost has the same format as seconds are optional"}},
   :CollegeOrUniversity #:build{:alias [:University]},
-  :Question #:build{:alias [:q]},
+  :Question #:build{:alias [:Q]},
   :URL
   #:build{:alias [:Uri],
           :properties

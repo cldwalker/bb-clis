@@ -216,12 +216,21 @@
               {:build/alias [:LLM]}}
     :properties {:referrerURL
                  {:block/title "referrerURL",
+                  ;; Different than MD
                   :logseq.property/type :url,
                   :build/alias [:via]
                   :build/properties
                   {:url "https://tagaholic.me/schema/referrerURL.html",
                    :logseq.property/description
-                   "Url or description for where this node came from"}}}}})
+                   "Url or description for where this node came from"}}}}
+   :my-schema-org
+   {:classes {:Corporation
+              {:build/alias [:Company]}
+              :IndividualProduct
+              {:build/alias [:IProduct]}
+              :Question
+              ;; Different than MD
+              {:build/alias [:Q]}}}})
 
 (defn- graph-dirs
   "Returns the markdown graph directories in `dir`: `dir` itself when it has a
