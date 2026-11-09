@@ -24,6 +24,8 @@
   * `:classes`/`:properties` - user class/property rows
   * `:tagged`/`:valued` - class/property ident -> associated entities
   * `:extends` - extending-class rows, `:aliases` - [ident alias-uuid] rows
+  * `:class-properties`/`:property-classes` - class property and property
+    class rows, `:views` - pulled view entities
   * `:db-ids` - original ident -> db id, `:remaining` - association count"
   [state]
   (fn [_graph q inputs]
@@ -32,6 +34,9 @@
       (cond
         (has? q 'count) (:remaining state 0)
         (has? q :logseq.property.class/extends) (:extends state)
+        (has? q :logseq.property.class/properties) (:class-properties state)
+        (has? q :logseq.property/classes) (:property-classes state)
+        (has? q :logseq.property.table/ordered-columns) (map vector (:views state))
         (has? q :block/alias) (filter (comp input-set first) (:aliases state))
         (has? q :logseq.class/Tag) (:classes state)
         (has? q :logseq.class/Property) (:properties state)

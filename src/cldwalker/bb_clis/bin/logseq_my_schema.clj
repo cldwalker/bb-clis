@@ -230,7 +230,12 @@
               {:build/alias [:IProduct]}
               :Question
               ;; Different than MD
-              {:build/alias [:Q]}}}})
+              {:build/alias [:Q]
+               :build/class-properties [:tagaholic.me.property/answer]}}
+    :properties {:about
+                 {:logseq.property/ui-position :block-right}
+                 :attendee
+                 {:logseq.property/ui-position :block-right}}}})
 
 (defn- graph-dirs
   "Returns the markdown graph directories in `dir`: `dir` itself when it has a

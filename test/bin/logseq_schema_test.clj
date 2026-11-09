@@ -12,7 +12,7 @@
    :properties [["alternateName" :user.property/alternateName-y fake/alt-uuid :default]]
    :tagged {:user.class/Person-x [fake/page-entity]}
    :valued {:user.property/alternateName-y [(assoc fake/block-entity :user.property/alternateName-y {:block/title "Al"})]}
-   :extends [[:user.class/Kid-z fake/kid-uuid :user.class/Person-x]]
+   :extends [[:user.class/Kid-z 12 fake/kid-uuid :user.class/Person-x]]
    :aliases [[:user.class/Person-x fake/alias-uuid]]
    :db-ids {:user.class/Person-x 10 :user.property/alternateName-y 11}
    :existing #{:schema.class/Thing :schema.property/url}
@@ -53,6 +53,23 @@
                           :build/properties {:schema.property/alternateName "Al"}}]}]}
              copy)))))
 
+(deftest migrate-class-and-property-schemas
+  (let [state (assoc graph-state
+                     :class-properties [[13 :user.class/Contact-w :user.property/alternateName-y]
+                                        ;; an original's own class properties go away with it
+                                        [10 :user.class/Person-x :user.property/alternateName-y]]
+                     :property-classes [[14 :user.property/knows-v :user.class/Person-x]
+                                        [14 :user.property/knows-v :user.class/Kid-z]
+                                        ;; an original's own property classes go away with it
+                                        [11 :user.property/alternateName-y :user.class/Person-x]])]
+    (testing "classes with an original class property and properties restricted to an original class get the replacements"
+      (is (= [["logseq" "upsert" "tag" "-g" "g" "--id" "13" "--add-properties" "[:schema.property/alternateName]"]
+              ["logseq" "upsert" "page" "-g" "g" "--id" "14" "--update-properties"
+               "{:logseq.property/classes [:schema.class/Person :user.class/Kid-z :user.class/Person-x]}"]]
+             (:shells (fake/run state #(#'schema/migrate {:graph "g"}))))))
+    (testing "--pretend doesn't update them"
+      (is (= [] (:shells (fake/run state #(#'schema/migrate {:graph "g" :pretend true}))))))))
+
 (deftest migrate-keeps-originals
   (testing "without --delete-existing, the originals and their associations are left alone"
     (let [{:keys [out shells error]} (run-migrate {:graph "g"})]
@@ -64,6 +81,7 @@
   (let [{:keys [shells]} (run-migrate {:graph "g" :delete-existing true})]
     (is (= [["logseq" "upsert" "page" "-g" "g" "--id" "20" "--remove-tags" "[:user.class/Person-x]"]
             ["logseq" "upsert" "block" "-g" "g" "--id" "21" "--remove-properties" "[:user.property/alternateName-y]"]
+            ["logseq" "upsert" "page" "-g" "g" "--id" "12" "--update-properties" "{:logseq.property.class/extends [:schema.class/Person]}"]
             ["logseq" "remove" "property" "-g" "g" "--id" "11"]
             ["logseq" "remove" "tag" "-g" "g" "--id" "10"]]
            shells))))

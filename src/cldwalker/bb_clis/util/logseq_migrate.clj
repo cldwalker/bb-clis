@@ -1,7 +1,8 @@
 (ns cldwalker.bb-clis.util.logseq-migrate
   "Migrates user classes and properties whose titles match an index's names
-  onto the index's entities, moving tags, property values, extends and aliases
-  from the originals onto the replacements before removing the originals.
+  onto the index's entities, moving tags, property values, extends, aliases,
+  class properties, property classes and view columns from the originals onto
+  the replacements before removing the originals.
 
   Callers describe their index with a config map of:
   * `:index` - sqlite.build EDN with `:classes` and `:properties`
@@ -12,7 +13,8 @@
             [cldwalker.bb-clis.cli :as cli-util]
             [cldwalker.bb-clis.util.logseq :as logseq-util]
             [clojure.pprint :as pprint]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [clojure.walk :as walk]))
 
 (defn pluralize
   "Returns `singular` when `coll` has one item, else `plural`"
@@ -188,39 +190,45 @@
      :logseq.property/type (:logseq.property/type p)
      :db/cardinality (if (= :many (:db/cardinality p)) :db.cardinality/many :db.cardinality/one)}))
 
+(defn- replacements
+  "Map of each conflict's :db/ident to its replacement's :db/ident"
+  [{:keys [class-ident property-ident]} {:keys [classes properties]}]
+  (into {} (concat
+            (map (fn [{:keys [ident name]}] [ident (class-ident (keyword name))]) classes)
+            (map (fn [{:keys [ident name]}] [ident (property-ident (keyword name))]) properties))))
+
 (defn- extending-classes
   "User classes - other than the conflicts themselves - that extend a conflict
-  class, as `{uuid #{class-idents}}` of the index classes they should now
-  extend. The migration adds these so the relationship isn't lost when the
-  originals (and their extends) are removed."
-  [graph {:keys [class-ident]} {:keys [classes]}]
+  class, as `[{:id :uuid :parents #{parent-idents}}]` with all their parents.
+  The migration moves these extends onto the replacements so the relationship
+  isn't lost when the originals (and their extends) are removed."
+  [graph {:keys [classes]}]
   (let [conflict-idents (set (map :ident classes))
-        ident->replacement (into {} (map (fn [{:keys [ident name]}] [ident (class-ident (keyword name))])) classes)
         rows (when (seq conflict-idents)
                (logseq-util/logseq-query graph
-                                         '[:find ?child-ident ?child-uuid ?parent-ident
-                                           :in $ [?parent-ident ...]
+                                         '[:find ?child-ident ?child ?child-uuid ?parent-ident
+                                           :in $ [?conflict-ident ...]
                                            :where
-                                           [?child :logseq.property.class/extends ?p]
-                                           [?p :db/ident ?parent-ident]
+                                           [?x :db/ident ?conflict-ident]
+                                           [?child :logseq.property.class/extends ?x]
                                            [?child :db/ident ?child-ident]
-                                           [?child :block/uuid ?child-uuid]]
+                                           [?child :block/uuid ?child-uuid]
+                                           [?child :logseq.property.class/extends ?p]
+                                           [?p :db/ident ?parent-ident]]
                                          [(vec conflict-idents)]))]
     (->> rows
-         (remove (fn [[child-ident _ _]] (conflict-idents child-ident)))
+         (remove (comp conflict-idents first))
          (group-by second)
-         (into {} (map (fn [[child-uuid child-rows]]
-                         [child-uuid (set (map (fn [[_ _ pident]] (ident->replacement pident)) child-rows))]))))))
+         (map (fn [[id child-rows]]
+                {:id id :uuid (nth (first child-rows) 2) :parents (set (map last child-rows))}))
+         (sort-by :id))))
 
 (defn- conflict-aliases
   "Map of replacement :db/ident -> #{alias-target uuids}, read from the original
   conflict class/property pages so their :block/alias can be moved to the
   replacements before the originals are removed."
-  [graph {:keys [class-ident property-ident]} {:keys [classes properties]}]
-  (let [ident->replacement (into {} (concat
-                                     (map (fn [{:keys [ident name]}] [ident (class-ident (keyword name))]) classes)
-                                     (map (fn [{:keys [ident name]}] [ident (property-ident (keyword name))]) properties)))
-        rows (when (seq ident->replacement)
+  [graph replacement]
+  (let [rows (when (seq replacement)
                (logseq-util/logseq-query graph
                                          '[:find ?ident ?alias-uuid
                                            :in $ [?ident ...]
@@ -228,8 +236,97 @@
                                            [?e :db/ident ?ident]
                                            [?e :block/alias ?a]
                                            [?a :block/uuid ?alias-uuid]]
-                                         [(vec (keys ident->replacement))]))]
-    (reduce (fn [m [ident auuid]] (update m (ident->replacement ident) (fnil conj #{}) auuid)) {} rows)))
+                                         [(vec (keys replacement))]))]
+    (reduce (fn [m [ident auuid]] (update m (replacement ident) (fnil conj #{}) auuid)) {} rows)))
+
+(defn- class-property-additions
+  "Classes - other than the conflicts - with an original property as a class
+  property, as `{class-db-id [replacement-property-idents]}`"
+  [graph replacement {:keys [classes properties]}]
+  (let [conflict-classes (set (map :ident classes))
+        rows (when (seq properties)
+               (logseq-util/logseq-query graph
+                                         '[:find ?c ?class-ident ?prop-ident
+                                           :in $ [?prop-ident ...]
+                                           :where
+                                           [?p :db/ident ?prop-ident]
+                                           [?c :logseq.property.class/properties ?p]
+                                           [?c :db/ident ?class-ident]]
+                                         [(mapv :ident properties)]))]
+    (->> rows
+         (remove (comp conflict-classes second))
+         (group-by first)
+         (into (sorted-map) (map (fn [[id rs]] [id (vec (sort (map (comp replacement last) rs)))]))))))
+
+(defn- property-class-updates
+  "Properties - other than the conflicts - restricted to an original class, as
+  `{property-db-id [class-idents]}` of all their classes plus the replacements.
+  All are given since `logseq upsert page --update-properties` replaces values"
+  [graph replacement {:keys [classes properties]}]
+  (let [conflict-props (set (map :ident properties))
+        rows (when (seq classes)
+               (logseq-util/logseq-query graph
+                                         '[:find ?p ?prop-ident ?class-ident
+                                           :in $ [?conflict-ident ...]
+                                           :where
+                                           [?x :db/ident ?conflict-ident]
+                                           [?p :logseq.property/classes ?x]
+                                           [?p :db/ident ?prop-ident]
+                                           [?p :logseq.property/classes ?c]
+                                           [?c :db/ident ?class-ident]]
+                                         [(mapv :ident classes)]))]
+    (->> rows
+         (remove (comp conflict-props second))
+         (group-by first)
+         (into (sorted-map)
+               (map (fn [[id rs]]
+                      (let [idents (set (map last rs))]
+                        [id (vec (sort (into idents (keep replacement idents))))])))))))
+
+(def ^:private view-ref-attrs
+  "View properties whose values are property refs"
+  #{:logseq.property.view/group-by-property :logseq.property.view/sort-groups-by-property
+    :logseq.property.table/pinned-columns :logseq.property.view/gallery-asset-property
+    :logseq.property.view/gallery-display-properties})
+
+(def ^:private view-ident-attrs
+  "View properties whose values hold property idents as keywords"
+  #{:logseq.property.table/ordered-columns :logseq.property.table/sized-columns
+    :logseq.property.table/hidden-columns :logseq.property.table/sorting
+    :logseq.property.table/filters})
+
+(def ^:private views-query
+  "Views (and query blocks) with any property-naming view property"
+  [:find (list 'pull '?v (into [:db/id {:logseq.property/view-for [:db/ident]}]
+                               (concat view-ident-attrs (map (fn [a] {a [:db/ident]}) view-ref-attrs))))
+   :where (cons 'or (map (fn [a] ['?v a '_]) (sort (concat view-ident-attrs view-ref-attrs))))])
+
+(defn- view-value
+  "A view property's value with refs as idents. Many refs are a vector since
+  the CLI accepts that for any cardinality"
+  [view attr]
+  (let [v (get view attr)]
+    (cond (not (view-ref-attrs attr)) v
+          (map? v) (:db/ident v)
+          :else (mapv :db/ident v))))
+
+(defn- view-updates
+  "Views whose columns, sorting, filters or grouping name an original property,
+  as `{view-db-id {attr value}}` with the replacement properties. Views of an
+  original are skipped since they're removed with it"
+  [graph replacement {:keys [classes properties]}]
+  (let [prop-replacement (select-keys replacement (map :ident properties))
+        originals (set (map :ident (concat classes properties)))]
+    (into (sorted-map)
+          (keep (fn [[view]]
+                  (when-not (originals (get-in view [:logseq.property/view-for :db/ident]))
+                    (let [updates (into {} (keep (fn [attr]
+                                                   (let [v (view-value view attr)
+                                                         v' (walk/postwalk-replace prop-replacement v)]
+                                                     (when (not= v v') [attr v']))))
+                                        (sort (keys (dissoc view :db/id :logseq.property/view-for))))]
+                      (when (seq updates) [(:db/id view) updates])))))
+          (when (seq prop-replacement) (logseq-util/logseq-query graph views-query nil)))))
 
 (defn- migrate-add-edn
   "Builds one import-edn map that adds tags and properties and copies property values to entities
@@ -268,20 +365,31 @@
     (cond-> {:pages-and-blocks (vec (concat page-entries extender-entries alias-entries block-entries))}
       (seq prop-decls) (assoc :properties prop-decls))))
 
+(defn- edn-arg
+  "EDN string for a CLI option value, without namespaced map syntax"
+  [x]
+  (binding [*print-namespace-maps* false] (pr-str x)))
+
+(defn- run-logseq
+  "Runs `logseq` with `args` - a command, its subcommand then options - against
+  `graph`, erroring with `error-msg` and the CLI's output on failure"
+  [graph [cmd subcmd & opts] error-msg]
+  (let [{:keys [exit out err]} (apply shell {:continue true :out :string :err :string}
+                                      (concat ["logseq" cmd subcmd] (logseq-util/graph-args graph) opts))]
+    (when-not (zero? exit)
+      (cli-util/error error-msg "-" (str/trim (str out err))))))
+
 (defn- remove-user-associations
   "Removes the original user tags and property values from each entity with one
   `logseq upsert page|block --remove-tags/--remove-properties` per entity (import
   edn cannot retract)."
   [graph entities]
   (doseq [[id {:keys [page? remove-tags remove-props]}] entities]
-    (let [args (concat ["logseq" "upsert" (if page? "page" "block")]
-                       (logseq-util/graph-args graph)
-                       ["--id" (str id)]
-                       (when (seq remove-tags) ["--remove-tags" (pr-str (vec remove-tags))])
-                       (when (seq remove-props) ["--remove-properties" (pr-str (vec remove-props))]))
-          {:keys [exit out err]} (apply shell {:continue true :out :string :err :string} args)]
-      (when-not (zero? exit)
-        (cli-util/error "Failed to remove user associations from entity" id "-" (str/trim (str out err)))))))
+    (run-logseq graph
+                (concat ["upsert" (if page? "page" "block") "--id" (str id)]
+                        (when (seq remove-tags) ["--remove-tags" (edn-arg (vec remove-tags))])
+                        (when (seq remove-props) ["--remove-properties" (edn-arg (vec remove-props))]))
+                (str "Failed to remove user associations from entity " id))))
 
 (defn- association-count
   "Number of entities still associated with an original class (by tag) or property"
@@ -308,21 +416,30 @@
   [graph {:keys [classes properties]}]
   (let [ids (original-db-ids graph (map :ident (concat classes properties)))
         remove-page (fn [kind {:keys [ident name]}]
-                      (let [{:keys [exit out err]}
-                            (apply shell {:continue true :out :string :err :string}
-                                   (concat ["logseq" "remove" kind] (logseq-util/graph-args graph)
-                                           ["--id" (str (ids ident))]))]
-                        (when-not (zero? exit)
-                          (cli-util/error "Failed to remove original" name "-" (str/trim (str out err))))))]
+                      (run-logseq graph ["remove" kind "--id" (str (ids ident))]
+                                  (str "Failed to remove original " name)))]
     (doseq [p properties] (remove-page "property" p))
     (doseq [c classes] (remove-page "tag" c))))
 
 (defn- relationships
-  "Extends and aliases to move onto the replacements, read from the originals
-  before they're renamed"
+  "Relationships to move onto the replacements, read from the originals before
+  they're renamed or removed:
+  * `:extends-by-uuid` - extending class uuid -> replacement parents to import
+  * `:extends-updates` - extending class id -> parents with originals replaced
+  * `:replacement-ident->aliases` - see [[conflict-aliases]]
+  * `:class-property-additions`, `:property-class-updates` and `:view-updates` -
+    see their fns"
   [graph config conflicts]
-  {:extends-by-uuid (extending-classes graph config conflicts)
-   :replacement-ident->aliases (conflict-aliases graph config conflicts)})
+  (let [replacement (replacements config conflicts)
+        extending (extending-classes graph conflicts)]
+    {:extends-by-uuid (into {} (map (fn [{:keys [uuid parents]}] [uuid (set (keep replacement parents))])) extending)
+     :extends-updates (into (sorted-map)
+                            (map (fn [{:keys [id parents]}] [id (vec (sort (set (map #(get replacement % %) parents))))]))
+                            extending)
+     :replacement-ident->aliases (conflict-aliases graph replacement)
+     :class-property-additions (class-property-additions graph replacement conflicts)
+     :property-class-updates (property-class-updates graph replacement conflicts)
+     :view-updates (view-updates graph replacement conflicts)}))
 
 (defn- copy-edn
   "Step 4's import EDN. Aliases move onto each replacement by uuid, or by its
@@ -339,27 +456,71 @@
   (when verbose (pprint/pprint edn))
   (logseq-util/import-edn graph edn))
 
+(defn- update-class-schemas
+  "Step 5: adds each replacement property to the classes with its original as a
+  class property and each replacement class to the properties restricted to its
+  original. Import EDN can't update these on existing entities, so it's done
+  with `logseq upsert tag|page`"
+  [graph {:keys [class-property-additions property-class-updates]}]
+  (doseq [[id idents] class-property-additions]
+    (run-logseq graph ["upsert" "tag" "--id" (str id) "--add-properties" (edn-arg idents)]
+                (str "Failed to add class properties to class " id)))
+  (doseq [[id idents] property-class-updates]
+    (run-logseq graph ["upsert" "page" "--id" (str id) "--update-properties" (edn-arg {:logseq.property/classes idents})]
+                (str "Failed to update property classes of property " id))))
+
 (defn- add-replacements
-  "Steps 2-4: renames the originals, imports their replacements under the
-  original names, then copies tags, values, extends and aliases onto them.
-  Relationships are captured before the originals are renamed"
-  [graph {:keys [add-schema rename-prefix] :as config} {:keys [properties classes] :as conflicts} entities verbose]
-  (let [rels (relationships graph config conflicts)]
-    (import-edn graph (rename-originals-edn rename-prefix conflicts) verbose)
-    (add-schema (mapv :name (concat classes properties)) {:graph graph :pretend false})
-    (import-edn graph (copy-edn graph config conflicts entities rels) verbose)))
+  "Steps 2-5: renames the originals, imports their replacements under the
+  original names, copies tags, values, extends and aliases onto them, then
+  adds them to class and property schemas"
+  [graph {:keys [add-schema rename-prefix] :as config} {:keys [properties classes] :as conflicts} entities rels verbose]
+  (import-edn graph (rename-originals-edn rename-prefix conflicts) verbose)
+  (add-schema (mapv :name (concat classes properties)) {:graph graph :pretend false})
+  (import-edn graph (copy-edn graph config conflicts entities rels) verbose)
+  (update-class-schemas graph rels))
 
 (defn- print-replacement-edns
   "Pretty prints the EDN that [[add-replacements]] would import for steps 2
   and 4, without importing it"
-  [graph config conflicts entities]
+  [graph config conflicts entities rels]
   (pprint/pprint (rename-originals-edn (:rename-prefix config) conflicts))
-  (pprint/pprint (copy-edn graph config conflicts entities (relationships graph config conflicts))))
+  (pprint/pprint (copy-edn graph config conflicts entities rels)))
+
+(defn- print-cli-updates-pretend
+  "Prints how many classes, properties and views would be updated with the CLI"
+  [{:keys [class-property-additions property-class-updates extends-updates view-updates]}]
+  (let [item (fn [m singular plural desc]
+               (println "-" (count m) (pluralize m singular plural) desc))]
+    (println)
+    (println "Migrate would also update with the logseq CLI:")
+    (item class-property-additions "class" "classes"
+          "to add replacement class properties - `logseq upsert tag --add-properties`")
+    (item property-class-updates "property" "properties"
+          "to add replacement property classes - `logseq upsert page --update-properties`")
+    (println "\nAnd with --delete-existing, before removing the originals:")
+    (item extends-updates "class" "classes"
+          "to replace original parent classes so they don't gain Root Tag - `logseq upsert page --update-properties`")
+    (item view-updates "view" "views"
+          "to replace original properties in columns, sorting, filters and grouping - `logseq upsert block --update-properties`")))
+
+(defn- update-before-removal
+  "Points views at the replacement properties and removes the originals from
+  extending classes' parents. Done before the originals are removed as that
+  drops views' refs to them and gives their child classes a Root Tag parent"
+  [graph {:keys [view-updates extends-updates]}]
+  (doseq [[id props] view-updates]
+    (run-logseq graph ["upsert" "block" "--id" (str id) "--update-properties" (edn-arg props)]
+                (str "Failed to update view " id)))
+  (doseq [[id idents] extends-updates]
+    (run-logseq graph ["upsert" "page" "--id" (str id) "--update-properties"
+                       (edn-arg {:logseq.property.class/extends idents})]
+                (str "Failed to update parent classes of class " id))))
 
 (defn- delete-originals
-  "Steps 5-6: removes the original user tags and property values from the
-  entities, confirms nothing is still associated, then removes the originals"
-  [graph {:keys [properties classes] :as conflicts} entities]
+  "Steps 6-7: removes the original user tags and property values from the
+  entities, confirms nothing is still associated, updates views and extending
+  classes, then removes the originals"
+  [graph {:keys [properties classes] :as conflicts} entities rels]
   (remove-user-associations graph entities)
   (let [remaining (->> (concat properties classes)
                        (map (fn [c] [(:name c) (association-count graph c)]))
@@ -367,17 +528,18 @@
     (when (seq remaining)
       (cli-util/error "Migration incomplete; entities still associated with:"
                       (pr-str (into {} remaining))))
+    (update-before-removal graph rels)
     (remove-originals graph conflicts)))
 
-(defn- migrate* [graph config {:keys [properties classes] :as conflicts} entities {:keys [delete-existing verbose]}]
+(defn- migrate* [graph config {:keys [properties classes] :as conflicts} entities rels {:keys [delete-existing verbose]}]
   (println "Migrating" (count properties) (pluralize properties "property" "properties")
            "and" (count classes) (pluralize classes "class" "classes")
            "across" (count entities) (pluralize entities "entity" "entities") "...")
   (println "Properties:" (and-join (sort (map :name properties))))
   (println "Classes:" (and-join (sort (map :name classes))))
-  (add-replacements graph config conflicts entities verbose)
+  (add-replacements graph config conflicts entities rels verbose)
   (if delete-existing
-    (delete-originals graph conflicts entities)
+    (delete-originals graph conflicts entities rels)
     (println "Kept the originals, renamed with prefix" (pr-str (:rename-prefix config))
              "- use --delete-existing to remove them."))
   (println "Migration complete."))
@@ -399,13 +561,12 @@
         {:keys [classes properties]} conflicts
         ;; Step 1
         {:keys [entities class-counts prop-counts]} (collect-migrations graph config conflicts)]
-    (cond
-      (and (empty? classes) (empty? properties))
+    (if (and (empty? classes) (empty? properties))
       (println "No user classes or properties found to migrate.")
-
-      pretend
-      (do (when verbose (print-replacement-edns graph config conflicts entities))
-          (print-migrate-pretend conflicts entities class-counts prop-counts))
-
-      :else
-      (migrate* graph config conflicts entities opts))))
+      ;; Read before anything is renamed or removed
+      (let [rels (relationships graph config conflicts)]
+        (if pretend
+          (do (when verbose (print-replacement-edns graph config conflicts entities rels))
+              (print-migrate-pretend conflicts entities class-counts prop-counts)
+              (print-cli-updates-pretend rels))
+          (migrate* graph config conflicts entities rels opts))))))

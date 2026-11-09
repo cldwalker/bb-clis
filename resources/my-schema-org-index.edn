@@ -36,7 +36,9 @@
           #:tagaholic.me{:meta
                          "Almost has the same format as seconds are optional"}},
   :CollegeOrUniversity #:build{:alias [:University]},
-  :Question #:build{:alias [:Q]},
+  :Question
+  #:build{:alias [:Q],
+          :class-properties [:tagaholic.me.property/answer]},
   :URL
   #:build{:alias [:Uri],
           :properties
@@ -51,4 +53,6 @@
  :properties
  {:logseq.property/description #:build{:alias [:desc]},
   :actionStatus #:build{:alias [:status]},
-  :programmingLanguage #:build{:alias [:plang]}}}
+  :programmingLanguage #:build{:alias [:plang]},
+  :about #:logseq.property{:ui-position :block-right},
+  :attendee #:logseq.property{:ui-position :block-right}}}
