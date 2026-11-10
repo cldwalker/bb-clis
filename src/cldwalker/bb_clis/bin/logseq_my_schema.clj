@@ -228,6 +228,9 @@
               {:build/alias [:Company]}
               :IndividualProduct
               {:build/alias [:IProduct]}
+              ;; Different than MD
+              :SoftwareSourceCode
+              {:build/alias [:Repository]}
               :Question
               ;; Different than MD
               {:build/alias [:Q]
