@@ -148,13 +148,16 @@
   whose other classes have some of their aliases and meta"
   [& {:keys [meta-exists?]}]
   (#'my-schema/build-update-edn
-   index :classes update-entries
+   index
+   (for [[k entry] (sort-by key update-entries)]
+     (#'my-schema/update-target k (keyword "schema.class" (name k)) entry #'my-schema/schema-org-property-key->ident))
    {:uuids (cond-> {:schema.class/SoftwareSourceCode code-uuid
                     :schema.class/Service service-uuid
                     :schema.class/Text #uuid "00000000-0000-0000-0000-000000000003"}
              meta-exists? (assoc :tagaholic.me.property/meta #uuid "00000000-0000-0000-0000-000000000004"))
     :aliases {:schema.class/SoftwareSourceCode #{"repo"} :schema.class/Text #{"String"}}
-    :metas {:schema.class/Service "Old note" :schema.class/Text "Same note"}}))
+    :values {:schema.class/Service {:tagaholic.me.property/meta "Old note"}
+             :schema.class/Text {:tagaholic.me.property/meta "Same note"}}}))
 
 (deftest build-update-edn-aliases-and-meta
   (let [{:keys [edn] :as result} (build-update-edn :meta-exists? true)
@@ -185,6 +188,48 @@
              :build/properties {:schema.property/url "https://tagaholic.me/schema/meta.html"}}
             :schema.property/url url-anchor}
            (:properties edn)))))
+
+(def ^:private text-editor-uuid #uuid "00000000-0000-0000-0000-000000000005")
+
+(defn- build-my-update-edn
+  "Runs build-update-edn on [[index]]'s TextEditor against a graph whose
+  TextEditor still has its former url as its url and no sameAs"
+  [& {:keys [same-as-exists?]}]
+  (#'my-schema/build-update-edn
+   index
+   (#'my-schema/my-update-targets index [:TextEditor])
+   {:uuids (cond-> {:tagaholic.me.class/TextEditor text-editor-uuid}
+             same-as-exists? (assoc :schema.property/sameAs #uuid "00000000-0000-0000-0000-000000000006"))
+    :values {:tagaholic.me.class/TextEditor {:schema.property/url "https://en.wikipedia.org/wiki/Text_editor"}}}))
+
+(deftest build-update-edn-url-and-same-as
+  (testing "updates changed url and sameAs values, declaring both properties"
+    (is (= {:updated [:TextEditor] :current [] :missing [] :new-props []
+            :edn {:pages-and-blocks
+                  [{:page {:block/uuid text-editor-uuid
+                           :build/properties {:schema.property/url "https://tagaholic.me/schema/TextEditor.html"
+                                              :schema.property/sameAs "https://en.wikipedia.org/wiki/Text_editor"}}}]
+                  :properties {:schema.property/url url-anchor
+                               :schema.property/sameAs {:block/title "sameAs" :logseq.property/type :url :db/cardinality :db.cardinality/one}}}}
+           (build-my-update-edn :same-as-exists? true))))
+  (testing "errors when sameAs isn't in the graph"
+    (with-redefs [cli-util/error (fn [& msgs] (throw (ex-info (str/join " " msgs) {})))]
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"sameAs not found"
+                            (build-my-update-edn))))))
+
+(deftest my-update-targets
+  (testing "targets every class and then property, with tagaholic.me idents and qualified properties"
+    (is (= [[:Child :tagaholic.me.class/Child [:Kid] {:schema.property/url "https://tagaholic.me/schema/Child.html"}]
+            [:Parent :tagaholic.me.class/Parent nil {:schema.property/url "https://tagaholic.me/schema/Parent.html"}]
+            [:TextEditor :tagaholic.me.class/TextEditor nil {:schema.property/url "https://tagaholic.me/schema/TextEditor.html"
+                                                             :schema.property/sameAs "https://en.wikipedia.org/wiki/Text_editor"}]
+            [:forApp :tagaholic.me.property/forApp [:app] {:schema.property/url "https://tagaholic.me/schema/forApp.html"
+                                                           :tagaholic.me.property/meta "A note"}]
+            [:meta :tagaholic.me.property/meta nil {:schema.property/url "https://tagaholic.me/schema/meta.html"}]]
+           (map (juxt :k :ident :aliases :properties) (#'my-schema/my-update-targets index [])))))
+  (testing "targets only the named classes and properties"
+    (is (= [:Child :forApp]
+           (map :k (#'my-schema/my-update-targets index [:forApp :Child]))))))
 
 (deftest graph-dirs
   (fs/with-temp-dir [dir {}]
