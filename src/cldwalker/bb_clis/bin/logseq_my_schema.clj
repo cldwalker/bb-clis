@@ -232,18 +232,19 @@
                    :logseq.property/description
                    "Url or description for where this node came from"}}}}
    :my-schema-org
-   {:classes {:Corporation
-              {:build/alias [:Company]}
-              :IndividualProduct
-              {:build/alias [:IProduct]}
+   {:classes {:Corporation {:build/alias [:Company]}
+              :IndividualProduct {:build/alias [:IProduct]}
               ;; Different than MD
-              :SoftwareSourceCode
-              {:build/alias [:Repository]}
+              :SoftwareSourceCode {:build/alias [:Repository]}
+              ;; Different than MD
+              :SocialMediaPosting {:build/alias []}
               :Question
               ;; Different than MD
               {:build/alias [:Q]
                :build/class-properties [:tagaholic.me.property/answer]}}
-    :properties {:about
+    :properties {;; Different than MD
+                 :logseq.property/description {:build/alias []}
+                 :about
                  {:logseq.property/ui-position :block-right}
                  :attendee
                  {:logseq.property/ui-position :block-right}}}})

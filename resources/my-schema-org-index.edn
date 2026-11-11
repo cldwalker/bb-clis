@@ -17,7 +17,7 @@
                          "I'll probably mostly use it as a product group. Torn about using this vs product for some cases"}},
   :SoftwareSourceCode #:build{:alias [:Repository]},
   :ScholarlyArticle #:build{:alias [:Paper]},
-  :SocialMediaPosting #:build{:alias [:Comment]},
+  :SocialMediaPosting #:build{:alias []},
   :Quotation #:build{:alias [:Quote]},
   :WebApplication #:build{:alias [:WebApp]},
   :Text
@@ -51,7 +51,7 @@
           #:tagaholic.me{:meta
                          "Almost seems same as [rdfs:Datatype](https://www.w3.org/TR/rdf12-schema/#ch_datatype) but not quite because it inherits differently than schema version"}}},
  :properties
- {:logseq.property/description #:build{:alias [:desc]},
+ {:logseq.property/description #:build{:alias []},
   :actionStatus #:build{:alias [:status]},
   :programmingLanguage #:build{:alias [:plang]},
   :about #:logseq.property{:ui-position :block-right},
