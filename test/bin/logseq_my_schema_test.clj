@@ -189,6 +189,24 @@
             :schema.property/url url-anchor}
            (:properties edn)))))
 
+(deftest build-update-edn-ui-position
+  (let [about-uuid #uuid "00000000-0000-0000-0000-000000000007"
+        build (fn [attributes]
+                (#'my-schema/build-update-edn
+                 index
+                 [(#'my-schema/update-target :about :schema.property/about
+                                             {:logseq.property/ui-position :block-right}
+                                             #'my-schema/schema-org-property-key->ident)]
+                 {:uuids {:schema.property/about about-uuid}
+                  :attributes {:schema.property/about attributes}}))]
+    (testing "updates a changed ui-position through the property page's :build/properties"
+      (is (= {:updated [:about] :current [] :missing [] :new-props []
+              :edn {:pages-and-blocks [{:page {:block/uuid about-uuid
+                                               :build/properties {:logseq.property/ui-position :block-right}}}]}}
+             (build {:logseq.property/ui-position :block-left}))))
+    (testing "leaves a matching ui-position as is"
+      (is (= [:about] (:current (build {:logseq.property/ui-position :block-right})))))))
+
 (def ^:private text-editor-uuid #uuid "00000000-0000-0000-0000-000000000005")
 
 (defn- build-my-update-edn

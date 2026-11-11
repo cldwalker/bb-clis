@@ -616,45 +616,71 @@
               desc (assoc :description desc))))
         (concat (:classes my-schema-org-index) (:properties my-schema-org-index))))
 
+(def ^:private update-attributes
+  "Top-level index entry keys that update compares. They're built-in property
+  schema attributes holding a scalar, e.g. a keyword, rather than a ref. An
+  import ignores them as top-level `:properties` keys on an existing
+  property, so they're updated through the property page's `:build/properties`"
+  #{:logseq.property/ui-position})
+
 (defn- update-target
   "Returns what [[build-update-edn]] compares for index `entry` `k`: the
-  entity's graph `ident`, plus the entry's aliases and `:build/properties`,
-  keyed by the graph property idents `key->ident` returns"
+  entity's graph `ident`, the entry's aliases, its `:build/properties` keyed by
+  the graph property idents `key->ident` returns, and its
+  [[update-attributes]]"
   [k ident entry key->ident]
   {:k k
    :ident ident
    :aliases (:build/alias entry)
-   :properties (update-keys (or (:build/properties entry) {}) key->ident)})
+   :properties (update-keys (or (:build/properties entry) {}) key->ident)
+   :attributes (select-keys entry update-attributes)})
+
+(defn- ident-attr-values
+  "Runs `query`, which finds `[ident attr value]` given `:in` collections
+  `idents` and `attrs`, returning `{ident {attr value}}`"
+  [graph query idents attrs]
+  (if (empty? attrs)
+    {}
+    (reduce (fn [m [ident attr v]] (assoc-in m [ident attr] v))
+            {}
+            (logseq-util/logseq-query graph query [(vec idents) (vec attrs)]))))
 
 (defn- update-graph-state
-  "Fetches the uuids, alias titles and `property-idents` values of `idents` in
-  `graph`. `:uuids` also has the meta and sameAs properties' uuids when they
-  exist"
-  [graph idents property-idents]
-  (let [ident-inputs [(vec idents)]]
-    {:uuids (logseq-util/idents->uuids graph (into (set idents) [(my-property-ident :meta) (schema-property-ident :sameAs)]))
-     :aliases (reduce (fn [m [ident title]] (update m ident (fnil conj #{}) title))
-                      {}
-                      (logseq-util/logseq-query graph
-                                                '[:find ?ident ?title :in $ [?ident ...]
-                                                  :where [?e :db/ident ?ident] [?e :block/alias ?a] [?a :block/title ?title]]
-                                                ident-inputs))
-     :values (reduce (fn [m [ident property title]] (assoc-in m [ident property] title))
-                     {}
-                     (logseq-util/logseq-query graph
-                                               '[:find ?ident ?p ?title :in $ [?ident ...] [?p ...]
-                                                 :where [?e :db/ident ?ident] [?e ?p ?v] [?v :block/title ?title]]
-                                               (conj ident-inputs (vec property-idents))))}))
+  "Fetches the uuids and alias titles of `idents` in `graph`, plus the
+  `property-idents` value titles and `attribute-idents` values of them.
+  `:uuids` also has the meta and sameAs properties' uuids when they exist"
+  [graph idents property-idents attribute-idents]
+  {:uuids (logseq-util/idents->uuids graph (into (set idents) [(my-property-ident :meta) (schema-property-ident :sameAs)]))
+   :aliases (reduce (fn [m [ident title]] (update m ident (fnil conj #{}) title))
+                    {}
+                    (logseq-util/logseq-query graph
+                                              '[:find ?ident ?title :in $ [?ident ...]
+                                                :where [?e :db/ident ?ident] [?e :block/alias ?a] [?a :block/title ?title]]
+                                              [(vec idents)]))
+   :values (ident-attr-values graph
+                              '[:find ?ident ?p ?title :in $ [?ident ...] [?p ...]
+                                :where [?e :db/ident ?ident] [?e ?p ?v] [?v :block/title ?title]]
+                              idents property-idents)
+   :attributes (ident-attr-values graph
+                                  '[:find ?ident ?a ?v :in $ [?ident ...] [?a ...]
+                                    :where [?e :db/ident ?ident] [?e ?a ?v]]
+                                  idents attribute-idents)})
+
+(defn- changed-values
+  "Returns the entries of `m` whose values differ from `current`"
+  [m current]
+  (into {} (remove (fn [[k v]] (= v (get current k)))) m))
 
 (defn- entity-update
   "Returns the `:pages` updating `target`'s entity (see [[update-target]])
-  with the aliases and property values that differ from `state`, plus those
-  `:properties`, or nil when none differ. Aliases are only added since an
-  import can't remove them"
-  [state {:keys [ident properties] :as target}]
+  with the aliases, property values and attributes that differ from `state`,
+  plus those changed `:properties`, or nil when none differ. Aliases are only
+  added since an import can't remove them"
+  [state {:keys [ident] :as target}]
   (let [current (set (map str/lower-case (get-in state [:aliases ident])))
         aliases (remove #(current (str/lower-case %)) (map name (:aliases target)))
-        changed (into {} (remove (fn [[p v]] (= v (get-in state [:values ident p])))) properties)
+        changed (merge (changed-values (:properties target) (get-in state [:values ident]))
+                       (changed-values (:attributes target) (get-in state [:attributes ident])))
         {:keys [pages alias]} (alias-pages aliases)]
     (when (or (seq aliases) (seq changed))
       {:properties changed
@@ -712,7 +738,10 @@
   prints their EDN when `:pretend` is set. Ends with a summary of how many
   were updated, already current or missing from the graph"
   [targets {:keys [graph pretend]}]
-  (let [state (update-graph-state graph (map :ident targets) (distinct (mapcat (comp keys :properties) targets)))
+  (let [state (update-graph-state graph
+                                  (map :ident targets)
+                                  (distinct (mapcat (comp keys :properties) targets))
+                                  (distinct (mapcat (comp keys :attributes) targets)))
         {:keys [updated current missing new-props edn]} (build-update-edn (read-my-index) targets state)]
     (error-if-duplicates graph [] new-props)
     (cond
