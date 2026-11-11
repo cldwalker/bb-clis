@@ -3,21 +3,17 @@
  {:Genre
   {:block/title "Genre",
    :build/properties
-   {:url "https://en.wikipedia.org/wiki/Genre",
+   {:url "https://tagaholic.me/schema/Genre.html",
+    :schema.property/sameAs "https://en.wikipedia.org/wiki/Genre",
     :logseq.property/description
     "First property I've added. Could also be https://schema.org/genre"},
    :build/class-extends [:HumanConcept]},
-  :Property
-  {:block/title "Property",
-   :build/properties
-   {:url "https://tagaholic.me/schema/Property.html",
-    :logseq.property/description
-    "Defines user defined properties in this graph"},
-   :build/class-extends [:schema.class/Thing]},
   :Shell
   {:block/title "Shell",
    :build/properties
-   {:url "https://en.wikipedia.org/wiki/Shell_(computing)"},
+   {:url "https://tagaholic.me/schema/Shell.html",
+    :schema.property/sameAs
+    "https://en.wikipedia.org/wiki/Shell_(computing)"},
    :build/class-extends [:schema.class/SoftwareSourceCode]},
   :PersonalRepo
   {:block/title "PersonalRepo",
@@ -33,7 +29,9 @@
   :ComputerScientist
   {:block/title "ComputerScientist",
    :build/properties
-   {:url "https://en.wikipedia.org/wiki/Computer_scientist"},
+   {:url "https://tagaholic.me/schema/ComputerScientist.html",
+    :schema.property/sameAs
+    "https://en.wikipedia.org/wiki/Computer_scientist"},
    :build/class-extends [:schema.class/Person]},
   :Feature
   {:block/title "Feature",
@@ -68,7 +66,10 @@
    :build/class-extends [:schema.class/SoftwareSourceCode]},
   :Programmer
   {:block/title "Programmer",
-   :build/properties {:url "https://en.wikipedia.org/wiki/Programmer"},
+   :build/properties
+   {:url "https://tagaholic.me/schema/Programmer.html",
+    :schema.property/sameAs
+    "https://en.wikipedia.org/wiki/Programmer"},
    :build/class-extends [:schema.class/Person]},
   :CmdExample
   {:block/title "CmdExample",
@@ -116,20 +117,25 @@
    :build/class-extends [:HumanConcept]},
   :Database
   {:block/title "Database",
-   :build/properties {:url "https://en.wikipedia.org/wiki/Database"},
+   :build/properties
+   {:url "https://tagaholic.me/schema/Database.html",
+    :schema.property/sameAs "https://en.wikipedia.org/wiki/Database"},
    :build/alias [:Db],
    :build/class-extends [:schema.class/SoftwareSourceCode]},
   :Sport
   {:block/title "Sport",
    :build/properties
-   {:url "https://en.wikipedia.org/wiki/Sport",
+   {:url "https://tagaholic.me/schema/Sport.html",
+    :schema.property/sameAs "https://en.wikipedia.org/wiki/Sport",
     :logseq.property/description
     "Could also be https://schema.org/sport"},
    :build/class-extends [:HumanConcept]},
   :VirtualMachine
   {:block/title "VirtualMachine",
    :build/properties
-   {:url "https://en.wikipedia.org/wiki/Virtual_machine"},
+   {:url "https://tagaholic.me/schema/VirtualMachine.html",
+    :schema.property/sameAs
+    "https://en.wikipedia.org/wiki/Virtual_machine"},
    :build/class-extends [:ComputerConcept]},
   :Keybinding
   {:block/title "Keybinding",
@@ -139,7 +145,9 @@
   :Library
   {:block/title "Library",
    :build/properties
-   {:url "https://en.wikipedia.org/wiki/Library_(computing)",
+   {:url "https://tagaholic.me/schema/Library.html",
+    :schema.property/sameAs
+    "https://en.wikipedia.org/wiki/Library_(computing)",
     :logseq.property/description
     "Reusable chunk of code with an interface to be invoked by higher level programs"},
    :build/class-extends [:schema.class/SoftwareSourceCode]},
@@ -152,7 +160,8 @@
   :Song
   {:block/title "Song",
    :build/properties
-   {:url "https://en.wikipedia.org/wiki/Song",
+   {:url "https://tagaholic.me/schema/Song.html",
+    :schema.property/sameAs "https://en.wikipedia.org/wiki/Song",
     :logseq.property/description "music composition with vocals"},
    :build/class-extends [:schema.class/MusicComposition]},
   :Priority
@@ -190,14 +199,16 @@
   :Actor
   {:block/title "Actor",
    :build/properties
-   {:url "https://en.wikipedia.org/wiki/Actor",
+   {:url "https://tagaholic.me/schema/Actor.html",
+    :schema.property/sameAs "https://en.wikipedia.org/wiki/Actor",
     :meta
     "Using wikipedia instead of schema's https://schema.org/actor b/c it's info is more relevant than schema's property info"},
    :build/class-extends [:schema.class/Person]},
   :Musician
   {:block/title "Musician",
    :build/properties
-   {:url "https://en.wikipedia.org/wiki/Musician",
+   {:url "https://tagaholic.me/schema/Musician.html",
+    :schema.property/sameAs "https://en.wikipedia.org/wiki/Musician",
     :logseq.property/description
     "Generally refers to any musical artist, singing or not.",
     :meta
@@ -205,7 +216,9 @@
    :build/class-extends [:schema.class/Person]},
   :Diagram
   {:block/title "Diagram",
-   :build/properties {:url "https://en.wikipedia.org/wiki/Diagram"},
+   :build/properties
+   {:url "https://tagaholic.me/schema/Diagram.html",
+    :schema.property/sameAs "https://en.wikipedia.org/wiki/Diagram"},
    :build/class-extends [:HumanConcept]},
   :TaskCategory
   {:block/title "TaskCategory",
@@ -216,7 +229,9 @@
   :Plugin
   {:block/title "Plugin",
    :build/properties
-   {:url "https://en.wikipedia.org/wiki/Plug-in_(computing)",
+   {:url "https://tagaholic.me/schema/Plugin.html",
+    :schema.property/sameAs
+    "https://en.wikipedia.org/wiki/Plug-in_(computing)",
     :logseq.property/description
     "From page \"a software component that adds a specific feature to an existing computer program\". Can go by other names too like package, extension and addon."},
    :build/class-extends [:schema.class/SoftwareSourceCode]},
@@ -234,7 +249,9 @@
   :WebBrowser
   {:block/title "WebBrowser",
    :build/properties
-   {:url "https://en.wikipedia.org/wiki/Web_browser"},
+   {:url "https://tagaholic.me/schema/WebBrowser.html",
+    :schema.property/sameAs
+    "https://en.wikipedia.org/wiki/Web_browser"},
    :build/class-extends [:schema.class/SoftwareApplication]},
   :Subcmd
   {:block/title "Subcmd",
@@ -243,7 +260,9 @@
   :TextEditor
   {:block/title "TextEditor",
    :build/properties
-   {:url "https://en.wikipedia.org/wiki/Text_editor"},
+   {:url "https://tagaholic.me/schema/TextEditor.html",
+    :schema.property/sameAs
+    "https://en.wikipedia.org/wiki/Text_editor"},
    :build/class-extends [:schema.class/SoftwareApplication]},
   :DateRef
   {:block/title "DateRef",
@@ -258,21 +277,18 @@
   :SocialNews
   {:block/title "SocialNews",
    :build/properties
-   {:url "https://en.wikipedia.org/wiki/Social_news_website",
+   {:url "https://tagaholic.me/schema/SocialNews.html",
+    :schema.property/sameAs
+    "https://en.wikipedia.org/wiki/Social_news_website",
     :logseq.property/description
     "Couldn't find a type for news aggregator. NewsMediaOrg and newspaper weren't quite right"},
    :build/class-extends [:schema.class/WebSite]},
-  :Class
-  {:block/title "Class",
-   :build/properties
-   {:url "https://tagaholic.me/schema/Class.html",
-    :logseq.property/description
-    "Defines user defined classes/types in this graph"},
-   :build/class-extends [:schema.class/Thing]},
   :OperatingSystem
   {:block/title "OperatingSystem",
    :build/properties
-   {:url "https://en.wikipedia.org/wiki/Operating_system"},
+   {:url "https://tagaholic.me/schema/OperatingSystem.html",
+    :schema.property/sameAs
+    "https://en.wikipedia.org/wiki/Operating_system"},
    :build/class-extends [:ComputerConcept]},
   :MyConcept
   {:block/title "MyConcept",
@@ -289,7 +305,9 @@
   :Snippet
   {:block/title "Snippet",
    :build/properties
-   {:url "https://en.wikipedia.org/wiki/Snippet_(programming)",
+   {:url "https://tagaholic.me/schema/Snippet.html",
+    :schema.property/sameAs
+    "https://en.wikipedia.org/wiki/Snippet_(programming)",
     :logseq.property/description
     "Code snippet. Could be a software-source-code with code-sample-type set to snippet. Prefer a separate type for this"},
    :build/class-extends [:schema.class/SoftwareSourceCode]},
@@ -322,7 +340,9 @@
   :Standard
   {:block/title "Standard",
    :build/properties
-   {:url "https://en.wikipedia.org/wiki/Technical_standard",
+   {:url "https://tagaholic.me/schema/Standard.html",
+    :schema.property/sameAs
+    "https://en.wikipedia.org/wiki/Technical_standard",
     :logseq.property/description
     "As a property, tempted to use 'usesStandard' but most properties aren't verbs",
     :meta "May need to split off spec(ification) from this"},
@@ -346,7 +366,9 @@
   :Startup
   {:block/title "Startup",
    :build/properties
-   {:url "https://en.wikipedia.org/wiki/Startup_company"},
+   {:url "https://tagaholic.me/schema/Startup.html",
+    :schema.property/sameAs
+    "https://en.wikipedia.org/wiki/Startup_company"},
    :build/class-extends [:schema.class/Organization]},
   :Idea
   {:block/title "Idea",
@@ -362,7 +384,9 @@
   :Cmd
   {:block/title "Cmd",
    :build/properties
-   {:url "https://en.wikipedia.org/wiki/Command_(computing)",
+   {:url "https://tagaholic.me/schema/Cmd.html",
+    :schema.property/sameAs
+    "https://en.wikipedia.org/wiki/Command_(computing)",
     :logseq.property/description "Shell cmd"},
    :build/class-extends [:schema.class/SoftwareSourceCode]},
   :IntegerEstimate
@@ -375,7 +399,9 @@
   :LargeLanguageModel
   {:block/title "LargeLanguageModel",
    :build/properties
-   {:url "https://en.wikipedia.org/wiki/Large_language_model"},
+   {:url "https://tagaholic.me/schema/LargeLanguageModel.html",
+    :schema.property/sameAs
+    "https://en.wikipedia.org/wiki/Large_language_model"},
    :build/class-extends [:ComputerConcept],
    :build/alias [:LLM]},
   :Holiday
@@ -437,7 +463,9 @@
   {:block/title "parent",
    :logseq.property/type :default,
    :build/properties
-   {:url "https://www.w3.org/2000/01/rdf-schema#subClassOf"}},
+   {:url "https://tagaholic.me/schema/parent.html",
+    :schema.property/sameAs
+    "https://www.w3.org/2000/01/rdf-schema#subClassOf"}},
   :rangeIncludes
   {:block/title "rangeIncludes",
    :logseq.property/type :default,
@@ -458,13 +486,6 @@
    :build/properties
    {:url "https://tagaholic.me/schema/started-at.html",
     :logseq.property/description "Time a block started at"}},
-  :via
-  {:block/title "via",
-   :logseq.property/type :default,
-   :build/properties
-   {:url "https://tagaholic.me/schema/via.html",
-    :logseq.property/description
-    "Source or from whom entity was obtained"}},
   :fidelity
   {:block/title "fidelity",
    :logseq.property/type :default,
@@ -474,11 +495,6 @@
   {:block/title "mother",
    :logseq.property/type :default,
    :build/properties {:url "https://tagaholic.me/schema/mother.html"}},
-  :type
-  {:block/title "type",
-   :logseq.property/type :default,
-   :build/properties
-   {:url "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"}},
   :duration
   {:block/title "duration",
    :logseq.property/type :default,
@@ -521,13 +537,6 @@
   {:block/title "father",
    :logseq.property/type :default,
    :build/properties {:url "https://tagaholic.me/schema/father.html"}},
-  :sameAs
-  {:block/title "sameAs",
-   :logseq.property/type :url,
-   :build/properties
-   {:url "https://www.w3.org/2002/07/owl#sameAs",
-    :logseq.property/description
-    "Indicates that two URIs are equivalent"}},
   :answer
   {:block/title "answer",
    :logseq.property/type :default,

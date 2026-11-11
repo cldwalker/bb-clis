@@ -74,17 +74,20 @@
 (defn- page-name [path] (fs/strip-ext (fs/file-name path)))
 
 (defn- schema-url
-  "A VALUE wrapped in {{}} is a template, resolved here to this graph's own
-  schema url for the page; otherwise the VALUE is already a url"
-  [page-name value]
-  (if (str/starts-with? value "{{")
-    (str "https://tagaholic.me/schema/" page-name ".html")
-    value))
+  "Returns this graph's own schema url for the page"
+  [page-name]
+  (str "https://tagaholic.me/schema/" page-name ".html"))
 
-(defn- build-properties [page-name props]
+(defn- build-properties
+  "Builds a page's `:build/properties`. Its url is always this graph's own
+  schema url. A `url::` wrapped in {{}} is a template for that url, and any
+  other `url::` is an external url for the same concept, kept as sameAs"
+  [page-name props]
   (let [url (or (get props "url")
                 (cli-util/error page-name "is missing a required url key"))]
-    (cond-> {:url (schema-url page-name url)}
+    (cond-> {:url (schema-url page-name)}
+      (not (str/starts-with? url "{{"))
+      (assoc (schema-property-ident :sameAs) url)
       (get props "desc")
       (assoc :logseq.property/description (get props "desc"))
       (get props "meta")
@@ -210,11 +213,14 @@
 (def ^:private index-overrides
   "Entries merged over the merged graphs' indexes, keyed like a [[build-index]]
   result. An override's keys replace an entry's, so [[index-conflicts]] skips
-  them and an override can add an entry missing from some or all graphs"
+  them and an override can add an entry missing from some or all graphs. A
+  `:classes` or `:properties` map's `::dissoc` vector lists entries to remove"
   {:tagaholic
-   {:classes {:LargeLanguageModel
+   {:classes {::dissoc [:Class :Property]
+              :LargeLanguageModel
               {:build/alias [:LLM]}}
-    :properties {:referrerURL
+    :properties {::dissoc [:via :type :sameAs]
+                 :referrerURL
                  {:block/title "referrerURL",
                   ;; Different than MD
                   :logseq.property/type :url,
@@ -251,15 +257,25 @@
 (defn- index-conflicts
   "Returns a conflict for each `:classes` or `:properties` key whose value
   differs across `graph->index`, a seq of `[graph index]` pairs. Keys set by
-  the entry's `overrides` aren't compared"
+  the entry's `overrides` aren't compared, nor are entries they `::dissoc`"
   [index-name overrides graph->index]
   (for [section [:classes :properties]
+        :let [removed (set (get-in overrides [section ::dissoc]))]
         [k graph-values] (group-by first (for [[graph index] graph->index
-                                               [k v] (get index section)]
+                                               [k v] (get index section)
+                                               :when (not (removed k))]
                                            [k graph (apply dissoc v (keys (get-in overrides [section k])))]))
         :when (< 1 (count (set (map last graph-values))))]
     {:index index-name :section section :key k
      :values (into (sorted-map) (map (fn [[_ graph v]] [graph v])) graph-values)}))
+
+(defn- override-section
+  "Merges `section-overrides` entries over `entries`, then removes the entries
+  listed in its `::dissoc`"
+  [entries section-overrides]
+  (apply dissoc
+         (merge-with merge entries (dissoc section-overrides ::dissoc))
+         (::dissoc section-overrides)))
 
 (defn- merge-index [overrides indexes]
   (let [merged (reduce (fn [acc index]
@@ -268,8 +284,8 @@
                              (update :properties merge (:properties index))))
                        indexes)]
     (-> merged
-        (update :classes #(merge-with merge % (:classes overrides)))
-        (update :properties #(merge-with merge % (:properties overrides))))))
+        (update :classes override-section (:classes overrides))
+        (update :properties override-section (:properties overrides)))))
 
 (defn- merge-graph-indexes
   "Merges each graph's [[build-index]] result in `graph->index`, a seq of
@@ -368,10 +384,11 @@
       (assoc :block/title title)
       normalize-cardinality))
 
-(defn- uses-meta?
-  "Returns true if any of `new-classes` or `new-props` sets the meta property"
-  [index new-classes new-props]
-  (boolean (some #(contains? (get-in index (conj % :build/properties)) :meta)
+(defn- uses-property?
+  "Returns true if any of `new-classes` or `new-props` sets `:build/properties`
+  key `k`"
+  [index k new-classes new-props]
+  (boolean (some #(contains? (get-in index (conj % :build/properties)) k)
                  (concat (map (partial vector :classes) new-classes)
                          (map (partial vector :properties) new-props)))))
 
@@ -451,9 +468,10 @@
 
 (defn- add-edn
   "Assembles the import EDN for `new-classes` and `new-props` plus the alias
-  pages they need. Declares schema.org's url, and the existing meta property
-  when `meta-anchor?`, since the import requires every used property declared"
-  [index new-classes new-props meta-anchor?]
+  pages they need. Declares schema.org's url, schema.org's sameAs when
+  `same-as?` and the existing meta property when `meta-anchor?`, since the
+  import requires every used property declared"
+  [index new-classes new-props {:keys [meta-anchor? same-as?]}]
   (let [{classes-map :entities class-pages :pages}
         (aliased-entities (:classes index) new-classes my-class-ident #(full-class-entry index %))
         {props-map :entities prop-pages :pages}
@@ -461,6 +479,8 @@
         props-map (cond-> props-map
                     (or (seq classes-map) (seq props-map))
                     (assoc (schema-property-ident :url) (anchor-entry (:url schema-org-properties) "url"))
+                    same-as?
+                    (assoc (schema-property-ident :sameAs) (anchor-entry (:sameAs schema-org-properties) "sameAs"))
                     meta-anchor?
                     (assoc (my-property-ident :meta) (anchor-entry (get-in index [:properties :meta]) "meta")))
         pages (into class-pages prop-pages)]
@@ -472,33 +492,39 @@
 (defn- build-add-edn
   "Builds import EDN for `arg-kws` plus their local ancestor classes not yet
   in `graph`, erroring if an arg already exists or a new class's schema.org
-  parent doesn't. The meta property and alias pages are added too when an
-  entry uses them. Returns a map of `:new-classes`, `:new-props` and `:edn`"
+  parent or used sameAs property doesn't. The meta property and alias pages
+  are added too when an entry uses them. Returns a map of `:new-classes`,
+  `:new-props` and `:edn`"
   [index graph arg-kws]
   (let [{:keys [classes properties]} index
         class-args (filter #(contains? classes %) arg-kws)
         prop-args (filter #(contains? properties %) arg-kws)
         need-classes (closure index class-args)
         schema-url (schema-property-ident :url)
+        same-as-ident (schema-property-ident :sameAs)
         meta-ident (my-property-ident :meta)
         existing (logseq-util/existing-idents graph
-                                              (into #{schema-url meta-ident}
+                                              (into #{schema-url same-as-ident meta-ident}
                                                     (concat (schema-org-parents index need-classes)
                                                             (map my-class-ident need-classes)
                                                             (map my-property-ident prop-args))))
         new-classes (remove (comp existing my-class-ident) need-classes)
         arg-new-props (remove (comp existing my-property-ident) prop-args)
-        meta? (and (not-any? #{:meta} arg-new-props) (uses-meta? index new-classes arg-new-props))
+        meta? (and (not-any? #{:meta} arg-new-props) (uses-property? index :meta new-classes arg-new-props))
         new-props (cond-> arg-new-props (and meta? (not (existing meta-ident))) (concat [:meta]))
+        same-as? (uses-property? index same-as-ident new-classes new-props)
         _ (error-if-duplicates graph
                                (distinct (concat class-args new-classes))
                                (distinct (concat prop-args new-props)))
         _ (when-not (existing schema-url)
             (cli-util/error ":schema.property/url not found in graph. Run 'logseq-schema init' first"))
+        _ (when (and same-as? (not (existing same-as-ident)))
+            (cli-util/error ":schema.property/sameAs not found in graph. Run 'logseq-schema add sameAs' first"))
         _ (error-if-missing-schema-org-parents existing (schema-org-parents index new-classes))]
     {:new-classes new-classes
      :new-props new-props
-     :edn (add-edn index new-classes new-props (and meta? (existing meta-ident)))}))
+     :edn (add-edn index new-classes new-props {:meta-anchor? (and meta? (existing meta-ident))
+                                                :same-as? same-as?})}))
 
 (defn- add-schema
   "Adds class and property `args` to `:graph`, or prints their EDN when

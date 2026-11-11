@@ -14,7 +14,10 @@
                      :build/class-extends [:Parent]}
              :Parent {:block/title "Parent"
                       :build/properties {:url "https://tagaholic.me/schema/Parent.html"}
-                      :build/class-extends [:schema.class/Thing]}}
+                      :build/class-extends [:schema.class/Thing]}
+             :TextEditor {:block/title "TextEditor"
+                          :build/properties {:url "https://tagaholic.me/schema/TextEditor.html"
+                                             :schema.property/sameAs "https://en.wikipedia.org/wiki/Text_editor"}}}
    :properties {:forApp {:logseq.property/type :node
                          :db/cardinality :many
                          :build/properties {:url "https://tagaholic.me/schema/forApp.html"
@@ -48,10 +51,12 @@
 
 (defn- build-add-edn
   "Runs build-add-edn on `args` against a fake graph that already has
-  schema.org's url and Thing plus the given index classes and properties"
-  [args & {:keys [graph-classes graph-props]}]
+  schema.org's url and Thing plus the given index classes and properties and
+  `graph-idents`"
+  [args & {:keys [graph-classes graph-props graph-idents]}]
   (let [idents (into #{:schema.property/url :schema.class/Thing}
-                     (concat (map #(keyword "tagaholic.me.class" (name %)) graph-classes)
+                     (concat graph-idents
+                             (map #(keyword "tagaholic.me.class" (name %)) graph-classes)
                              (map #(keyword "tagaholic.me.property" (name %)) graph-props)))
         existing-titles (fn [ks] (fn [_graph titles] (set (filter (set (map name ks)) titles))))]
     (with-redefs [logseq-util/existing-idents (fn [_graph ks] (set (filter idents ks)))
@@ -59,6 +64,15 @@
                   logseq-util/existing-property-titles (existing-titles graph-props)
                   cli-util/error (fn [& msgs] (throw (ex-info (str/join " " msgs) {})))]
       (#'my-schema/build-add-edn index "graph" args))))
+
+(deftest build-properties
+  (testing "a {{}} url is only this graph's schema url"
+    (is (= {:url "https://tagaholic.me/schema/TextEditor.html"}
+           (#'my-schema/build-properties "TextEditor" {"url" "{{schema-url}}"}))))
+  (testing "an external url becomes sameAs alongside this graph's schema url"
+    (is (= {:url "https://tagaholic.me/schema/TextEditor.html"
+            :schema.property/sameAs "https://en.wikipedia.org/wiki/Text_editor"}
+           (#'my-schema/build-properties "TextEditor" {"url" "https://en.wikipedia.org/wiki/Text_editor"})))))
 
 (deftest build-add-edn-new-class
   (testing "adds the class, aliased to new pages, and its local ancestors with qualified idents"
@@ -109,6 +123,16 @@
 (deftest build-add-edn-existing-property
   (is (thrown-with-msg? clojure.lang.ExceptionInfo #"already exist: 'forApp'"
                         (build-add-edn [:forApp] :graph-props [:forApp]))))
+
+(deftest build-add-edn-same-as
+  (testing "declares schema.org's sameAs when a new entity uses it"
+    (is (= {:schema.property/url url-anchor
+            :schema.property/sameAs {:block/title "sameAs" :logseq.property/type :url :db/cardinality :db.cardinality/one}}
+           (-> (build-add-edn [:TextEditor] :graph-idents [:schema.property/sameAs])
+               (get-in [:edn :properties])))))
+  (testing "errors when sameAs isn't in the graph"
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"sameAs not found"
+                          (build-add-edn [:TextEditor])))))
 
 (def ^:private update-entries
   {:SoftwareSourceCode {:build/alias [:Repository :Repo]}
@@ -198,6 +222,13 @@
                       {:tagaholic {:classes {:A {:build/alias [:Z]} :C {:build/alias [:Y]}}}}
                       [["g1" (graph-result {:A {:block/title "A" :build/alias [:X]}} {})]
                        ["g2" (graph-result {:A {:block/title "A"}} {})]])
+                     [:tagaholic :classes]))))
+    (testing "::dissoc removes entries, even ones that differ across graphs"
+      (is (= {:A {:block/title "A"}}
+             (get-in (#'my-schema/merge-graph-indexes
+                      {:tagaholic {:classes {::my-schema/dissoc [:B :C]}}}
+                      [["g1" (graph-result {:A {:block/title "A"} :B {:block/title "B"}} {})]
+                       ["g2" (graph-result {:A {:block/title "A"} :B {:block/title "B2"} :C {}} {})]])
                      [:tagaholic :classes]))))))
 
 (def ^:private migrate-graph
