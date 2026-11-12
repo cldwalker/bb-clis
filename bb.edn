@@ -30,6 +30,7 @@
   logseq-graph-stats                  {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-graph-stats"]}
   logseq-identify-pages               {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-identify-pages"]}
   logseq-my-schema                    {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-my-schema"]}
+  logseq-publish-graph                {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-publish-graph"]}
   logseq-prune-journals               {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-prune-journals"]}
   logseq-schema                       {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-schema"]}
   logseq-search-show                  {:main-opts ["-m" "cldwalker.bb-clis.bin.logseq-search-show"]}

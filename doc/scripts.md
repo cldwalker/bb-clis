@@ -161,5 +161,6 @@ directory](https://github.com/cldwalker/dotfiles/tree/master/.bb-logseq).
 There are several logseq commands to try. These are all for the DB version. Here are just a few:
 * `logseq-bookmark` - Quickly adds bookmarks with my preferred ontology
 * `logseq-graph-backup` - Backs up one or more graphs using export of [build EDN](https://github.com/logseq/docs/blob/master/db-version.md#build-edn-data). Has a number of options to ensure export data is idempotent and bug free.
+* `logseq-publish-graph` - Publishes a graph's journals as a static [quickblog](https://github.com/borkdude/quickblog) site
 * `logseq-validate-*` - CLIs with this prefix are validations that most of my graphs have to pass. I run these with a pre-commit hook
 * `logseq-search-*` - CLIs that search, let users pick specific nodes from the search results and then apply a subsequent action on them
