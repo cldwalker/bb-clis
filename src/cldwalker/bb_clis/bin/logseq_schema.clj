@@ -162,17 +162,25 @@ class or property would create an unusable duplicate on import"
             (seq classes-map) (assoc :classes classes-map)
             (seq props-map) (assoc :properties props-map))}))
 
-(defn- add-schema
-  "Adds the given class/property args to the graph or, when pretend, prints the EDN"
-  [args {:keys [graph pretend]}]
+(defn add-edn
+  "Builds the import EDN that adds schema.org class and property `args` to
+  `graph`, along with the classes and properties they depend on. Errors if an
+  arg isn't in schema.org or would duplicate an existing user class or
+  property. Returns a map of `:new-classes`, `:new-props` and `:edn`"
+  [graph args]
   (let [index (read-index)
         arg-kws (distinct (map keyword args))
         unknown (remove #(or (contains? (:classes index) %)
                              (contains? (:properties index) %))
-                        arg-kws)
-        _ (when (seq unknown)
-            (cli-util/error "These are not properties or classes in schema.org:" (pr-str (vec unknown))))
-        {:keys [new-classes new-props edn]} (build-add-edn index graph arg-kws)]
+                        arg-kws)]
+    (when (seq unknown)
+      (cli-util/error "These are not properties or classes in schema.org:" (pr-str (vec unknown))))
+    (build-add-edn index graph arg-kws)))
+
+(defn- add-schema
+  "Adds the given class/property args to the graph or, when pretend, prints the EDN"
+  [args {:keys [graph pretend]}]
+  (let [{:keys [new-classes new-props edn]} (add-edn graph args)]
     (println "Adding" (count new-classes) (logseq-migrate/pluralize new-classes "class" "classes") "and"
              (count new-props) (logseq-migrate/pluralize new-props "property" "properties") "-"
              (into (vec new-classes) new-props))

@@ -1,6 +1,7 @@
 (ns bin.logseq-schema-test
   (:require [bin.logseq-migrate-fake :as fake]
             [cldwalker.bb-clis.bin.logseq-schema :as schema]
+            [clojure.edn :as edn]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]))
 
@@ -104,3 +105,22 @@
                     (update :properties conj ["url" :schema.property/url #uuid "00000000-0000-0000-0000-000000000031" :url]))
           {:keys [out]} (fake/run state #(#'schema/migrate {:graph "g" :pretend true}))]
       (is (str/includes? out "- 1 properties: alternateName\n- 1 classes: Person\n")))))
+
+(deftest add-schema
+  (let [state {:existing #{:schema.class/Thing :schema.property/url}}]
+    (testing "imports a new class but not its existing ancestor, declaring the url it uses"
+      (let [{:keys [out imports]} (fake/run state #(#'schema/add-schema ["Person"] {:graph "g"}))
+            [edn] imports]
+        (is (str/includes? out "Adding 1 class and 0 properties - [:Person]"))
+        (is (= [:schema.class/Person] (keys (:classes edn))))
+        (is (= #{:schema.class/Thing} (get-in edn [:classes :schema.class/Person :build/class-extends])))
+        (is (= {:schema.property/url {:block/title "url" :logseq.property/type :url :db/cardinality :db.cardinality/one}}
+               (:properties edn)))))
+    (testing "--pretend prints the EDN instead of importing it"
+      (let [{:keys [out imports]} (fake/run state #(#'schema/add-schema ["Person"] {:graph "g" :pretend true}))]
+        (is (= [] imports))
+        (is (= (first (:imports (fake/run state #(#'schema/add-schema ["Person"] {:graph "g"}))))
+               (edn/read-string (subs out (str/index-of out "{")))))))
+    (testing "errors on args that aren't in schema.org"
+      (is (= "These are not properties or classes in schema.org: [:Nope]"
+             (:error (fake/run state #(#'schema/add-schema ["Person" "Nope"] {:graph "g"}))))))))

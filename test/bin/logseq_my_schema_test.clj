@@ -4,6 +4,7 @@
             [cldwalker.bb-clis.bin.logseq-my-schema :as my-schema]
             [cldwalker.bb-clis.cli :as cli-util]
             [cldwalker.bb-clis.util.logseq :as logseq-util]
+            [clojure.edn :as edn]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]))
 
@@ -63,7 +64,7 @@
                   logseq-util/existing-user-class-titles (existing-titles graph-classes)
                   logseq-util/existing-property-titles (existing-titles graph-props)
                   cli-util/error (fn [& msgs] (throw (ex-info (str/join " " msgs) {})))]
-      (#'my-schema/build-add-edn index "graph" args))))
+      (#'my-schema/build-add-edn index "graph" args #{}))))
 
 (deftest build-properties
   (testing "a {{}} url is only this graph's schema url"
@@ -256,6 +257,175 @@
       (is (= ["a" "b"] (map (comp str fs/file-name) (#'my-schema/graph-dirs dir)))))
     (testing "a graph returns itself"
       (is (= [(fs/path dir "a")] (#'my-schema/graph-dirs (fs/path dir "a")))))))
+
+(deftest build-index
+  (fs/with-temp-dir [dir {}]
+    (let [pages (fs/path dir "pages")]
+      (fs/create-dirs pages)
+      (spit (fs/file pages "Gadget.md")
+            "type:: [[Class]]\nurl:: https://example.com/gadget\nparent:: [[Thing]]\ndesc:: A gadget\n\n- A block\n\t- nested")
+      (spit (fs/file pages "gizmo.md") "type:: [[Property]]\nurl:: {{x}}\nrangeIncludes:: [[Text]]\n")
+      (spit (fs/file pages "Human.md") "type:: [[Class]]\nurl:: https://schema.org/Person\nmeta:: A note")
+      (spit (fs/file pages "Note.md") "type:: [[Gadget]]\n- just a block")
+      (is (= {:tagaholic {:graph-namespace :tagaholic.me
+                          :classes {:Gadget {:block/title "Gadget"
+                                             :build/properties {:url "https://tagaholic.me/schema/Gadget.html"
+                                                                :schema.property/sameAs "https://example.com/gadget"
+                                                                :logseq.property/description "A gadget"}
+                                             :build/class-extends [:schema.class/Thing]}}
+                          :properties {:gizmo {:block/title "gizmo"
+                                               :logseq.property/type :default
+                                               :build/properties {:url "https://tagaholic.me/schema/gizmo.html"}}}}
+              :my-schema-org {:graph-namespace :schema
+                              :classes {:Person {:build/alias [:Human]
+                                                 :build/properties {:tagaholic.me/meta "A note"}}}
+                              :properties {}}}
+             (#'my-schema/build-index dir))))))
+
+(deftest build-index-command-without-graphs
+  (fs/with-temp-dir [dir {}]
+    (with-redefs [cli-util/error (fn [& msgs] (throw (ex-info (str/join " " msgs) {})))]
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"No graph directories found in"
+                            (#'my-schema/build-index-command {:opts {:directory (str dir)}}))))))
+
+(deftest resolve-page
+  (fs/with-temp-dir [dir {}]
+    (fs/create-dirs (fs/path dir "g/pages"))
+    (spit (fs/file dir "g/pages/Widget.md")
+          (str "type:: [[ProgrammingLanguage]], [[Kid]]\nalias:: wd\ndesc:: A thing\nforApp:: [[Emacs]], [[Vim]]\n"
+               "birthDate:: 2020-01-02\ncreated-at:: 123\n\n- block one\n  - nested\n-\n"))
+    (spit (fs/file dir "g/pages/Bad.md") "type:: Nope\nbogus:: x\nbirthDate:: someday")
+    (let [resolve (fn [page] (#'my-schema/resolve-page (#'my-schema/import-lookups index) index
+                                                       (#'my-schema/find-page [(fs/path dir "g")] page)))]
+      (testing "resolves tags and properties by name or alias, converting values by property type"
+        (is (= {:title "Widget"
+                :blocks 2
+                :tags [[:schema :ComputerLanguage] [:tagaholic :Child]]
+                :properties {[:logseq :description] "A thing"
+                             [:tagaholic :forApp] #{[:build/page {:block/title "Emacs"}] [:build/page {:block/title "Vim"}]}
+                             [:schema :birthDate] [:build/page {:build/journal 20200102}]}
+                :alias ["wd"]
+                :errors []}
+               (resolve "widget"))))
+      (testing "reports unknown tags and properties and unconvertible values"
+        (is (= ["Unknown tag Nope" "Unknown property bogus" "Unable to convert birthDate:: someday to a date value"]
+               (:errors (resolve "Bad"))))))))
+
+;; ---- import acceptance tests ----
+
+(def ^:private widget-page "type:: [[Kid]], [[Person]]\nforApp:: [[Emacs]]\ndesc:: A widget\n")
+
+(def ^:private widget-graph-idents
+  "Idents for a graph that already has every tag and property [[widget-page]] uses"
+  #{:schema.property/url :schema.class/Thing :schema.class/Person
+    :tagaholic.me.class/Child :tagaholic.me.class/Parent
+    :tagaholic.me.property/forApp :tagaholic.me.property/meta})
+
+(defn- run-import
+  "Runs `logseq-my-schema import -g g -d DIR & args` through `-main`, where DIR
+  holds `graph->pages`, a map of graph name to `{page-name content}`. Runs
+  against [[index]] and a fake Logseq graph with `existing` idents, returning
+  [[bin.logseq-migrate-fake/run]]'s result"
+  [graph->pages existing & args]
+  (fs/with-temp-dir [dir {}]
+    (doseq [[graph pages] graph->pages
+            [page content] pages]
+      (fs/create-dirs (fs/path dir graph "pages"))
+      (spit (fs/file dir graph "pages" (str page ".md")) content))
+    (with-redefs-fn {#'my-schema/read-my-index (constantly index)
+                     #'my-schema/read-my-schema-org-index (constantly {:classes {} :properties {}})}
+      #(fake/run {:existing existing}
+                 (fn [] (apply my-schema/-main "import" "-g" "g" "-d" (str dir) args))))))
+
+(defn- page-entry [edn title]
+  (some #(when (= title (get-in % [:page :block/title])) (:page %)) (:pages-and-blocks edn)))
+
+(deftest import-adds-missing-tags-and-properties
+  (let [{:keys [out error imports]}
+        (run-import {"g1" {"Widget" (str widget-page "alias:: wd\n\n- a block\n  - nested\n")}}
+                    #{:schema.property/url}
+                    "widget")
+        [edn] imports
+        wd (alias-uuid edn "wd")]
+    (is (nil? error))
+    (testing "adds new tags with their ancestors, including schema.org ones, and new properties"
+      (is (str/includes? out "Importing 1 page and adding 4 classes and 2 properties"))
+      (is (= #{:schema.class/Person :schema.class/Thing :tagaholic.me.class/Child :tagaholic.me.class/Parent}
+             (set (keys (:classes edn)))))
+      (is (= #{:schema.property/url :tagaholic.me.property/forApp :tagaholic.me.property/meta}
+             (set (keys (:properties edn))))))
+    (testing "imports the page with its tags, properties and aliases but no blocks"
+      (is (some? wd))
+      (is (= {:block/title "Widget"
+              :build/tags #{:tagaholic.me.class/Child :schema.class/Person}
+              :build/properties {:tagaholic.me.property/forApp #{[:build/page {:block/title "Emacs"}]}
+                                 :logseq.property/description "A widget"}
+              :block/alias #{[:block/uuid wd]}}
+             (page-entry edn "Widget")))
+      (is (str/includes? out "Imported page 'Widget', skipping its 2 blocks\n")))))
+
+(deftest import-adds-schema-org-parents-of-new-tags
+  (testing "a new tagaholic.me tag's missing schema.org ancestors are added with it"
+    (let [{:keys [error imports]} (run-import {"g1" {"Kidpage" "type:: [[Kid]]"}} #{:schema.property/url} "Kidpage")]
+      (is (nil? error))
+      (is (= #{:schema.class/Thing :tagaholic.me.class/Child :tagaholic.me.class/Parent}
+             (set (keys (:classes (first imports)))))))))
+
+(deftest import-reuses-existing-tags-and-properties
+  (let [{:keys [out error imports]} (run-import {"g1" {"Widget" widget-page}} widget-graph-idents "Widget")]
+    (is (nil? error))
+    (is (str/includes? out "Importing 1 page and adding 0 classes and 0 properties - []"))
+    (is (str/includes? out "Imported page 'Widget'\n"))
+    (testing "only declares the existing properties the page sets"
+      (is (= [{:pages-and-blocks [{:page {:block/title "Widget"
+                                          :build/tags #{:tagaholic.me.class/Child :schema.class/Person}
+                                          :build/properties {:tagaholic.me.property/forApp #{[:build/page {:block/title "Emacs"}]}
+                                                             :logseq.property/description "A widget"}}}]
+               :properties {:tagaholic.me.property/forApp
+                            {:block/title "forApp" :logseq.property/type :node :db/cardinality :db.cardinality/many}}}]
+             imports)))))
+
+(deftest import-pretend
+  (let [graphs {"g1" {"Widget" widget-page}}
+        {:keys [out imports]} (run-import graphs widget-graph-idents "-n" "Widget")]
+    (testing "prints the EDN that would be imported instead of importing it"
+      (is (= [] imports))
+      (is (= (:imports (run-import graphs widget-graph-idents "Widget"))
+             [(edn/read-string (subs out (str/index-of out "{")))]))
+      (is (not (str/includes? out "Imported page"))))))
+
+(deftest import-searches-every-graph
+  (testing "finds a page in any graph"
+    (is (= ["Widget"]
+           (map #(get-in % [:pages-and-blocks 0 :page :block/title])
+                (:imports (run-import {"g1" {"Other" "type:: [[Person]]"} "g2" {"Widget" widget-page}}
+                                      widget-graph-idents "Widget"))))))
+  (testing "a page in several graphs with the same properties imports from the first"
+    (is (str/includes? (:out (run-import {"g1" {"Widget" (str widget-page "- one")}
+                                          "g2" {"Widget" (str widget-page "- one\n- two")}}
+                                         widget-graph-idents "Widget"))
+                       "Imported page 'Widget', skipping its 1 block\n")))
+  (testing "errors when graphs have a page with different properties"
+    (is (= "Page \"Widget\" has different properties in graphs: g1, g2"
+           (:error (run-import {"g1" {"Widget" widget-page} "g2" {"Widget" "type:: [[Person]]"}}
+                               widget-graph-idents "Widget"))))))
+
+(deftest import-errors
+  (let [graphs {"g1" {"Widget" widget-page
+                      "Bad" "type:: [[Nope]]\nbogus:: x"
+                      "Gadget" "type:: [[Class]]\nurl:: https://example.com"}}]
+    (testing "requires pages"
+      (is (= "Usage: logseq-my-schema import [& PAGES]" (:error (run-import graphs widget-graph-idents)))))
+    (testing "errors on a page no graph has"
+      (is (= "Page \"Nope\" not found in graphs: g1" (:error (run-import graphs widget-graph-idents "Widget" "Nope")))))
+    (testing "lists every page's unknown tags and properties and ontology pages, importing nothing"
+      (let [{:keys [error imports]} (run-import graphs widget-graph-idents "Widget" "Bad" "Gadget")]
+        (is (= [] imports))
+        (is (= (str "Unable to import these pages:\n"
+                    "  Bad: Unknown tag Nope\n"
+                    "  Bad: Unknown property bogus\n"
+                    "  Gadget: Is a Class page. Use add for it instead")
+               error))))))
 
 (defn- graph-result [tagaholic-classes my-schema-org-props]
   {:tagaholic {:graph-namespace :tagaholic.me :classes tagaholic-classes :properties {}}

@@ -15,11 +15,14 @@
   properties, e.g. url, sameAs and meta, to the tagaholic.me classes and
   properties already in a graph, and `schema-update` applies
   my-schema-org-index.edn's aliases and meta notes to the schema.org ones.
-  `migrate` replaces user classes and properties named in
-  tagaholic-me-index.edn with their tagaholic.me equivalents, like
-  [[cldwalker.bb-clis.bin.logseq-schema]] `migrate` does for schema.org."
+  `import` imports pages from markdown graphs with their tags and properties,
+  adding any tags and properties the graph doesn't have yet. `migrate`
+  replaces user classes and properties named in tagaholic-me-index.edn with
+  their tagaholic.me equivalents, like [[cldwalker.bb-clis.bin.logseq-schema]]
+  `migrate` does for schema.org."
   (:require [babashka.cli :as cli]
             [babashka.fs :as fs]
+            [cldwalker.bb-clis.bin.logseq-schema :as logseq-schema]
             [cldwalker.bb-clis.cli :as cli-util]
             [cldwalker.bb-clis.util.logseq :as logseq-util]
             [cldwalker.bb-clis.util.logseq-migrate :as logseq-migrate]
@@ -134,12 +137,21 @@
     (local-alias props) (assoc :build/alias (local-alias props))
     (get props "parent") (assoc :build/class-extends (class-extends aliases (get props "parent")))))
 
+(defn- block-line? [line] (boolean (re-find #"^\s*-\s+\S" line)))
+
+(defn- read-page
+  "Reads the page at `path` into a `{:name :type :props :blocks}` map, where
+  `:blocks` counts its non-empty blocks"
+  [path]
+  (let [lines (str/split-lines (slurp (fs/file path)))
+        props (parse-properties lines)]
+    {:name (page-name path) :type (get props "type") :props props
+     :blocks (count (filter block-line? lines))}))
+
 (defn- page-entries
-  "Reads every page under `graph-dir`/pages into `{:name :type :props}` maps"
+  "Reads every page under `graph-dir`/pages (see [[read-page]])"
   [graph-dir]
-  (for [path (fs/glob (fs/path graph-dir "pages") "*.md")
-        :let [props (parse-properties (str/split-lines (slurp (fs/file path))))]]
-    {:name (page-name path) :type (get props "type") :props props}))
+  (map read-page (fs/glob (fs/path graph-dir "pages") "*.md")))
 
 (defn- class-aliases
   "Maps each local class's `alias::` keyword to the class's own key. Lets
@@ -257,6 +269,15 @@
     [dir]
     (sort (map fs/parent (filter fs/directory? (fs/glob dir "*/pages"))))))
 
+(defn- directory-graph-dirs
+  "Returns the [[graph-dirs]] of a `--directory` option, erroring when there are none"
+  [directory]
+  (let [dir (fs/expand-home directory)
+        dirs (when (fs/directory? dir) (graph-dirs dir))]
+    (when (empty? dirs)
+      (cli-util/error "No graph directories found in" (str dir)))
+    dirs))
+
 (defn- index-conflicts
   "Returns a conflict for each `:classes` or `:properties` key whose value
   differs across `graph->index`, a seq of `[graph index]` pairs. Keys set by
@@ -312,10 +333,7 @@
      :my-schema-org (merge-index (:my-schema-org overrides) (map second (index-of :my-schema-org)))}))
 
 (defn- build-index-command [{:keys [opts]}]
-  (let [dir (fs/expand-home (:directory opts))
-        dirs (when (fs/directory? dir) (graph-dirs dir))]
-    (when (empty? dirs)
-      (cli-util/error "No graph directories found in" (str dir)))
+  (let [dirs (directory-graph-dirs (:directory opts))]
     (println "Reading" (count dirs) "graphs:" (str/join ", " (map fs/file-name dirs)))
     (let [{:keys [tagaholic my-schema-org]}
           (merge-graph-indexes index-overrides (map (fn [d] [(str (fs/file-name d)) (build-index d)]) dirs))]
@@ -507,9 +525,10 @@
   "Builds import EDN for `arg-kws` plus their local ancestor classes not yet
   in `graph`, erroring if an arg already exists or a new class's schema.org
   parent or used sameAs property doesn't. The meta property and alias pages
-  are added too when an entry uses them. Returns a map of `:new-classes`,
+  are added too when an entry uses them. `added` idents count as existing
+  since the same import adds them. Returns a map of `:new-classes`,
   `:new-props` and `:edn`"
-  [index graph arg-kws]
+  [index graph arg-kws added]
   (let [{:keys [classes properties]} index
         class-args (filter #(contains? classes %) arg-kws)
         prop-args (filter #(contains? properties %) arg-kws)
@@ -517,11 +536,12 @@
         schema-url (schema-property-ident :url)
         same-as-ident (schema-property-ident :sameAs)
         meta-ident (my-property-ident :meta)
-        existing (logseq-util/existing-idents graph
-                                              (into #{schema-url same-as-ident meta-ident}
-                                                    (concat (schema-org-parents index need-classes)
-                                                            (map my-class-ident need-classes)
-                                                            (map my-property-ident prop-args))))
+        existing (into (logseq-util/existing-idents graph
+                                                    (into #{schema-url same-as-ident meta-ident}
+                                                          (concat (schema-org-parents index need-classes)
+                                                                  (map my-class-ident need-classes)
+                                                                  (map my-property-ident prop-args))))
+                       added)
         new-classes (remove (comp existing my-class-ident) need-classes)
         arg-new-props (remove (comp existing my-property-ident) prop-args)
         meta? (and (not-any? #{:meta} arg-new-props) (uses-property? index :meta new-classes arg-new-props))
@@ -555,7 +575,7 @@
   (let [index (read-my-index)
         arg-kws (distinct (map keyword args))
         _ (error-if-not-in-my-index index arg-kws)
-        {:keys [new-classes new-props edn]} (build-add-edn index graph arg-kws)]
+        {:keys [new-classes new-props edn]} (build-add-edn index graph arg-kws #{})]
     (println "Adding" (count new-classes) (logseq-migrate/pluralize new-classes "class" "classes") "and"
              (count new-props) (logseq-migrate/pluralize new-props "property" "properties") "-"
              (into (vec new-classes) new-props))
@@ -813,6 +833,263 @@
           :complete schema-update-name-candidates
           :desc "my-schema-org-index.edn classes or properties to update"}})
 
+;; ---- import ----
+
+(def ^:private ignored-page-properties
+  "File graph built-in page properties that have nothing to import into a DB graph"
+  #{"title" "id" "filters" "collapsed" "public" "icon" "created-at" "updated-at"
+    "exclude-from-graph-view" "query-table" "query-properties" "query-sort-by" "query-sort-desc"})
+
+(def ^:private tag-property-keys
+  "Page properties whose values are the page's tags"
+  ["type" "tags"])
+
+(defn- lookup-key
+  "Normalizes a class or property name for lookup, ignoring case like Logseq
+  page names do and whitespace like [[safe-keyword]] does"
+  [s]
+  (str/lower-case (str/replace (name s) #"\s+" "")))
+
+(defn- name-lookup
+  "Maps the [[lookup-key]] of each unqualified key and `:build/alias` in
+  `entries` to `[source key]`"
+  [source entries]
+  (into {}
+        (comp (remove (comp qualified-keyword? key))
+              (mapcat (fn [[k v]] (map (fn [n] [(lookup-key n) [source k]]) (cons k (:build/alias v))))))
+        entries))
+
+(defn- import-lookups
+  "Maps class and property names, by [[lookup-key]], to the `[source key]` refs
+  they import as. A source is `:schema`, `:tagaholic` or, for desc, `:logseq`.
+  tagaholic.me names win over schema.org ones"
+  [my-index]
+  (let [my-schema-org (read-my-schema-org-index)]
+    {:classes (merge (name-lookup :schema schema-org-classes)
+                     (name-lookup :schema (:classes my-schema-org))
+                     (name-lookup :tagaholic (:classes my-index)))
+     :properties (merge (name-lookup :schema schema-org-properties)
+                        (name-lookup :schema (:properties my-schema-org))
+                        (name-lookup :tagaholic (:properties my-index))
+                        {"desc" [:logseq :description]})}))
+
+(defn- ref-ident
+  "Returns the ident of a `[source key]` class or property ref"
+  [kind [source k]]
+  (case [kind source]
+    [:classes :schema] (schema-class-ident k)
+    [:classes :tagaholic] (my-class-ident k)
+    [:properties :schema] (schema-property-ident k)
+    [:properties :tagaholic] (my-property-ident k)
+    [:properties :logseq] (keyword "logseq.property" (name k))))
+
+(defn- ref-property-entry
+  "Returns the index entry of a `[source key]` property ref"
+  [my-index [source k]]
+  (case source
+    :schema (get schema-org-properties k)
+    :tagaholic (get-in my-index [:properties k])
+    :logseq {:logseq.property/type :default}))
+
+(defn- split-values
+  "Splits a property value into its comma-separated names, stripping any
+  [[]] or # around each"
+  [v]
+  (->> (str/split v #",")
+       (map #(str/replace (str/trim %) #"^#?\[\[|\]\]$|^#" ""))
+       (remove str/blank?)))
+
+(defn- journal-day
+  "Parses a `M-d-yyyy` or `yyyy-M-d` date into a journal day int, or nil"
+  [s]
+  (when-let [[y m d] (if-let [[_ m d y] (re-matches #"(\d{1,2})-(\d{1,2})-(\d{4})" s)]
+                       [y m d]
+                       (next (re-matches #"(\d{4})-(\d{1,2})-(\d{1,2})" s)))]
+    (+ (* 10000 (parse-long y)) (* 100 (parse-long m)) (parse-long d))))
+
+(defn- property-value
+  "Converts raw page property value `v` to a `:build/properties` value for
+  property `entry`'s type and cardinality, or returns nil if it can't"
+  [{prop-type :logseq.property/type cardinality :db/cardinality} v]
+  (let [convert (fn [s]
+                  (case prop-type
+                    :node [:build/page {:block/title s}]
+                    :date (some->> (journal-day s) (hash-map :build/journal) (vector :build/page))
+                    :checkbox (parse-boolean s)
+                    (:number :Number) (or (parse-long s) (parse-double s))
+                    (:default :url) s
+                    nil))]
+    (if (= :many cardinality)
+      (let [vs (map convert (split-values v))]
+        (when (and (seq vs) (every? some? vs)) (set vs)))
+      (some-> (if (= :node prop-type) (first (split-values v)) v) convert))))
+
+(defn- resolve-properties
+  "Resolves page properties `props` to `{:properties {ref value} :errors [msg]}`"
+  [lookups my-index props]
+  (reduce (fn [acc [k v]]
+            (if-let [ref (get-in lookups [:properties (lookup-key k)])]
+              (let [entry (ref-property-entry my-index ref)
+                    value (property-value entry v)]
+                (if (some? value)
+                  (assoc-in acc [:properties ref] value)
+                  (update acc :errors conj (str "Unable to convert " k ":: " v " to a "
+                                                (name (:logseq.property/type entry)) " value"))))
+              (update acc :errors conj (str "Unknown property " k))))
+          {:properties {} :errors []}
+          props))
+
+(defn- resolve-page
+  "Resolves a [[read-page]] page's tags and properties to the `[source key]`
+  refs they import as. Returns `{:title :blocks :tags :properties :alias :errors}`"
+  [lookups my-index {page-title :name :keys [props blocks]}]
+  (if-let [ontology-type (#{"Class" "Property"} (get props "type"))]
+    {:title page-title :errors [(str "Is a " ontology-type " page. Use add for it instead")]}
+    (let [tags (map (fn [t] [t (get-in lookups [:classes (lookup-key t)])])
+                    (mapcat split-values (keep props tag-property-keys)))
+          {:keys [properties errors]}
+          (resolve-properties lookups my-index
+                              (apply dissoc props "alias" (concat tag-property-keys ignored-page-properties)))]
+      {:title page-title
+       :blocks blocks
+       :tags (distinct (keep second tags))
+       :properties properties
+       :alias (some-> (get props "alias") split-values seq vec)
+       :errors (into (mapv #(str "Unknown tag " (first %)) (remove second tags)) errors)})))
+
+(defn- find-page
+  "Reads page `page-arg` from `dirs`' graphs, matching file names
+  case-insensitively. Errors if no graph has it or graphs disagree on its
+  properties"
+  [dirs page-arg]
+  (let [found (for [dir dirs
+                    path (fs/glob (fs/path dir "pages") "*.md")
+                    :when (= (str/lower-case page-arg) (str/lower-case (page-name path)))]
+                [(str (fs/file-name dir)) (read-page path)])]
+    (cond
+      (empty? found)
+      (cli-util/error "Page" (pr-str page-arg) "not found in graphs:" (str/join ", " (map fs/file-name dirs)))
+      (< 1 (count (distinct (map (comp :props second) found))))
+      (cli-util/error "Page" (pr-str page-arg) "has different properties in graphs:" (str/join ", " (map first found)))
+      :else (second (first found)))))
+
+(defn- error-if-unresolved
+  "Errors listing every resolved page's errors"
+  [pages]
+  (when-let [errors (seq (for [{:keys [title errors]} pages, e errors] (str "  " title ": " e)))]
+    (cli-util/error (str/join "\n" (cons "Unable to import these pages:" errors)))))
+
+(defn- schema-requirements
+  "Returns the schema.org idents that tagaholic.me `my-classes` and `my-props`
+  need in the graph to be added: their classes' schema.org parents, url, and
+  sameAs when used"
+  [my-index my-classes my-props]
+  (let [classes (closure my-index my-classes)
+        same-as (schema-property-ident :sameAs)]
+    (cond-> (schema-org-parents my-index classes)
+      (or (seq my-classes) (seq my-props)) (conj (schema-property-ident :url))
+      (uses-property? my-index same-as classes my-props) (conj same-as))))
+
+(defn- page-entry
+  "Builds a resolved page's `:pages-and-blocks` entries: its alias pages, then
+  the page with its tags, properties and aliases"
+  [{:keys [title tags properties alias]}]
+  (let [{alias-page-entries :pages alias-refs :alias} (some-> alias alias-pages)]
+    (conj (or alias-page-entries [])
+          {:page (cond-> {:block/title title}
+                   (seq tags) (assoc :build/tags (set (map #(ref-ident :classes %) tags)))
+                   (seq properties) (assoc :build/properties (update-keys properties #(ref-ident :properties %)))
+                   alias-refs (assoc :block/alias alias-refs))})))
+
+(defn- pages-edn
+  "Builds the import EDN for resolved `pages`, declaring each property they
+  set since the import requires it, even for existing properties"
+  [my-index pages]
+  (let [declarations (into {}
+                           (comp (mapcat (comp keys :properties))
+                                 (distinct)
+                                 (remove (comp #{:logseq} first))
+                                 (map (fn [[_ k :as ref]]
+                                        [(ref-ident :properties ref)
+                                         (anchor-entry (ref-property-entry my-index ref) (name k))])))
+                           pages)]
+    (cond-> {:pages-and-blocks (into [] (mapcat page-entry) pages)}
+      (seq declarations) (assoc :properties declarations))))
+
+(defn- merge-import-edns
+  "Merges import EDN maps, combining their `:classes` and `:properties` entries
+  and concatenating their `:pages-and-blocks`"
+  [edns]
+  (apply merge-with (fn [x y] (if (map? x) (merge-with merge x y) (into x y))) edns))
+
+(defn- refs-of [source refs] (keep (fn [[s k]] (when (= source s) k)) refs))
+
+(defn- build-import-edn
+  "Builds one import EDN for resolved `pages` that also adds the tags and
+  properties they use that aren't in `graph`: tagaholic.me ones through
+  [[build-add-edn]], and schema.org ones plus the schema.org classes and
+  properties new tagaholic.me ones need through
+  [[cldwalker.bb-clis.bin.logseq-schema/add-edn]]. Returns a map of
+  `:new-classes`, `:new-props` and `:edn`"
+  [my-index graph pages]
+  (let [tag-refs (distinct (mapcat :tags pages))
+        prop-refs (remove (comp #{:logseq} first) (distinct (mapcat (comp keys :properties) pages)))
+        required (schema-requirements my-index (refs-of :tagaholic tag-refs) (refs-of :tagaholic prop-refs))
+        existing (logseq-util/existing-idents graph (concat (map #(ref-ident :classes %) tag-refs)
+                                                            (map #(ref-ident :properties %) prop-refs)
+                                                            required))
+        new-tags (remove (comp existing #(ref-ident :classes %)) tag-refs)
+        new-props (remove (comp existing #(ref-ident :properties %)) prop-refs)
+        schema-names (distinct (map name (concat (refs-of :schema new-tags) (refs-of :schema new-props)
+                                                 (remove existing required))))
+        schema-add (when (seq schema-names) (logseq-schema/add-edn graph schema-names))
+        my-kws (distinct (concat (refs-of :tagaholic new-tags) (refs-of :tagaholic new-props)))
+        my-add (when (seq my-kws)
+                 (build-add-edn my-index graph my-kws
+                                (set (concat (map schema-class-ident (:new-classes schema-add))
+                                             (map schema-property-ident (:new-props schema-add))))))]
+    {:new-classes (concat (:new-classes schema-add) (:new-classes my-add))
+     :new-props (concat (:new-props schema-add) (:new-props my-add))
+     :edn (merge-import-edns [(:edn schema-add) (:edn my-add) (pages-edn my-index pages)])}))
+
+(defn- print-imported [pages]
+  (doseq [{:keys [title blocks]} pages]
+    (println (str "Imported page '" title "'"
+                  (when (pos? blocks)
+                    (str ", skipping its " blocks " " (logseq-migrate/pluralize (range blocks) "block" "blocks")))))))
+
+(defn- import-pages
+  "Imports pages `args`, found in the graphs of `:directory`, into `:graph`
+  with their tags and properties, or prints their EDN when `:pretend` is set"
+  [args {:keys [graph pretend directory]}]
+  (let [my-index (read-my-index)
+        lookups (import-lookups my-index)
+        dirs (directory-graph-dirs directory)
+        pages (mapv #(resolve-page lookups my-index (find-page dirs %)) (distinct args))
+        _ (error-if-unresolved pages)
+        {:keys [new-classes new-props edn]} (build-import-edn my-index graph pages)]
+    (println "Importing" (count pages) (logseq-migrate/pluralize pages "page" "pages") "and adding"
+             (count new-classes) (logseq-migrate/pluralize new-classes "class" "classes") "and"
+             (count new-props) (logseq-migrate/pluralize new-props "property" "properties") "-"
+             (into (vec new-classes) new-props))
+    (if pretend
+      (pprint/pprint edn)
+      (do (logseq-util/import-edn graph edn)
+          (print-imported pages)))))
+
+(defn- import-command [{{:keys [args] :as opts} :opts}]
+  (when (empty? args)
+    (cli-util/error "Usage: logseq-my-schema import [& PAGES]"))
+  (import-pages args opts))
+
+(def ^:private directory-option {:alias :d :default "~/code/priv"})
+
+(def ^:private import-spec
+  {:graph (:graph add-spec)
+   :pretend (:pretend add-spec)
+   :directory (assoc directory-option :desc "Directory of Logseq markdown graphs, or a single graph, to find pages in")
+   :args {:coerce [:string] :desc "Pages to import"}})
+
 ;; ---- migrate ----
 
 (defn- migrate [opts]
@@ -831,12 +1108,10 @@
                     :desc "Print what would migrate instead of migrating"}}
          logseq-migrate/options))
 
-(def ^:private table
+(def ^:private ^:large-vars/data-var table
   [{:cmds ["build-index"]
     :fn build-index-command
-    :spec {:directory {:alias :d
-                       :default "~/code/priv"
-                       :desc "Directory of Logseq markdown graphs, or a single graph, to read Property/Class pages from"}}
+    :spec {:directory (assoc directory-option :desc "Directory of Logseq markdown graphs, or a single graph, to read Property/Class pages from")}
     :doc (str "Build " index-path " and " my-schema-org-index-path
               " from the Property and Class pages of each graph in --directory.")}
    {:cmds ["add"]
@@ -846,6 +1121,13 @@
     :doc "Import classes or properties from tagaholic-me-index.edn that aren't
   in the graph yet. A class's local ancestors are included too; schema.org
   ancestors must already be in the graph (see logseq-schema add)."}
+   {:cmds ["import"]
+    :fn import-command
+    :spec import-spec
+    :args->opts (repeat :args)
+    :doc "Import pages from the graphs in --directory with their tags and
+  properties but not their blocks. Tags and properties not in the graph yet
+  are added from tagaholic-me-index.edn or schema.org."}
    {:cmds ["update"]
     :fn update-command
     :spec update-spec
