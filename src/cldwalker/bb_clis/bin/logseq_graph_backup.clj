@@ -6,6 +6,7 @@
             [cldwalker.bb-clis.util.logseq :as logseq-util]
             [clojure.data :as data]
             [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.pprint :as pprint]
             [clojure.string :as str]))
 
@@ -95,10 +96,16 @@
         ;; only graph.edn since mirror is incomplete without git actions
         (shell {:dir graph-dir} "git" "diff" "graph.edn")))))
 
+(defn- install-pre-commit-hook [graph-dir]
+  (let [hook (fs/path graph-dir ".git" "hooks" "pre-commit")]
+    (spit (fs/file hook) (slurp (io/resource "logseq-graph-backup/pre-commit")))
+    (fs/set-posix-file-permissions hook "rwxr-xr-x")))
+
 (defn- setup-graph [graph]
   (let [graph-dir (str (System/getenv "HOME") "/logseq/graphs/" graph)]
     (shell {:dir graph-dir} "git" "init")
     (shell {:dir graph-dir} "cp" "../personal/.gitignore" ".")
+    (install-pre-commit-hook graph-dir)
     (shell {:dir graph-dir} "git" "add" "-A")
     (shell {:dir graph-dir} "git" "commit" "-m" "init")
     (println "Graph" graph "is setup!")))

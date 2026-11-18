@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -e
+
+echo "Validate todos ..."
+logseq-validate-no-todos -g $(basename $PWD)
+echo "Validate empty journals"
+logseq-prune-journals -g $(basename $PWD) -n
+# Enable if graph has Thing class
+# echo "Validate class extends ..."
+# logseq-validate-class-extends -g $(basename $PWD)
