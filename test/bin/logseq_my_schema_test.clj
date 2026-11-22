@@ -51,10 +51,10 @@
    :pages-and-blocks [{:page {:block/title "Kid" :block/uuid kid :build/keep-uuid? true}}]})
 
 (defn- build-add-edn
-  "Runs build-add-edn on `args` against a fake graph that already has
-  schema.org's url and Thing plus the given index classes and properties and
-  `graph-idents`"
-  [args & {:keys [graph-classes graph-props graph-idents]}]
+  "Runs build-add-edn on `args` against `:index`, [[index]] by default, and a
+  fake graph that already has schema.org's url and Thing plus the given index
+  classes and properties and `graph-idents`"
+  [args & {:keys [graph-classes graph-props graph-idents] :as opts}]
   (let [idents (into #{:schema.property/url :schema.class/Thing}
                      (concat graph-idents
                              (map #(keyword "tagaholic.me.class" (name %)) graph-classes)
@@ -64,7 +64,7 @@
                   logseq-util/existing-user-class-titles (existing-titles graph-classes)
                   logseq-util/existing-property-titles (existing-titles graph-props)
                   cli-util/error (fn [& msgs] (throw (ex-info (str/join " " msgs) {})))]
-      (#'my-schema/build-add-edn index "graph" args #{}))))
+      (#'my-schema/build-add-edn (:index opts index) "graph" args #{}))))
 
 (deftest build-properties
   (testing "a {{}} url is only this graph's schema url"
@@ -124,6 +124,32 @@
 (deftest build-add-edn-existing-property
   (is (thrown-with-msg? clojure.lang.ExceptionInfo #"already exist: 'forApp'"
                         (build-add-edn [:forApp] :graph-props [:forApp]))))
+
+(deftest build-add-edn-property-class-refs
+  (testing "adds the local classes a new property refers to and declares domainIncludes and the existing classes"
+    (is (= {:new-classes [:Parent]
+            :new-props [:forTool]
+            :edn {:classes {:tagaholic.me.class/Parent
+                            {:block/title "Parent"
+                             :build/properties {:schema.property/url "https://tagaholic.me/schema/Parent.html"}
+                             :build/class-extends #{:schema.class/Thing}}
+                            :schema.class/Thing {:block/title "Thing"}}
+                  :properties {:tagaholic.me.property/forTool
+                               {:block/title "forTool"
+                                :logseq.property/type :node
+                                :db/cardinality :db.cardinality/one
+                                :build/properties {:schema.property/url "https://tagaholic.me/schema/forTool.html"
+                                                   :schema.property/domainIncludes #{:tagaholic.me.class/Parent}}
+                                :build/property-classes [:schema.class/Thing]}
+                               :schema.property/url url-anchor
+                               :schema.property/domainIncludes
+                               {:block/title "domainIncludes" :logseq.property/type :node :db/cardinality :db.cardinality/many}}}}
+           (build-add-edn [:forTool]
+                          :index (assoc-in index [:properties :forTool]
+                                           {:logseq.property/type :node
+                                            :build/properties {:url "https://tagaholic.me/schema/forTool.html"
+                                                               :schema.property/domainIncludes #{:tagaholic.me.class/Parent}}
+                                            :build/property-classes [:schema.class/Thing]}))))))
 
 (deftest build-add-edn-same-as
   (testing "declares schema.org's sameAs when a new entity uses it"
@@ -264,7 +290,8 @@
       (fs/create-dirs pages)
       (spit (fs/file pages "Gadget.md")
             "type:: [[Class]]\nurl:: https://example.com/gadget\nparent:: [[Thing]]\ndesc:: A gadget\n\n- A block\n\t- nested")
-      (spit (fs/file pages "gizmo.md") "type:: [[Property]]\nurl:: {{x}}\nrangeIncludes:: [[Text]]\n")
+      (spit (fs/file pages "gizmo.md")
+            "type:: [[Property]]\nurl:: {{x}}\nrangeIncludes:: [[Text]]\ndomainIncludes:: [[Gadget]] [[Human]] [[Thing]]\n")
       (spit (fs/file pages "owner.md") "type:: [[Property]]\nurl:: {{x}}\nrangeIncludes:: [[Person]]\n")
       (spit (fs/file pages "Human.md") "type:: [[Class]]\nurl:: https://schema.org/Person\nmeta:: A note")
       (spit (fs/file pages "Note.md") "type:: [[Gadget]]\n- just a block")
@@ -276,7 +303,10 @@
                                              :build/class-extends [:schema.class/Thing]}}
                           :properties {:gizmo {:block/title "gizmo"
                                                :logseq.property/type :default
-                                               :build/properties {:url "https://tagaholic.me/schema/gizmo.html"}}
+                                               :build/properties {:url "https://tagaholic.me/schema/gizmo.html"
+                                                                  :schema.property/domainIncludes #{:tagaholic.me.class/Gadget
+                                                                                                    :schema.class/Person
+                                                                                                    :schema.class/Thing}}}
                                        :owner {:block/title "owner"
                                                :logseq.property/type :node
                                                :build/property-classes [:schema.class/Person]

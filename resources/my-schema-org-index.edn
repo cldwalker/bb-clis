@@ -55,4 +55,12 @@
   :actionStatus #:build{:alias [:status]},
   :programmingLanguage #:build{:alias [:plang]},
   :about #:logseq.property{:ui-position :block-right},
-  :attendee #:logseq.property{:ui-position :block-right}}}
+  :attendee #:logseq.property{:ui-position :block-right},
+  :domainIncludes
+  #:build{:properties
+          #:tagaholic.me.property{:meta
+                                  "A more useful version of rdfs:domain as it can be one of multiple values"}},
+  :rangeIncludes
+  #:build{:properties
+          #:tagaholic.me.property{:meta
+                                  "A more useful version of rdfs:range as it can be one of multiple values"}}}}

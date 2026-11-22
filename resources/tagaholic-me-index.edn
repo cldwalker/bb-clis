@@ -422,11 +422,15 @@
   :unique
   {:block/title "unique",
    :logseq.property/type :checkbox,
-   :build/properties {:url "https://tagaholic.me/schema/unique.html"}},
+   :build/properties
+   {:url "https://tagaholic.me/schema/unique.html",
+    :schema.property/domainIncludes #{:schema.class/Property}}},
   :forCmd
   {:block/title "forCmd",
    :logseq.property/type :node,
-   :build/properties {:url "https://tagaholic.me/schema/forCmd.html"},
+   :build/properties
+   {:url "https://tagaholic.me/schema/forCmd.html",
+    :schema.property/domainIncludes #{:tagaholic.me.class/Subcmd}},
    :build/property-classes [:tagaholic.me.class/Cmd]},
   :export-to
   {:block/title "export-to",
@@ -437,7 +441,9 @@
   {:block/title "done-at",
    :logseq.property/type :date,
    :build/properties
-   {:url "https://tagaholic.me/schema/done-at.html"}},
+   {:url "https://tagaholic.me/schema/done-at.html",
+    :schema.property/domainIncludes
+    #{:schema.class/Movie :schema.class/CreativeWorkSeries}}},
   :meta
   {:block/title "meta",
    :logseq.property/type :default,
@@ -455,25 +461,15 @@
   {:block/title "siblings",
    :logseq.property/type :default,
    :build/properties
-   {:url "https://tagaholic.me/schema/siblings.html"}},
+   {:url "https://tagaholic.me/schema/siblings.html",
+    :schema.property/domainIncludes #{:schema.class/Person}}},
   :key
   {:block/title "key",
    :logseq.property/type :default,
-   :build/properties {:url "https://tagaholic.me/schema/key.html"}},
-  :parent
-  {:block/title "parent",
-   :logseq.property/type :class,
    :build/properties
-   {:url "https://tagaholic.me/schema/parent.html",
-    :schema.property/sameAs
-    "https://www.w3.org/2000/01/rdf-schema#subClassOf"}},
-  :rangeIncludes
-  {:block/title "rangeIncludes",
-   :logseq.property/type :class,
-   :build/properties
-   {:url "https://tagaholic.me/schema/rangeIncludes.html",
-    :logseq.property/description
-    "A more useful version of rdfs:range as it can be one of multiple values"}},
+   {:url "https://tagaholic.me/schema/key.html",
+    :schema.property/domainIncludes
+    #{:tagaholic.me.class/Keybinding}}},
   :sort-order
   {:block/title "sort-order",
    :logseq.property/type :number,
@@ -495,7 +491,9 @@
   :mother
   {:block/title "mother",
    :logseq.property/type :default,
-   :build/properties {:url "https://tagaholic.me/schema/mother.html"}},
+   :build/properties
+   {:url "https://tagaholic.me/schema/mother.html",
+    :schema.property/domainIncludes #{:schema.class/Person}}},
   :duration
   {:block/title "duration",
    :logseq.property/type :default,
@@ -537,7 +535,9 @@
   :father
   {:block/title "father",
    :logseq.property/type :default,
-   :build/properties {:url "https://tagaholic.me/schema/father.html"}},
+   :build/properties
+   {:url "https://tagaholic.me/schema/father.html",
+    :schema.property/domainIncludes #{:schema.class/Person}}},
   :answer
   {:block/title "answer",
    :logseq.property/type :default,
@@ -564,13 +564,6 @@
    :logseq.property/type :url,
    :build/properties
    {:url "https://tagaholic.me/schema/built-by.html"}},
-  :domainIncludes
-  {:block/title "domainIncludes",
-   :logseq.property/type :class,
-   :build/properties
-   {:url "https://tagaholic.me/schema/domainIncludes.html",
-    :logseq.property/description
-    "A more useful version of rdfs:domain as it can be one of multiple values"}},
   :blocked
   {:block/title "blocked",
    :logseq.property/type :default,
@@ -609,7 +602,8 @@
   {:block/title "grandfather",
    :logseq.property/type :default,
    :build/properties
-   {:url "https://tagaholic.me/schema/grandfather.html"}},
+   {:url "https://tagaholic.me/schema/grandfather.html",
+    :schema.property/domainIncludes #{:schema.class/Person}}},
   :rating
   {:block/title "rating",
    :logseq.property/type :number,
@@ -617,9 +611,14 @@
    {:url "https://tagaholic.me/schema/rating.html",
     :logseq.property/description
     "Usually a shortcut for creative-work.review.reviewRating or possibly creative-work.aggregateRating.ratingValue",
-    :meta "Not to be confused with https://schema.org/Rating"}},
+    :meta "Not to be confused with https://schema.org/Rating",
+    :schema.property/domainIncludes
+    #{:schema.class/Movie :schema.class/CreativeWorkSeries}}},
   :forApp
   {:block/title "forApp",
    :logseq.property/type :node,
-   :build/properties {:url "https://tagaholic.me/schema/forApp.html"},
+   :build/properties
+   {:url "https://tagaholic.me/schema/forApp.html",
+    :schema.property/domainIncludes
+    #{:tagaholic.me.class/Keybinding :tagaholic.me.class/Plugin}},
    :build/property-classes [:schema.class/SoftwareApplication]}}}

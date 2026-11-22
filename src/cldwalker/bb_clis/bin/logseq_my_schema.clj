@@ -69,12 +69,18 @@
   (keyword (str/replace page-name #"\s+" "")))
 
 (defn- strip-brackets
-  "Strips a [[wikilink]] VALUE down to its inner text, leaving any other
-  VALUE as is"
+  "Strips a lone [[wikilink]] VALUE down to its inner text, leaving any other
+  VALUE, e.g. several wikilinks, as is"
   [s]
-  (if-let [[_ inner] (re-matches #"\[\[(.*)\]\]" s)]
+  (if-let [[_ inner] (re-matches #"\[\[([^\[\]]*)\]\]" s)]
     inner
     s))
+
+(defn- page-refs
+  "Returns the page names in a property value: each of its [[wikilinks]], or
+  the whole value when it has none"
+  [s]
+  (or (seq (map second (re-seq #"\[\[([^\[\]]+)\]\]" s))) [s]))
 
 (defn- parse-properties
   "Parses a page's markdown lines into a {key value} map of its `KEY:: VALUE`
@@ -122,7 +128,26 @@
   [page-name props]
   (vec (distinct (remove nil? [(safe-keyword page-name) (declared-alias props)]))))
 
-(defn- property-entry [page-name props]
+(defn- class-ref
+  "Resolves class page name `class-name` to a class key. A schema.org class
+  resolves to its schema.class ident, a key in `aliases` to the class it
+  aliases, and anything else to a local class key"
+  [aliases class-name]
+  (let [k (safe-keyword class-name)]
+    (cond
+      (contains? schema-org-classes k) (schema-class-ident k)
+      (contains? aliases k) (aliases k)
+      :else k)))
+
+(defn- domain-includes
+  "Resolves a `domainIncludes::` value to a set of class idents, qualifying
+  local classes since `:build/properties` values aren't qualified on import"
+  [aliases v]
+  (into #{}
+        (map #(let [k (class-ref aliases %)] (if (qualified-keyword? k) k (my-class-ident k))))
+        (page-refs v)))
+
+(defn- property-entry [aliases page-name props]
   (let [range-includes (or (get props "rangeIncludes")
                            (cli-util/error page-name "is missing a required rangeIncludes key"))
         node-classes (get property->node-classes page-name)]
@@ -131,25 +156,17 @@
                                      :node
                                      (or (get range-includes->type range-includes) :default))
              :build/properties (build-properties page-name props)}
+      (get props "domainIncludes")
+      (assoc-in [:build/properties (schema-property-ident :domainIncludes)]
+                (domain-includes aliases (get props "domainIncludes")))
       node-classes (assoc :build/property-classes node-classes)
       (local-alias props) (assoc :build/alias (local-alias props)))))
-
-(defn- class-extends
-  "Resolves `parent` to a `:build/class-extends` vector. A schema.org class
-  resolves to its schema.class ident, a key in `aliases` to the class it
-  aliases, and anything else to a local class key"
-  [aliases parent]
-  [(let [k (safe-keyword parent)]
-     (cond
-       (contains? schema-org-classes k) (schema-class-ident k)
-       (contains? aliases k) (aliases k)
-       :else k))])
 
 (defn- class-entry [aliases page-name props]
   (cond-> {:block/title page-name
            :build/properties (build-properties page-name props)}
     (local-alias props) (assoc :build/alias (local-alias props))
-    (get props "parent") (assoc :build/class-extends (class-extends aliases (get props "parent")))))
+    (get props "parent") (assoc :build/class-extends [(class-ref aliases (get props "parent"))])))
 
 (defn- block-line? [line] (boolean (re-find #"^\s*-\s+\S" line)))
 
@@ -169,7 +186,7 @@
 
 (defn- class-aliases
   "Maps each local class's `alias::` keyword to the class's own key. Lets
-  [[class-extends]] resolve a `parent::` that uses an alias"
+  [[class-ref]] resolve a class name that uses an alias"
   [class-entries]
   (into {}
         (mapcat (fn [{:keys [name props]}]
@@ -178,8 +195,8 @@
 
 (defn- schema-org-aliases
   "Maps each `:build/alias` of a schema.org-matched class to that class's
-  schema.class ident. Lets [[class-extends]] resolve a `parent::` that uses
-  a former local name or alias"
+  schema.class ident. Lets [[class-ref]] resolve a class name that uses a
+  former local name or alias"
   [my-schema-classes]
   (into {}
         (mapcat (fn [[k v]] (map (fn [a] [a (schema-class-ident k)]) (:build/alias v))))
@@ -230,7 +247,7 @@
         aliases (merge (class-aliases local-classes) (schema-org-aliases my-schema-classes))]
     {:tagaholic {:graph-namespace :tagaholic.me
                  :classes (entries->map (partial class-entry aliases) local-classes)
-                 :properties (entries->map property-entry local-props)}
+                 :properties (entries->map (partial property-entry aliases) local-props)}
      :my-schema-org {:graph-namespace :schema
                      :classes my-schema-classes
                      :properties my-schema-props}}))
@@ -247,7 +264,7 @@
    {:classes {::dissoc [:Class :Property]
               :LargeLanguageModel
               {:build/alias [:LLM]}}
-    :properties {::dissoc [:via :type :sameAs]
+    :properties {::dissoc [:via :type :sameAs :domainIncludes :rangeIncludes :parent]
                  :referrerURL
                  {:block/title "referrerURL",
                   ;; Different than MD
@@ -273,7 +290,11 @@
                  :about
                  {:logseq.property/ui-position :block-right}
                  :attendee
-                 {:logseq.property/ui-position :block-right}}}})
+                 {:logseq.property/ui-position :block-right}
+                 :domainIncludes
+                 {:build/properties {:tagaholic.me.property/meta "A more useful version of rdfs:domain as it can be one of multiple values"}}
+                 :rangeIncludes
+                 {:build/properties {:tagaholic.me.property/meta "A more useful version of rdfs:range as it can be one of multiple values"}}}}})
 
 (defn- graph-dirs
   "Returns the markdown graph directories in `dir`: `dir` itself when it has a
@@ -512,14 +533,31 @@
           {:entities {} :pages []}
           ks))
 
+(defn- property-class-refs
+  "Returns the class idents that properties `prop-ks` of `index` refer to:
+  their `:build/property-classes` and domainIncludes values"
+  [index prop-ks]
+  (distinct (mapcat #(concat (get-in index [:properties % :build/property-classes])
+                             (get-in index [:properties % :build/properties (schema-property-ident :domainIncludes)]))
+                    prop-ks)))
+
+(defn- local-class-key
+  "Returns the index key of tagaholic.me class `ident`, or nil for any other class"
+  [ident]
+  (when (= my-class-ns (namespace ident)) (keyword (name ident))))
+
 (defn- add-edn
   "Assembles the import EDN for `new-classes` and `new-props` plus the alias
   pages they need. Declares schema.org's url, schema.org's sameAs when
-  `same-as?` and the existing meta property when `meta-anchor?`, since the
-  import requires every used property declared"
-  [index new-classes new-props {:keys [meta-anchor? same-as?]}]
+  `same-as?`, the existing meta property when `meta-anchor?`, and
+  domainIncludes and the `existing` [[property-class-refs]] of `new-props`,
+  since the import requires every used property and referred class declared"
+  [index new-classes new-props {:keys [meta-anchor? same-as? existing]}]
   (let [{classes-map :entities class-pages :pages}
         (aliased-entities (:classes index) new-classes my-class-ident #(full-class-entry index %))
+        classes-map (into classes-map
+                          (comp (filter existing) (map (fn [ident] [ident {:block/title (name ident)}])))
+                          (property-class-refs index new-props))
         {props-map :entities prop-pages :pages}
         (aliased-entities (:properties index) new-props my-property-ident #(full-property-entry index %))
         props-map (cond-> props-map
@@ -527,6 +565,9 @@
                     (assoc (schema-property-ident :url) (anchor-entry (:url schema-org-properties) "url"))
                     same-as?
                     (assoc (schema-property-ident :sameAs) (anchor-entry (:sameAs schema-org-properties) "sameAs"))
+                    (uses-property? index (schema-property-ident :domainIncludes) new-classes new-props)
+                    (assoc (schema-property-ident :domainIncludes)
+                           (anchor-entry (:domainIncludes schema-org-properties) "domainIncludes"))
                     meta-anchor?
                     (assoc (my-property-ident :meta) (anchor-entry (get-in index [:properties :meta]) "meta")))
         pages (into class-pages prop-pages)]
@@ -536,17 +577,18 @@
       (seq pages) (assoc :pages-and-blocks pages))))
 
 (defn- build-add-edn
-  "Builds import EDN for `arg-kws` plus their local ancestor classes not yet
-  in `graph`, erroring if an arg already exists or a new class's schema.org
-  parent or used sameAs property doesn't. The meta property and alias pages
-  are added too when an entry uses them. `added` idents count as existing
-  since the same import adds them. Returns a map of `:new-classes`,
-  `:new-props` and `:edn`"
+  "Builds import EDN for `arg-kws` plus the local classes they need, i.e.
+  ancestors and [[property-class-refs]], not yet in `graph`. Errors if an arg
+  already exists or a new class's schema.org parent or used sameAs property
+  doesn't. The meta property and alias pages are added when an entry uses
+  them. `added` idents count as existing since the same import adds them.
+  Returns a map of `:new-classes`, `:new-props` and `:edn`"
   [index graph arg-kws added]
   (let [{:keys [classes properties]} index
         class-args (filter #(contains? classes %) arg-kws)
         prop-args (filter #(contains? properties %) arg-kws)
-        need-classes (closure index class-args)
+        class-refs (property-class-refs index prop-args)
+        need-classes (closure index (concat class-args (keep local-class-key class-refs)))
         schema-url (schema-property-ident :url)
         same-as-ident (schema-property-ident :sameAs)
         meta-ident (my-property-ident :meta)
@@ -554,7 +596,8 @@
                                                     (into #{schema-url same-as-ident meta-ident}
                                                           (concat (schema-org-parents index need-classes)
                                                                   (map my-class-ident need-classes)
-                                                                  (map my-property-ident prop-args))))
+                                                                  (map my-property-ident prop-args)
+                                                                  class-refs)))
                        added)
         new-classes (remove (comp existing my-class-ident) need-classes)
         arg-new-props (remove (comp existing my-property-ident) prop-args)
@@ -571,7 +614,8 @@
     {:new-classes new-classes
      :new-props new-props
      :edn (add-edn index new-classes new-props {:meta-anchor? (and meta? (existing meta-ident))
-                                                :same-as? same-as?})}))
+                                                :same-as? same-as?
+                                                :existing existing})}))
 
 (defn- error-if-not-in-my-index
   "Errors if any of `arg-kws` isn't a class or property in `index`"
@@ -582,14 +626,50 @@
     (cli-util/error "These are not classes or properties in tagaholic-me-index.edn:"
                     (pr-str (vec unknown)))))
 
+(defn- schema-org-refs
+  "Returns the schema.org idents tagaholic.me properties `my-props` refer to:
+  domainIncludes when used and the schema.org classes in their
+  [[property-class-refs]]"
+  [my-index my-props]
+  (let [domain-includes (schema-property-ident :domainIncludes)]
+    (cond-> (filter #(= "schema.class" (namespace %)) (property-class-refs my-index my-props))
+      (uses-property? my-index domain-includes [] my-props) (conj domain-includes))))
+
+(defn- schema-requirements
+  "Returns the schema.org idents that tagaholic.me `my-classes` and `my-props`
+  need in the graph to be added: their classes' schema.org parents, url,
+  sameAs when used and their [[schema-org-refs]]"
+  [my-index my-classes my-props]
+  (let [classes (closure my-index my-classes)
+        same-as (schema-property-ident :sameAs)]
+    (cond-> (into (schema-org-parents my-index classes) (schema-org-refs my-index my-props))
+      (or (seq my-classes) (seq my-props)) (conj (schema-property-ident :url))
+      (uses-property? my-index same-as classes my-props) (conj same-as))))
+
+(defn- merge-import-edns
+  "Merges import EDN maps, combining their `:classes` and `:properties` entries
+  and concatenating their `:pages-and-blocks`"
+  [edns]
+  (apply merge-with (fn [x y] (if (map? x) (merge-with merge x y) (into x y))) edns))
+
 (defn- add-schema
   "Adds class and property `args` to `:graph`, or prints their EDN when
-  `:pretend` is set"
+  `:pretend` is set. The [[schema-org-refs]] of new properties that `:graph`
+  doesn't have are added too, through
+  [[cldwalker.bb-clis.bin.logseq-schema/add-edn]]"
   [args {:keys [graph pretend]}]
   (let [index (read-my-index)
         arg-kws (distinct (map keyword args))
         _ (error-if-not-in-my-index index arg-kws)
-        {:keys [new-classes new-props edn]} (build-add-edn index graph arg-kws #{})]
+        refs (schema-org-refs index (filter #(contains? (:properties index) %) arg-kws))
+        missing-refs (remove (logseq-util/existing-idents graph refs) refs)
+        schema-add (when (seq missing-refs) (logseq-schema/add-edn graph (map name missing-refs)))
+        my-add (build-add-edn index graph arg-kws
+                              (set (concat (map schema-class-ident (:new-classes schema-add))
+                                           (map schema-property-ident (:new-props schema-add)))))
+        new-classes (concat (:new-classes schema-add) (:new-classes my-add))
+        new-props (concat (:new-props schema-add) (:new-props my-add))
+        edn (merge-import-edns [(:edn schema-add) (:edn my-add)])]
     (println "Adding" (count new-classes) (logseq-migrate/pluralize new-classes "class" "classes") "and"
              (count new-props) (logseq-migrate/pluralize new-props "property" "properties") "-"
              (into (vec new-classes) new-props))
@@ -993,17 +1073,6 @@
   (when-let [errors (seq (for [{:keys [title errors]} pages, e errors] (str "  " title ": " e)))]
     (cli-util/error (str/join "\n" (cons "Unable to import these pages:" errors)))))
 
-(defn- schema-requirements
-  "Returns the schema.org idents that tagaholic.me `my-classes` and `my-props`
-  need in the graph to be added: their classes' schema.org parents, url, and
-  sameAs when used"
-  [my-index my-classes my-props]
-  (let [classes (closure my-index my-classes)
-        same-as (schema-property-ident :sameAs)]
-    (cond-> (schema-org-parents my-index classes)
-      (or (seq my-classes) (seq my-props)) (conj (schema-property-ident :url))
-      (uses-property? my-index same-as classes my-props) (conj same-as))))
-
 (defn- page-entry
   "Builds a resolved page's `:pages-and-blocks` entries: its alias pages, then
   the page with its tags, properties and aliases"
@@ -1029,12 +1098,6 @@
                            pages)]
     (cond-> {:pages-and-blocks (into [] (mapcat page-entry) pages)}
       (seq declarations) (assoc :properties declarations))))
-
-(defn- merge-import-edns
-  "Merges import EDN maps, combining their `:classes` and `:properties` entries
-  and concatenating their `:pages-and-blocks`"
-  [edns]
-  (apply merge-with (fn [x y] (if (map? x) (merge-with merge x y) (into x y))) edns))
 
 (defn- refs-of [source refs] (keep (fn [[s k]] (when (= source s) k)) refs))
 
