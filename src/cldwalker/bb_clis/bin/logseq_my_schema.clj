@@ -700,7 +700,8 @@
 (defn- read-my-schema-org-index []
   (or my-schema-org-index (cli-util/error "Unable to find my-schema-org-index.edn on classpath")))
 
-(def ^:private update-type->index-key {"class" :classes "property" :properties})
+(def ^:private type->index-keys
+  {"all" [:classes :properties] "class" [:classes] "property" [:properties]})
 
 (defn- schema-org-ident
   "Returns the graph ident of my-schema-org-index.edn key `k` under `index-key`.
@@ -895,25 +896,29 @@
           :desc "tagaholic-me-index.edn classes or properties to update"}})
 
 (defn- select-schema-update-entries
-  "Returns the `index-key` entries of my-schema-org-index.edn named by `args`,
-  or all of them when there are no `args`"
-  [index-key args]
-  (let [entries (get (read-my-schema-org-index) index-key)
-        name->k (into {} (map (juxt name identity)) (keys entries))
-        unknown (remove name->k (map str args))]
+  "Returns `[index-key k entry]` for the entries under `index-keys` of
+  my-schema-org-index.edn named by `args`, or all of them when there are no
+  `args`"
+  [index-keys args]
+  (let [index (read-my-schema-org-index)
+        arg-names (set (map str args))
+        entries (for [index-key index-keys
+                      [k entry] (sort-by key (get index index-key))
+                      :when (or (empty? arg-names) (arg-names (name k)))]
+                  [index-key k entry])
+        unknown (remove (set (map (comp name second) entries)) (distinct (map str args)))]
     (when (seq unknown)
-      (cli-util/error (str "These are not " (name index-key) " in my-schema-org-index.edn:")
+      (cli-util/error (str "These are not " (str/join " or " (map name index-keys)) " in my-schema-org-index.edn:")
                       (pr-str (vec unknown))))
-    (if (seq args) (select-keys entries (map (comp name->k str) args)) entries)))
+    entries))
 
 (defn- schema-update
-  "Updates the `:update-type` schema.org entities named by `args`, or all of
-  them, in `:graph` (see [[run-update]])"
-  [args {:keys [update-type] :as opts}]
-  (let [index-key (update-type->index-key update-type)]
-    (run-update (for [[k entry] (sort-by key (select-schema-update-entries index-key args))]
-                  (update-target k (schema-org-ident index-key k) entry schema-org-property-key->ident))
-                opts)))
+  "Updates the `:type` schema.org entities named by `args`, or all of them,
+  in `:graph` (see [[run-update]])"
+  [args {:keys [type] :as opts}]
+  (run-update (for [[index-key k entry] (select-schema-update-entries (type->index-keys type) args)]
+                (update-target k (schema-org-ident index-key k) entry schema-org-property-key->ident))
+              opts))
 
 (defn- schema-update-command [{{:keys [args] :as opts} :opts}]
   (schema-update args opts))
@@ -921,8 +926,8 @@
 (def ^:private schema-update-spec
   {:graph (:graph add-spec)
    :pretend (:pretend update-spec)
-   :update-type {:alias :u :enum ["class" "property"] :default "class"
-                 :desc "Type of schema.org entities to update"}
+   :type {:alias :t :enum ["all" "class" "property"] :default "all"
+          :desc "Type of schema.org entities to update"}
    :args {:coerce [:symbol]
           :complete schema-update-name-candidates
           :desc "my-schema-org-index.edn classes or properties to update"}})
@@ -1217,9 +1222,10 @@
     :fn schema-update-command
     :spec schema-update-spec
     :args->opts (repeat :args)
-    :doc "Update the schema.org classes or properties in the graph whose aliases
-  or meta differ from my-schema-org-index.edn. Updates all of --update-type's
-  entities unless given names. Aliases are only added, never removed."}
+    :doc "Update the schema.org classes and properties in the graph whose
+  aliases or meta differ from my-schema-org-index.edn. Updates all of
+  --type's entities unless given names. Aliases are only added, never
+  removed."}
    {:cmds ["migrate"]
     :fn migrate-command
     :spec migrate-spec
