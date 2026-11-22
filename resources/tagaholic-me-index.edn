@@ -425,8 +425,9 @@
    :build/properties {:url "https://tagaholic.me/schema/unique.html"}},
   :forCmd
   {:block/title "forCmd",
-   :logseq.property/type :default,
-   :build/properties {:url "https://tagaholic.me/schema/forCmd.html"}},
+   :logseq.property/type :node,
+   :build/properties {:url "https://tagaholic.me/schema/forCmd.html"},
+   :build/property-classes [:tagaholic.me.class/Cmd]},
   :export-to
   {:block/title "export-to",
    :logseq.property/type :default,
@@ -446,7 +447,7 @@
     "Meta description field which usually discusses organizing thing instead of thing itself"}},
   :applied
   {:block/title "applied",
-   :logseq.property/type :default,
+   :logseq.property/type :date,
    :build/properties
    {:url "https://tagaholic.me/schema/applied.html",
     :logseq.property/description "Date applied to contract/job"}},
@@ -461,21 +462,21 @@
    :build/properties {:url "https://tagaholic.me/schema/key.html"}},
   :parent
   {:block/title "parent",
-   :logseq.property/type :default,
+   :logseq.property/type :class,
    :build/properties
    {:url "https://tagaholic.me/schema/parent.html",
     :schema.property/sameAs
     "https://www.w3.org/2000/01/rdf-schema#subClassOf"}},
   :rangeIncludes
   {:block/title "rangeIncludes",
-   :logseq.property/type :default,
+   :logseq.property/type :class,
    :build/properties
    {:url "https://tagaholic.me/schema/rangeIncludes.html",
     :logseq.property/description
     "A more useful version of rdfs:range as it can be one of multiple values"}},
   :sort-order
   {:block/title "sort-order",
-   :logseq.property/type :default,
+   :logseq.property/type :number,
    :build/properties
    {:url "https://tagaholic.me/schema/sort-order.html",
     :logseq.property/description
@@ -565,7 +566,7 @@
    {:url "https://tagaholic.me/schema/built-by.html"}},
   :domainIncludes
   {:block/title "domainIncludes",
-   :logseq.property/type :default,
+   :logseq.property/type :class,
    :build/properties
    {:url "https://tagaholic.me/schema/domainIncludes.html",
     :logseq.property/description
@@ -596,13 +597,14 @@
    {:url "https://tagaholic.me/schema/publish-url.html"}},
   :owner
   {:block/title "owner",
-   :logseq.property/type :default,
+   :logseq.property/type :node,
    :build/properties
    {:url "https://tagaholic.me/schema/owner.html",
     :logseq.property/description
     "Owns completion of task or thing to do",
     :meta
-    "https://schema.org/agent is the closes thing but not the same"}},
+    "https://schema.org/agent is the closes thing but not the same"},
+   :build/property-classes [:schema.class/Person]},
   :grandfather
   {:block/title "grandfather",
    :logseq.property/type :default,
@@ -610,7 +612,7 @@
    {:url "https://tagaholic.me/schema/grandfather.html"}},
   :rating
   {:block/title "rating",
-   :logseq.property/type :Number,
+   :logseq.property/type :number,
    :build/properties
    {:url "https://tagaholic.me/schema/rating.html",
     :logseq.property/description
@@ -618,5 +620,6 @@
     :meta "Not to be confused with https://schema.org/Rating"}},
   :forApp
   {:block/title "forApp",
-   :logseq.property/type :default,
-   :build/properties {:url "https://tagaholic.me/schema/forApp.html"}}}}
+   :logseq.property/type :node,
+   :build/properties {:url "https://tagaholic.me/schema/forApp.html"},
+   :build/property-classes [:schema.class/SoftwareApplication]}}}

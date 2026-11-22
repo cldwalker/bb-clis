@@ -38,10 +38,20 @@
 (def ^:private schema-org-properties (:properties schema-org-index))
 
 (def ^:private range-includes->type
-  {"Date" :date
-   "Float" :Number
+  {"Boolean" :checkbox
+   "Date" :date
+   "DateRef" :date
+   "Float" :number
+   "Integer" :number
    "Uri" :url
-   "Boolean" :checkbox})
+   "Class" :class})
+
+(def ^:private property->node-classes
+  "Property pages whose rangeIncludes is a class, mapped to the
+  `:build/property-classes` of their `:node` type"
+  {"owner" [:schema.class/Person]
+   "forCmd" [:tagaholic.me.class/Cmd]
+   "forApp" [:schema.class/SoftwareApplication]})
 
 (defn- schema-class-ident [k] (keyword "schema.class" (name k)))
 (defn- schema-property-ident [k] (keyword "schema.property" (name k)))
@@ -114,10 +124,14 @@
 
 (defn- property-entry [page-name props]
   (let [range-includes (or (get props "rangeIncludes")
-                           (cli-util/error page-name "is missing a required rangeIncludes key"))]
+                           (cli-util/error page-name "is missing a required rangeIncludes key"))
+        node-classes (get property->node-classes page-name)]
     (cond-> {:block/title page-name
-             :logseq.property/type (get range-includes->type range-includes :default)
+             :logseq.property/type (if node-classes
+                                     :node
+                                     (or (get range-includes->type range-includes) :default))
              :build/properties (build-properties page-name props)}
+      node-classes (assoc :build/property-classes node-classes)
       (local-alias props) (assoc :build/alias (local-alias props)))))
 
 (defn- class-extends

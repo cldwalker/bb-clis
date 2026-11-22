@@ -265,6 +265,7 @@
       (spit (fs/file pages "Gadget.md")
             "type:: [[Class]]\nurl:: https://example.com/gadget\nparent:: [[Thing]]\ndesc:: A gadget\n\n- A block\n\t- nested")
       (spit (fs/file pages "gizmo.md") "type:: [[Property]]\nurl:: {{x}}\nrangeIncludes:: [[Text]]\n")
+      (spit (fs/file pages "owner.md") "type:: [[Property]]\nurl:: {{x}}\nrangeIncludes:: [[Person]]\n")
       (spit (fs/file pages "Human.md") "type:: [[Class]]\nurl:: https://schema.org/Person\nmeta:: A note")
       (spit (fs/file pages "Note.md") "type:: [[Gadget]]\n- just a block")
       (is (= {:tagaholic {:graph-namespace :tagaholic.me
@@ -275,7 +276,11 @@
                                              :build/class-extends [:schema.class/Thing]}}
                           :properties {:gizmo {:block/title "gizmo"
                                                :logseq.property/type :default
-                                               :build/properties {:url "https://tagaholic.me/schema/gizmo.html"}}}}
+                                               :build/properties {:url "https://tagaholic.me/schema/gizmo.html"}}
+                                       :owner {:block/title "owner"
+                                               :logseq.property/type :node
+                                               :build/property-classes [:schema.class/Person]
+                                               :build/properties {:url "https://tagaholic.me/schema/owner.html"}}}}
               :my-schema-org {:graph-namespace :schema
                               :classes {:Person {:build/alias [:Human]
                                                  :build/properties {:tagaholic.me/meta "A note"}}}
