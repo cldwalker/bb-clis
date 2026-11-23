@@ -7,11 +7,17 @@
   * A post per journal page that has a top-level block that isn't a task. A
     post is named and dated after its journal's day, titled after its journal
     and tagged journal. Its body is the journal's blocks as a nested html list
-    where each block shows its tags floated to the right and its properties in
-    a drawer underneath it. Blocks tagged Task are hidden at every level.
+    where each block shows its tags beside its title and its properties in a
+    drawer underneath it. Blocks tagged Task are hidden at every level.
   * A post per page that isn't built-in or an alias. A post is named after a
     slug of its page's title, dated after the page's creation and tagged page.
-    Its body is the page's tags and properties, rendered like a journal block's.
+    Its body is the page's properties and its tags are beside its title.
+  * A post per class that tags a published page or block and per class they
+    extend, named after the class e.g. Article.md. It has breadcrumbs up to its
+    root class and a sortable table of what it tags. A classes.md post has the
+    class hierarchy and a sortable table of classes. These are preview posts so
+    they're left out of the index, archive, tags and feeds. They're always
+    recreated and ones for classes no longer in the graph's posts are deleted.
 
   `rebuild` recreates posts and re-renders the whole site.
 
@@ -29,7 +35,7 @@
             [clojure.java.io :as io]
             [clojure.string :as str])
   (:import (java.text Normalizer Normalizer$Form)
-           (java.time Instant ZoneId)))
+           (java.time Instant LocalDate ZoneId)))
 
 (def ^:private post-template "logseq-publish-graph/post.md")
 
@@ -60,14 +66,26 @@
 
 (defn- page-files
   "Maps lowercased `titles` to unique post file names without an extension.
-  Titles with the same slug get a numeric suffix in title order"
-  [titles]
+  Titles with the same slug, or a slug in `reserved`, get a numeric suffix in
+  title order"
+  [titles reserved]
   (into {}
         (mapcat (fn [[s titles']]
                   (map-indexed (fn [i title]
-                                 [(str/lower-case title) (if (zero? i) s (str s "-" (inc i)))])
+                                 (let [n (if (reserved s) (inc i) i)]
+                                   [(str/lower-case title) (if (zero? n) s (str s "-" (inc n)))]))
                                titles'))
                 (group-by slug (sort titles)))))
+
+(defn- class-files
+  "Maps class `idents` to post file names without an extension e.g. Article.
+  Errors when names only differ by case since file systems may ignore case"
+  [idents]
+  (let [files (into {} (map (juxt identity #(str/replace (name %) #"[^A-Za-z0-9_-]+" "-")) idents))]
+    (when-let [dupes (seq (keep #(when (> (count (val %)) 1) (val %))
+                                (group-by (comp str/lower-case files) idents)))]
+      (cli-util/error "These classes would have the same post file:" (pr-str (vec dupes))))
+    files))
 
 (defn- journal-date
   "Converts a journal day e.g. 20260510 to its YYYY-MM-DD date"
@@ -100,6 +118,12 @@
   (if-let [link (ident-link (:indexes ctx) ident)]
     (link-html (assoc link :title label))
     (escape-html label)))
+
+(defn- class-link
+  "Links a class `ident` to its class post, or nil when it has none"
+  [ctx ident]
+  (when-let [file (get-in ctx [:class-files ident])]
+    {:title (name ident) :url (str file ".html")}))
 
 ;; Nodes
 ;; =====
@@ -141,8 +165,24 @@
               (cond->> (block-nodes page-url hidden? (:build/children block))
                 uuid
                 (cons [uuid {:title title
-                             :url (when-not hidden? (str page-url "#" uuid))}]))))
+                             :url (when-not hidden? (str page-url "#" (:publish/id block)))}]))))
           blocks))
+
+(defn- with-block-ids
+  "Gives `blocks` and their descendants a :publish/id for their html id, which
+  is their uuid or else their position e.g. b-0-2"
+  ([blocks] (with-block-ids "b" blocks))
+  ([prefix blocks]
+   (vec (map-indexed (fn [i block]
+                       (let [path (str prefix "-" i)]
+                         (cond-> (assoc block :publish/id (str (or (:block/uuid block) path)))
+                           (:build/children block) (update :build/children #(with-block-ids path %)))))
+                     blocks))))
+
+(defn- class-node
+  "Node for a class or property, which links to its class post or its index.edn url"
+  [ctx ident title]
+  (or (class-link ctx ident) (ident-link (:indexes ctx) ident) {:title title}))
 
 (defn- graph-nodes
   "Maps uuids of an export's pages, blocks, classes and properties to nodes,
@@ -156,8 +196,7 @@
                        (:block/uuid page) (cons [(:block/uuid page) node]))))
                  (:pages-and-blocks export))
          (keep (fn [[ident {:block/keys [uuid title]}]]
-                 (when uuid
-                   [uuid (or (ident-link (:indexes ctx) ident) {:title title})]))
+                 (when uuid [uuid (class-node ctx ident title)]))
                (merge (:classes export) (:properties export))))))
 
 (defn- alias-uuids [export]
@@ -173,8 +212,7 @@
         (for [[ent node] (concat
                           (map (fn [{:keys [page]}] [page (page-node ctx page)])
                                (:pages-and-blocks export))
-                          (map (fn [[ident ent]]
-                                 [ent (or (ident-link (:indexes ctx) ident) {:title (:block/title ent)})])
+                          (map (fn [[ident ent]] [ent (class-node ctx ident (:block/title ent))])
                                (merge (:classes export) (:properties export))))
               [_ uuid] (:block/alias ent)]
           [uuid node])))
@@ -280,7 +318,12 @@
 (defn- tags-html [ctx tags]
   (when (seq tags)
     (str "<span class=\"block-tags\">"
-         (str/join " " (map #(ident-html ctx % (str "#" (name %))) (sort-by name tags)))
+         (str/join " " (map (fn [tag]
+                              (let [label (str "#" (name tag))]
+                                (if-let [link (class-link ctx tag)]
+                                  (link-html (assoc link :title label))
+                                  (ident-html ctx tag label))))
+                            (sort-by name tags)))
          "</span>")))
 
 (defn- block-url
@@ -290,24 +333,28 @@
   (let [url (get-in block [:build/properties :schema.property/url])]
     (when (string? url) url)))
 
+(defn- block-text
+  "A block's title as one line of plain text, or its url when it has no title"
+  [ctx {:block/keys [title] :as block}]
+  (if (str/blank? title)
+    (or (block-url block) "")
+    (str/replace (plain-title ctx title #{}) #"\s*\n\s*" " ")))
+
 (defn- title-html [ctx {:block/keys [title] :as block}]
   (if-let [url (block-url block)]
-    (link-html {:title (if (str/blank? title)
-                         url
-                         (str/replace (plain-title ctx title #{}) #"\s*\n\s*" " "))
-                :url url})
+    (link-html {:title (block-text ctx block) :url url})
     (render-text ctx (str title))))
 
 (defn- block-html
   "Renders a block with its tags, properties and children, or nil when it's
   empty or a task. Counts rendered blocks and hidden tasks in :stats"
-  [ctx {:block/keys [uuid] :as block}]
+  [ctx {:publish/keys [id] :as block}]
   (cond
     (task? block) (do (swap! (:stats ctx) update :tasks inc) nil)
     (empty-block? block) nil
     :else
     (do (swap! (:stats ctx) update :blocks inc)
-        (str "<li" (when uuid (str " id=\"" uuid "\"")) ">"
+        (str "<li" (when id (str " id=\"" id "\"")) ">"
              (title-html ctx block)
              (tags-html ctx (:build/tags block))
              (properties-html ctx (cond-> (:build/properties block)
@@ -367,6 +414,47 @@
            (get-in page [:build/properties :logseq.property.user/email])
            (contains? alias-uuids (:block/uuid page)))))
 
+(defn- tagged-blocks
+  "`blocks` and their descendants that have tags, skipping tasks and what's under them"
+  [blocks]
+  (mapcat (fn [block]
+            (when-not (task? block)
+              (cond->> (tagged-blocks (:build/children block))
+                (seq (:build/tags block)) (cons block))))
+          blocks))
+
+(defn- tagged-entities
+  "Published journals, pages and journal blocks that have tags as maps with
+  their :tags, :page and, for blocks, :block"
+  [ctx export]
+  (mapcat (fn [{:keys [page blocks]}]
+            (cond
+              (:build/journal page)
+              (when (contains? (:published-days ctx) (:build/journal page))
+                (cond->> (map #(hash-map :tags (:build/tags %) :page page :block %) (tagged-blocks blocks))
+                  (seq (:build/tags page)) (cons {:tags (:build/tags page) :page page})))
+              (and (seq (:build/tags page)) (published-page? (:alias-uuids ctx) page))
+              [{:tags (:build/tags page) :page page}]))
+          (:pages-and-blocks export)))
+
+(defn- class-parents
+  "Classes that class `ident` extends, sorted by name so the first one is stable"
+  [classes ident]
+  (sort-by name (get-in classes [ident :build/class-extends])))
+
+(defn- with-ancestors
+  "Set of class `idents` and every class they extend. Errors on an extends cycle"
+  [classes idents]
+  (letfn [(visit [seen path ident]
+            (when (path ident)
+              (cli-util/error "Class" ident "has an extends cycle"))
+            (if (seen ident)
+              seen
+              (reduce #(visit %1 (conj path ident) %2)
+                      (conj seen ident)
+                      (class-parents classes ident))))]
+    (reduce #(visit %1 #{} %2) #{} idents)))
+
 (defn- graph-context
   "Context for rendering `export`'s posts and links between them"
   [graph export]
@@ -375,16 +463,26 @@
         aliases (alias-uuids export)
         ctx {:indexes {"schema" (read-resource-edn "schema-org-index.edn")
                        "tagaholic" (read-resource-edn "tagaholic-me-index.edn")}
+             :classes (:classes export)
              :journal-titles titles
              :journal-days (zipmap (vals titles) (keys titles))
              ;; From all journals so links between journals work when only some are selected
              :published-days (set (keep #(when (publishable? (:blocks %)) (get-in % [:page :build/journal]))
                                         (:pages-and-blocks export)))
              :alias-uuids aliases
-             :page-files (page-files (map :block/title (filter #(published-page? aliases %) pages)))
              :pages-by-name (into {} (map (juxt (comp str/lower-case :block/title) identity)
                                           (remove :build/journal pages)))
              :page-dates (page-dates graph)}
+        entities (tagged-entities ctx export)
+        ;; Ancestors get class posts too so the hierarchy and breadcrumbs link to them
+        class-files' (class-files (with-ancestors (:classes export) (distinct (mapcat :tags entities))))
+        ;; Class and classes posts take precedence over page posts with the same file name
+        reserved (set (map str/lower-case (cons "classes" (vals class-files'))))
+        ctx (assoc ctx
+                   :tagged-entities entities
+                   :class-files class-files'
+                   :page-files (page-files (map :block/title (filter #(published-page? aliases %) pages))
+                                           reserved))
         ctx (assoc ctx :alias-owners (alias-owners ctx export))]
     (assoc ctx :nodes (graph-nodes ctx export))))
 
@@ -436,33 +534,149 @@
      :blocks 0
      :tasks 0}))
 
+(defn- entities-label [n]
+  (str n (if (= 1 n) " entity" " entities")))
+
+(defn- entity-row
+  "Table row of a tagged entity: its link, type and the date of its journal or
+  page. A block links to its anchor in its journal's post"
+  [ctx {:keys [page block]}]
+  (let [node (page-node ctx page)
+        day (:build/journal page)
+        date (if day (journal-date day) (get-in ctx [:page-dates (str/lower-case (:block/title page))] ""))]
+    {:date date
+     :html (str "<tr><td>"
+                (if block
+                  (link-html {:title (block-text ctx block) :url (str (:url node) "#" (:publish/id block))})
+                  (link-html node))
+                "</td><td>" (cond block "Block" day "Journal" :else "Page")
+                "</td><td>" (if block (link-html (assoc node :title date)) date)
+                "</td></tr>")}))
+
+(defn- breadcrumbs-html
+  "Links to the classes that class `ident` extends, from the root class e.g.
+  Thing down to its parent, followed by its title. A class with multiple
+  parents is followed through its first one"
+  [ctx ident title]
+  (when-let [ancestors (seq (reverse (rest (take-while some? (iterate #(first (class-parents (:classes ctx) %))
+                                                                      ident)))))]
+    (str "<p class=\"breadcrumbs\">"
+         (str/join " &gt; " (concat (map #(link-html (class-link ctx %)) ancestors) [(escape-html title)]))
+         "</p>\n")))
+
+(defn- class-post
+  "Preview post of a class's breadcrumbs, properties and a table of what it
+  tags, newest first. The site's sortable table script sorts its columns"
+  [ctx class-entities ident]
+  (let [ent (get-in ctx [:classes ident])
+        title (or (:block/title ent) (name ident))
+        entities (get class-entities ident [])
+        properties (properties-html
+                    ctx (or (not-empty (:build/properties ent))
+                            (some->> (ident-link (:indexes ctx) ident) :url (hash-map :schema.property/url))))
+        ;; sort-by is stable so blocks in the same journal keep their order
+        rows (sort-by :date #(compare %2 %1) (map #(entity-row ctx %) entities))]
+    {:type :class
+     :arg title
+     :date (get-in ctx [:page-dates (str/lower-case title)] (str (LocalDate/now)))
+     :file (str (get-in ctx [:class-files ident]) ".md")
+     :title title
+     :tags []
+     :preview true
+     :description (page-description ctx ent)
+     :publish? true
+     :body (str (breadcrumbs-html ctx ident title)
+                (when properties (str "<div class=\"page-properties\">" properties "</div>\n"))
+                "<p class=\"class-count\">" (entities-label (count entities)) "</p>"
+                (when (seq rows)
+                  (str "\n<table class=\"sortable class-entities\">\n"
+                       "<thead><tr><th>Name</th><th>Type</th><th data-order=\"desc\">Date</th></tr></thead>\n"
+                       "<tbody>\n" (str/join "\n" (map :html rows)) "\n</tbody>\n</table>")))
+     :blocks 0
+     :tasks 0}))
+
+(defn- class-hierarchy-html
+  "Nested lists of class `idents` linked to their class posts, from the root
+  class e.g. Thing down. Classes with subclasses are open <details> so they
+  collapse without js. Classes are sorted by name and a class with multiple
+  parents is under each of them"
+  [ctx idents]
+  (let [parents (into {} (map (juxt identity #(class-parents (:classes ctx) %))) idents)
+        sort-idents #(sort-by (comp str/lower-case name) %)
+        children (update-vals (reduce-kv (fn [m child ps] (reduce #(update %1 %2 (fnil conj []) child) m ps))
+                                         {} parents)
+                              sort-idents)
+        item (fn item [ident]
+               (let [link (link-html (class-link ctx ident))]
+                 (str "<li>"
+                      (if-let [child-idents (children ident)]
+                        (str "<details open><summary>" link "</summary>"
+                             "<ul>" (str/join (map item child-idents)) "</ul></details>")
+                        link)
+                      "</li>")))]
+    (str "<ul class=\"class-hierarchy\">"
+         (str/join (map item (sort-idents (filter (comp empty? parents) idents))))
+         "</ul>")))
+
+(defn- classes-post
+  "Preview post of the class hierarchy and a sortable table of classes with
+  how many entities they tag"
+  [ctx class-entities]
+  (let [idents (keys (:class-files ctx))
+        ;; Ancestors that tag nothing are only in the hierarchy
+        tagging (filter class-entities idents)]
+    {:type :classes
+     :arg "classes"
+     :date (str (LocalDate/now))
+     :file "classes.md"
+     :title "Classes"
+     :tags []
+     :preview true
+     :publish? true
+     :body (str "<h2>Hierarchy</h2>\n" (class-hierarchy-html ctx idents) "\n"
+                "<h2>Classes</h2>\n"
+                "<table class=\"sortable classes\">\n"
+                "<thead><tr><th>Class</th><th data-order=\"desc\">Entities</th></tr></thead>\n<tbody>\n"
+                (str/join "\n" (for [ident (sort-by (juxt #(- (count (class-entities %))) name) tagging)]
+                                 (str "<tr><td>" (link-html (class-link ctx ident)) "</td><td>"
+                                      (count (class-entities ident)) "</td></tr>")))
+                "\n</tbody>\n</table>")
+     :blocks 0
+     :tasks 0}))
+
 (defn- select-posts
-  "Selects `posts` whose journal date or page title is in `args`, or all
-  `posts` when there are no `args`. Errors on args that aren't in the graph"
+  "Selects `posts` whose journal date, page title or class name is in `args`,
+  or all `posts` when there are no `args`. Errors on args that aren't in the
+  graph"
   [posts args]
   (if (empty? args)
     posts
     (let [by-arg (into {} (map (juxt (comp str/lower-case :arg) identity) posts))
           args' (distinct (map str/lower-case args))]
       (when-let [unknown (seq (remove by-arg args'))]
-        (cli-util/error "These are not journal dates or pages in the graph:"
+        (cli-util/error "These are not journal dates, pages or classes in the graph:"
                         (pr-str (vec (sort unknown)))))
       (map by-arg args'))))
 
 (defn- graph-posts
-  "Reads `graph` and returns a post for each of its journals and published
-  pages selected by `args`. Only posts with :publish? are written"
-  [{:keys [graph fresh args]}]
-  (let [export (export-graph graph fresh)
+  "Reads `graph` and returns a post for each of its journals, published pages
+  and classes. Only posts with :publish? are written"
+  [{:keys [graph fresh]}]
+  (let [export (-> (export-graph graph fresh)
+                   (update :pages-and-blocks (partial mapv #(update % :blocks with-block-ids))))
         ctx (graph-context graph export)
         {journals true pages false} (group-by (comp boolean :build/journal :page)
-                                              (:pages-and-blocks export))]
-    (select-posts (concat (map #(journal-post ctx %) (sort-by (comp :build/journal :page) journals))
-                          (->> (map :page pages)
-                               (filter #(published-page? (:alias-uuids ctx) %))
-                               (sort-by :block/title)
-                               (map #(page-post ctx %))))
-                  args)))
+                                              (:pages-and-blocks export))
+        class-entities (reduce (fn [m entity] (reduce #(update %1 %2 (fnil conj []) entity) m (:tags entity)))
+                               {}
+                               (:tagged-entities ctx))]
+    (concat (map #(journal-post ctx %) (sort-by (comp :build/journal :page) journals))
+            (->> (map :page pages)
+                 (filter #(published-page? (:alias-uuids ctx) %))
+                 (sort-by :block/title)
+                 (map #(page-post ctx %)))
+            (map #(class-post ctx class-entities %) (sort-by name (keys (:class-files ctx))))
+            (when (seq class-entities) [(classes-post ctx class-entities)]))))
 
 (defn- site-dir [dir]
   (let [dir (fs/expand-home dir)]
@@ -472,13 +686,21 @@
 (defn- post-path [dir post]
   (fs/path dir "posts" (:file post)))
 
+(defn- summary-post?
+  "Class and classes posts summarize other posts so they're always recreated
+  and removed when stale"
+  [post]
+  (contains? #{:class :classes} (:type post)))
+
 (defn- quickblog-new-args
   "Args for `bb quickblog new`. Options it doesn't know are passed to the post
   template"
-  [template-file {:keys [file title date tags logseq-tags description entities body]}]
+  [template-file {:keys [file title date tags preview logseq-tags description entities body] :as post}]
   (cond-> (into ["bb" "quickblog" "new" "--file" file "--title" title "--date" date
                  "--template-file" template-file "--tags"]
                 tags)
+    preview (conj "--preview" "true")
+    (summary-post? post) (conj "--summary" "true")
     logseq-tags (conj "--logseq-tags" logseq-tags)
     description (conj "--description" description)
     entities (conj "--entities" (str entities))
@@ -486,8 +708,8 @@
 
 (defn- write-posts
   "Writes `posts` with `bb quickblog new`, or only lists them when `pretend`,
-  and reports created journals, pages and blocks and tasks hidden from them and
-  from `unpublished` journals"
+  and reports created journals, pages, classes and blocks and tasks hidden from
+  them and from `unpublished` journals"
   [posts unpublished dir pretend]
   (let [template-file (str (io/file (io/resource post-template)))
         counts (frequencies (map :type posts))]
@@ -496,14 +718,42 @@
         (println "Would create" (str (post-path dir post)))
         (apply shell {:dir (str dir)} (quickblog-new-args template-file post))))
     (println (if pretend "Would create" "Created")
-             (get counts :journal 0) "journals and" (get counts :page 0) "pages with"
+             (str (get counts :journal 0) " journals, " (get counts :page 0) " pages and "
+                  (get counts :class 0) " classes with")
              (reduce + (map :blocks posts)) "blocks in" (str (fs/path dir "posts")))
     (println "Hid" (reduce + (map :tasks (concat posts unpublished))) "tasks")))
 
-(defn- create [{:keys [dir pretend] :as opts}]
+(defn- summary-file?
+  "Whether a post file has the Logseq-summary header that class and classes
+  posts are written with"
+  [file]
+  (with-open [rdr (io/reader (fs/file file))]
+    (boolean (some #(re-matches #"Logseq-summary:\s*true" %)
+                   (take-while (complement str/blank?) (line-seq rdr))))))
+
+(defn- remove-stale-summaries
+  "Deletes class and classes posts in `dir` that aren't in `all-posts`, e.g. for
+  classes that no longer tag anything, or only lists them when `pretend`"
+  [dir all-posts pretend]
+  (let [current (set (map (comp str/lower-case :file) (filter summary-post? all-posts)))
+        stale (->> (fs/glob (fs/path dir "posts") "*.md")
+                   (remove #(contains? current (str/lower-case (fs/file-name %))))
+                   (filter summary-file?)
+                   (sort-by str))]
+    (doseq [file stale]
+      (if pretend
+        (println "Would delete stale" (str file))
+        (do (fs/delete file) (println "Deleted stale" (str file)))))))
+
+(defn- create [{:keys [dir pretend args] :as opts}]
   (let [dir (site-dir dir)
-        {publish true unpublished false} (group-by :publish? (graph-posts opts))
-        {existing true new-posts false} (group-by #(fs/exists? (post-path dir %)) publish)]
+        all-posts (graph-posts opts)
+        {publish true unpublished false} (group-by :publish? (select-posts all-posts args))
+        {existing true new-posts false}
+        (group-by #(and (not (summary-post? %)) (fs/exists? (post-path dir %))) publish)]
+    (remove-stale-summaries dir all-posts pretend)
+    (when-not pretend
+      (run! #(fs/delete-if-exists (post-path dir %)) (filter summary-post? new-posts)))
     (write-posts new-posts unpublished dir pretend)
     (when (seq existing)
       (println "Skipped" (count existing) "posts that already exist"))))
@@ -514,15 +764,17 @@
       (println "Would run" (pr-str (str/join " " cmd)) "in" (str dir))
       (apply shell {:dir (str dir)} cmd))))
 
-(defn- rebuild [{:keys [dir pretend] :as opts}]
+(defn- rebuild [{:keys [dir pretend args] :as opts}]
   (let [dir (site-dir dir)
-        posts (graph-posts opts)
+        all-posts (graph-posts opts)
+        posts (select-posts all-posts args)
         {publish true unpublished false} (group-by :publish? posts)
         ;; Includes unpublished journals so their stale posts are removed
         existing-files (filter fs/exists? (map #(post-path dir %) posts))
         ;; quickblog watch's cache, which clean doesn't remove
         watch-cache-dir (fs/path dir ".work" "dev")]
     (run-quickblog dir pretend "clean")
+    (remove-stale-summaries dir all-posts pretend)
     (if pretend
       (println "Would delete" (count existing-files) "posts and" (str watch-cache-dir))
       (do (run! fs/delete existing-files)
@@ -546,7 +798,7 @@
            :coerce :boolean
            :desc "Export the graph even if ~/logseq/graphs/GRAPH/graph.edn exists"}
    :args {:coerce [:string]
-          :desc "Journal dates as YYYY-MM-DD or page titles. Defaults to all journals and pages"}})
+          :desc "Journal dates as YYYY-MM-DD, page titles or class names. Defaults to all"}})
 
 (def ^:private table
   [{:cmds ["create"]
@@ -554,16 +806,17 @@
     :spec common-spec
     :args->opts (repeat :args)
     :doc "Create a quickblog post for each journal that has a top-level block
-  that isn't a task and for each page that isn't built-in or an alias, or only
-  the given ones. Existing posts are left unchanged."}
+  that isn't a task, for each page that isn't built-in or an alias and for each
+  class that tags them, or only the given ones. Existing journal and page posts
+  are left unchanged. Class posts are always recreated."}
    {:cmds ["rebuild"]
     :fn (fn [{:keys [opts]}] (rebuild opts))
     :spec common-spec
     :args->opts (repeat :args)
-    :doc "Recreate posts for all or the given journals and pages and render the
-  site from scratch: runs `bb quickblog clean`, deletes their posts and watch's
-  cache, creates them and runs `bb quickblog render`. Other posts are left
-  alone. Stop `bb quickblog watch` first."}])
+    :doc "Recreate posts for all or the given journals, pages and classes and
+  render the site from scratch: runs `bb quickblog clean`, deletes their posts
+  and watch's cache, creates them and runs `bb quickblog render`. Other posts
+  are left alone. Stop `bb quickblog watch` first."}])
 
 (defn -main [& args]
   (cli/dispatch table args {:prog "logseq-publish-graph" :help true}))

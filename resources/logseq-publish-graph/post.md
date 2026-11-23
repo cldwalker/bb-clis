@@ -1,7 +1,9 @@
 Title: {{title|safe}}
 Date: {{date}}
 Tags: {{tags|join:","}}
-{% if logseq-tags %}Logseq-tags: {{logseq-tags|safe}}
+{% if preview %}Preview: true
+{% endif %}{% if summary %}Logseq-summary: true
+{% endif %}{% if logseq-tags %}Logseq-tags: {{logseq-tags|safe}}
 {% endif %}{% if description %}Description: {{description|safe}}
 {% endif %}{% if entities %}Entities: {{entities}}
 {% endif %}{% comment %}
